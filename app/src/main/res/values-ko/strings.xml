@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AutoJs6 DEX 컴파일러</string>
+    <string name="plugin_description">제한된 JAR 입력을 D8로 컴파일하고 인덱스 DEX ZIP 결과물로 패키징</string>
+</resources>

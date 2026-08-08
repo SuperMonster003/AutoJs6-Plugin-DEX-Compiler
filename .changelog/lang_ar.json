@@ -1,0 +1,23 @@
+{
+  "changelog_label_hint": "تلميح",
+  "changelog_label_feature": "ميزة",
+  "changelog_label_fix": "إصلاح",
+  "changelog_label_improvement": "تحسين",
+  "changelog_label_dependency": "تبعية",
+  "$data": {
+    "v1.0.0": {
+      "released_date": "2026/08/08",
+      "feature": [
+        "Provider لبروتوكول DEX Compiler V1 بمعرف ومحرك `dex-compiler` و provider ID هو `autojs6-d8` ومتغير `d8`",
+        "ترجمة JAR إلى DEX ZIP مع DEBUG و RELEASE و minApi من 24 إلى 36 و multi-dex و fingerprint للـ runtime boot classpath في الجهاز",
+        "حدود لحجم JAR وعدد entries والبيانات المفكوكة وبيانات class و diagnostics والإخراج مع تحقق صارم من ZIP framing والأسماء و class magic",
+        "تغليف متصل لـ `classes*.dex` مع الحجم و SHA-256 الفعليين وإعادة تحقق المضيف عبر DexIndexedZipValidator",
+        "جلسة نشطة واحدة وفحص متصل AutoJs6 ذي التوقيع نفسه ومساحة خاصة و CLI fallback على API 24 و 25 وإلغاء محافظ",
+        "ملف universal APK واحد مبني على JVM مع README و changelog وواجهة Android وتعليمات الملحق بعشر لغات"
+      ],
+      "dependency": [
+        "إضافة R8 8.13.17 لترجمة D8"
+      ]
+    }
+  }
+}

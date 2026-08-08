@@ -1,0 +1,18 @@
+{
+  "repo_url": "https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler",
+  "repo_slug": "SuperMonster003/AutoJs6-Plugin-DEX-Compiler",
+  "docs_autojs6_url": "https://docs.autojs6.com",
+  "upstream_url": "https://r8.googlesource.com/r8",
+  "plugin_action": "org.autojs.plugin.DEX_COMPILER",
+  "plugin_id": "dex-compiler",
+  "protocol_provider_id": "autojs6-d8",
+  "plugin_engine": "dex-compiler",
+  "plugin_variant": "d8",
+  "protocol_version": "V1",
+  "required_host_build": "5270",
+  "input_format": "JAR with JVM class files",
+  "output_format": "DEX ZIP with contiguous classes*.dex entries",
+  "compiler_dependency": "D8 8.13.17",
+  "supported_abis": "all device ABIs through one pure JVM universal APK",
+  "local_aars": "common-plugin-api.aar\nprotocol-wire-api.aar\ndex-compiler-api.aar"
+}

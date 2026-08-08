@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Компилятор DEX AutoJs6</string>
+    <string name="plugin_description">Компилирует ограниченные входные JAR с помощью D8 и упаковывает индексированные DEX ZIP артефакты</string>
+</resources>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AutoJs6 DEX 編譯器</string>
+    <string name="plugin_description">使用 D8 編譯受限 JAR 輸入並封裝索引 DEX ZIP 產物</string>
+</resources>

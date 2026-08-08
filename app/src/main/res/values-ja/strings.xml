@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AutoJs6 DEX コンパイラ</string>
+    <string name="plugin_description">制限付き JAR 入力を D8 でコンパイルしてインデックス付き DEX ZIP 成果物にパッケージ化</string>
+</resources>
