@@ -17,6 +17,7 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 private val processSessionGate = SingleActiveSessionGate<RemoteDexCompileSession>()
+private val processWorkspaceRecovery = ProcessWorkspaceRecovery()
 
 class DexCompilerService : Service() {
     private lateinit var callerVerifier: HostCallerVerifier
@@ -30,6 +31,9 @@ class DexCompilerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        processWorkspaceRecovery.ensureRecovered {
+            PrivateSessionWorkspace.recoverStale(applicationContext)
+        }
         callerVerifier = HostCallerVerifier(this)
         worker = Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "dex-compiler-worker").apply { isDaemon = true }

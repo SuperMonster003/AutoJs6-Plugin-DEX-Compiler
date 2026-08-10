@@ -2,6 +2,7 @@ import com.android.build.api.variant.FilterConfiguration
 import org.gradle.api.file.DuplicatesStrategy
 import org.gradle.api.file.RelativePath
 import org.gradle.api.provider.Property
+import org.gradle.api.tasks.testing.Test
 
 plugins {
     id("org.autojs.build.utils")
@@ -131,6 +132,13 @@ dependencies {
 tasks {
     withType(JavaCompile::class.java) {
         options.encoding = "UTF-8"
+    }
+
+    providers.gradleProperty("r0TestMaxHeap").orNull?.let { constrainedHeap ->
+        withType(Test::class.java).configureEach {
+            maxHeapSize = constrainedHeap
+            systemProperty("r0.test.maxHeap", constrainedHeap)
+        }
     }
 
     register<Copy>("appendDigestToReleasedFiles") {

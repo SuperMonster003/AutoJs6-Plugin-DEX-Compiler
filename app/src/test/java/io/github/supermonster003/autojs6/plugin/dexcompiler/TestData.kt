@@ -20,14 +20,47 @@ internal object TestData {
         classBytes: ByteArray = byteArrayOf(
             0xca.toByte(), 0xfe.toByte(), 0xba.toByte(), 0xbe.toByte(), 0, 0, 0, 52,
         ),
+        archiveComment: String? = null,
+        entryExtra: ByteArray = byteArrayOf(),
+    ): ByteArray = storedJar(
+        entries = listOf(entryName to classBytes),
+        archiveComment = archiveComment,
+        entryExtra = entryExtra,
+    )
+
+    fun storedJar(
+        entries: List<Pair<String, ByteArray>>,
+        archiveComment: String? = null,
+        entryExtra: ByteArray = byteArrayOf(),
     ): ByteArray = ByteArrayOutputStream().use { bytes ->
         ZipOutputStream(bytes).use { zip ->
-            val crc = CRC32().apply { update(classBytes) }
+            archiveComment?.let(zip::setComment)
+            entries.forEach { (entryName, entryBytes) ->
+                val crc = CRC32().apply { update(entryBytes) }
+                zip.putNextEntry(ZipEntry(entryName).apply {
+                    method = ZipEntry.STORED
+                    size = entryBytes.size.toLong()
+                    compressedSize = entryBytes.size.toLong()
+                    this.crc = crc.value
+                    time = DOS_EPOCH_MILLIS
+                    extra = entryExtra
+                })
+                zip.write(entryBytes)
+                zip.closeEntry()
+            }
+        }
+        bytes.toByteArray()
+    }
+
+    fun programJarWithDataDescriptor(
+        entryName: String = "org/autojs/test/Program.class",
+        classBytes: ByteArray = byteArrayOf(
+            0xca.toByte(), 0xfe.toByte(), 0xba.toByte(), 0xbe.toByte(), 0, 0, 0, 52,
+        ),
+    ): ByteArray = ByteArrayOutputStream().use { bytes ->
+        ZipOutputStream(bytes).use { zip ->
             zip.putNextEntry(ZipEntry(entryName).apply {
-                method = ZipEntry.STORED
-                size = classBytes.size.toLong()
-                compressedSize = classBytes.size.toLong()
-                this.crc = crc.value
+                method = ZipEntry.DEFLATED
                 time = DOS_EPOCH_MILLIS
                 extra = byteArrayOf()
             })

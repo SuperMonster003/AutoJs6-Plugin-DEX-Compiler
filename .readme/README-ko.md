@@ -95,7 +95,91 @@ required host build: 5270
 
 ******
 
-> 현재 AutoJs6 DEX adapter는 기본 비활성 experimental 기능이며 AndroidClassLoader에 연결되지 않았습니다. 이 플러그인만 설치해도 기존 기본 JAR-to-DEX 경로는 바뀌지 않습니다. End-to-end 사용에는 향후 host adapter 또는 호스트의 명시적 활성화와 이 compiler provider 선택이 필요합니다.
+> runtime.loadJar의 raw 경로는 계속 기본 비활성 상태이며 호스트와 동일 서명의 exact component를 명시적으로 선택해야 합니다. production Runtime single-flight는 인증된 key 확정 후 제한된 영구 의미 캐시를 사용합니다. 마지막 waiter를 포함한 어떤 인터럽트도 해당 호출자만 로컬 fallback 없이 분리하며 producer는 완료 후 캐시에 저장할 수 있습니다. last-waiter 협력 취소는 R2에 남고 safety circuit은 프로세스 수명 동안 보수적으로 유지됩니다. API 31 arm64 실제 provider 테스트는 committed remote dispatch, Binder lifecycle 및 지정된 DexClassLoader 코퍼스를 포함해 R1.2만 완료했습니다; R1.1과 다중 API/ABI 매트릭스는 여전히 열려 있습니다.
+
+******
+
+### R1 설치 및 사용 가이드
+
+******
+
+> 이 경로는 기본적으로 꺼진 R1 명시적 opt-in 경로이며 설치만으로 활성화되는 대체 컴파일러가 아닙니다. R1.3 다중 API/ABI 매트릭스는 아직 열려 있습니다. 현재 실제 provider의 canonical 기기 증거는 API 31 arm64만 포함하므로 minApi 24~36 프로토콜 범위를 모든 기기에서 검증 완료된 것으로 해석하면 안 됩니다.
+
+#### 사전 조건
+
+AutoJs6와 플러그인은 신뢰할 수 있고 서로 짝지어진 릴리스 출처에서만 받으세요. AutoJs6는 build 5270 이상이어야 하며 호스트와 플러그인의 현재 전체 서명 인증서 집합이 같아야 합니다. 직접 빌드할 때도 아래의 고정 package 및 service identity를 유지해야 합니다. 업그레이드 전에 스크립트와 중요한 앱 데이터를 백업하세요. Android가 서명 불일치를 알리면 호스트 제거 또는 데이터 삭제로 우회하지 마세요.
+
+```text
+host package: org.autojs.autojs6
+plugin package: io.github.supermonster003.autojs6.plugin.dexcompiler
+minimum host build: 5270
+exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
+```
+
+#### 설치 후 명시적으로 활성화
+
+호환 AutoJs6를 먼저 설치하거나 업데이트한 다음 플러그인 APK를 설치하세요. AutoJs6에서 설정 > 앱 및 개발자 정보를 열고 앱 아이콘을 길게 눌러 개발자 옵션을 엽니다. DEX compiler > Raw JAR compiler provider에서 아래 exact component를 선택하고 확인하세요. 플러그인 설치만으로 경로가 켜지지 않으며 AutoJs6는 발견한 provider를 자동 선택하지 않습니다.
+
+#### 상태 확인
+
+개발자 옵션으로 돌아가 raw runtime.loadJar JAR가 아래 exact component를 우선 사용한다는 요약이 명확히 표시되는지 확인하세요. Built-in D8/dx 또는 후보 없음으로 표시되면 호스트 build, 두 package 이름, 플러그인 활성화 상태 및 서명을 확인하세요. 이 요약은 현재 선택과 discovery eligibility만 증명하며 특정 컴파일이 원격으로 수행되었거나 R1.3이 완료되었다는 증거는 아닙니다.
+
+#### AutoJs6 예제
+
+JVM `.class`가 들어 있는 읽기 가능한 JAR를 스크립트 옆 `lib/example.jar`에 두고 예제 class와 method를 그 JAR에 실제 존재하는 public API로 바꾸세요. 스크립트는 기존 `runtime.loadJar()` 진입점을 통해 선택한 provider를 사용합니다. 플러그인은 새로운 JavaScript global을 추가하지 않습니다.
+
+```javascript
+"use strict";
+
+const jar = files.path("./lib/example.jar");
+if (!files.isFile(jar)) {
+    throw new Error("Missing JAR: " + jar);
+}
+
+runtime.loadJar(jar);
+
+// Replace this with a public class that actually exists in example.jar.
+const Example = Packages.com.example.autojs6.DexPluginExample;
+console.log("DEX compiler example: " + Example.answer());
+```
+
+이 예제는 raw JAR만 다룹니다. `.aar`, 미리 컴파일된 `.dex`, compatibility helper 및 동적 `defineClass()`는 항상 호스트 내장 경로에 남습니다. 검증이 신뢰할 수 없는 bytecode를 안전하게 만들지는 않으므로 신뢰하는 JAR만 로드하세요.
+
+#### 진단 수집
+
+문제를 보고할 때 AutoJs6 build/version, 플러그인 version, 개발자 옵션의 전체 exact-component 요약, 기기 model/API/ABI, 입력 JAR byte 수와 SHA-256, 발생 시각, 전체 스크립트 예외 및 재현 절차를 기록하세요. ADB를 사용한다면 각 명령의 `<serial>`에 권한이 있는 한 대의 기기 ID를 명시하고 실패 전후 AndroidClassLoader/AndroidRuntime 로그를 수집한 뒤 공유 전에 private path, 스크립트 내용 및 기타 민감한 정보를 제거하세요.
+
+```powershell
+adb -s <serial> shell dumpsys package org.autojs.autojs6
+adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.dexcompiler
+adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
+```
+
+#### 비활성화 및 긴급 롤백
+
+개발자 옵션 > Raw JAR compiler provider에서 Built-in D8/dx를 선택하고 확인한 다음 AutoJs6를 중지하고 다시 시작하세요. 실험 경로는 꺼지지만 나중에 다시 선택할 수 있도록 component 기록은 유지됩니다. 긴급 롤백에서는 먼저 비활성화하고 호스트를 재시작하세요. AutoJs6 제거, 데이터 삭제 또는 스크립트 삭제는 필요하지 않습니다. 열린 process safety circuit은 해당 AutoJs6 process가 끝날 때까지 의도적으로 열린 상태를 유지합니다.
+
+#### fallback 이해
+
+경로가 꺼져 있거나 provider를 사용할 수 없거나 호환되지 않을 때, binding 또는 원격 작업 실패, timeout, 잘못된 출력, 검증된 artifact 채택 실패가 발생하면 한 번의 호출은 호스트 내장 D8/dx를 최대 한 번 시도할 수 있습니다. 이미 dispatch된 Binder 작업은 자동 재시도하지 않습니다. 호출자 cancel 또는 thread interruption은 local fallback 없이 전파됩니다. AAR, loadDex 및 defineClass는 이 플러그인을 사용하지 않습니다. 따라서 스크립트가 최종 성공했다는 사실만으로는 허용된 경로 중 하나가 성공했음을 알 수 있을 뿐 플러그인이 컴파일했다는 증거가 아닙니다.
+
+#### 제거 및 복구
+
+먼저 Built-in D8/dx를 선택하고 요약에서 실험이 꺼졌는지 확인한 다음 AutoJs6를 중지하고 플러그인을 제거하세요. 제거하면 플러그인 자체의 앱 데이터와 private temporary workspace가 영구 삭제되지만 호스트는 내장 컴파일러를 계속 사용할 수 있습니다. 복구할 때 호환되고 동일하게 서명된 플러그인을 설치하고 개발자 옵션에서 exact component를 다시 명시적으로 선택하세요. 이전 선택이 자동으로 활성화된다고 가정하지 마세요.
+
+#### 알려진 제한 및 승인 경계
+
+V1은 bounded raw JVM JAR-to-DEX-ZIP 변환만 수행합니다. R8 shrinking/obfuscation, 외부 classpath, custom desugared library, network compile 또는 deterministic byte output을 제공하지 않습니다. BUSY는 호스트 fallback으로 이어질 수 있으며 cancel 이후에도 D8 CPU 작업이 cleanup 완료까지 isolated process에서 계속될 수 있습니다. API 31 arm64 R1.2 증거는 R1.1 production fault/rollback gate나 API 24/25/26/28/34/36 및 x86_64/arm64 R1.3 matrix를 대신하지 않습니다. 해당 항목들이 체크되기 전까지 이 가이드를 controlled preview로 취급하세요.
+
+******
+
+### 개발 로드맵
+
+******
+
+R1.2는 4/4입니다: 호스트 DEX 16 suites/149 tests, Android-test Kotlin 컴파일 및 host/test APK assemble이 통과했고 API 31 arm64에서 production concurrency 2개, 실제 lifecycle 2개, 실제 corpus 3개 메서드가 각각 통과했습니다. 프로브는 provider openSession 직접 호출이 아닌 committed remote dispatch를 계산합니다; 별도의 무거운 multi-dex 게이트는 65,700개 메서드를 생성하고 primary와 secondary DEX에서 클래스를 로드했습니다. 현재 host/test/plugin SHA-256 접두사는 181E38E8, 70FAE1E8, 5B6AC53B이며 signer는 모두 31a681fc입니다. R1.1은 0/7, R1.3은 전부 미완료입니다. R2는 복구 조각만 시작했습니다: process-once strict-canonical janitor가 plugin 48/48 및 workspace recovery 6/6을 통과하고 첫 Binder 노출 전에 실제 force-stop 잔여 UUID를 제거했으며 정상 D8 로드 후에도 workspace를 비워 두었습니다; 나머지 R2 항목은 미선택입니다.
+
+- [체크 가능한 ROADMAP.md 열기](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
 ******
 

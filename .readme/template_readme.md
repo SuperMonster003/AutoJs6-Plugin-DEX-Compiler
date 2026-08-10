@@ -86,6 +86,90 @@ required host build: {{ required_host_build }}
 
 ******
 
+### {{ h3_user_guide }}
+
+******
+
+> {{ p_user_guide_r1_boundary }}
+
+#### {{ h4_user_guide_prerequisites }}
+
+{{ p_user_guide_prerequisites }}
+
+```text
+host package: {{ host_package }}
+plugin package: {{ plugin_package }}
+minimum host build: {{ required_host_build }}
+exact component: {{ exact_service_component }}
+```
+
+#### {{ h4_user_guide_install_enable }}
+
+{{ p_user_guide_install_enable }}
+
+#### {{ h4_user_guide_status }}
+
+{{ p_user_guide_status }}
+
+#### {{ h4_user_guide_example }}
+
+{{ p_user_guide_example }}
+
+```javascript
+"use strict";
+
+const jar = files.path("./lib/example.jar");
+if (!files.isFile(jar)) {
+    throw new Error("Missing JAR: " + jar);
+}
+
+runtime.loadJar(jar);
+
+// Replace this with a public class that actually exists in example.jar.
+const Example = Packages.com.example.autojs6.DexPluginExample;
+console.log("DEX compiler example: " + Example.answer());
+```
+
+{{ p_user_guide_example_note }}
+
+#### {{ h4_user_guide_diagnostics }}
+
+{{ p_user_guide_diagnostics }}
+
+```powershell
+adb -s <serial> shell dumpsys package {{ host_package }}
+adb -s <serial> shell dumpsys package {{ plugin_package }}
+adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
+```
+
+#### {{ h4_user_guide_disable_rollback }}
+
+{{ p_user_guide_disable_rollback }}
+
+#### {{ h4_user_guide_fallback }}
+
+{{ p_user_guide_fallback }}
+
+#### {{ h4_user_guide_uninstall_recovery }}
+
+{{ p_user_guide_uninstall_recovery }}
+
+#### {{ h4_user_guide_known_limits }}
+
+{{ p_user_guide_known_limits }}
+
+******
+
+### {{ h3_roadmap }}
+
+******
+
+{{ p_roadmap_status }}
+
+- [{{ text_open_roadmap }}]({{ repo_url }}/blob/master/ROADMAP.md)
+
+******
+
 ### {{ h3_security }}
 
 ******

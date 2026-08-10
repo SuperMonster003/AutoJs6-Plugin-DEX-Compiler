@@ -95,7 +95,91 @@ Host build 5270 or later is required. The plugin has no native library, so one p
 
 ******
 
-> The current AutoJs6 DEX adapter remains a default-off experimental feature and is not connected to AndroidClassLoader. Installing this plugin alone does not replace the existing default JAR-to-DEX path. End-to-end use requires a future host adapter or explicit host enablement and selection of this compiler provider.
+> The raw runtime.loadJar route remains default-off and requires an explicitly selected same-signed exact component. Production Runtime single-flight coalescing uses the bounded persistent semantic cache after authenticated key finalization. Interrupting any waiter, including the last, detaches only that caller without local fallback; the producer may finish and cache the result. Cooperative last-waiter cancellation remains R2, and an opened safety circuit stays conservative for the process lifetime. API 31 arm64 real-provider tests now cover committed remote dispatch, Binder lifecycle, and the specified DexClassLoader corpus, completing R1.2 only; R1.1 and the multi-API/ABI matrix remain open.
+
+******
+
+### R1 installation and usage guide
+
+******
+
+> This is a default-off R1 explicit opt-in path, not a compiler replacement that activates when installed. The R1.3 multi-API/ABI matrix is still open; canonical real-provider device evidence currently covers API 31 arm64 only, so the protocol range of minApi 24 through 36 must not be read as acceptance on every device.
+
+#### Prerequisites
+
+Obtain AutoJs6 and the plugin only from a trusted, paired release source. AutoJs6 must be build 5270 or later, and the complete current signer sets of host and plugin must match; self-built artifacts must also keep the fixed package and service identities below. Back up scripts and important app data before upgrading. If Android reports a signer mismatch, do not work around it by uninstalling the host or clearing its data.
+
+```text
+host package: org.autojs.autojs6
+plugin package: io.github.supermonster003.autojs6.plugin.dexcompiler
+minimum host build: 5270
+exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
+```
+
+#### Install and explicitly enable
+
+Install or update the compatible AutoJs6 first, then install the plugin APK. In AutoJs6, open Settings > About app and developer and long-press the app icon to open Developer options. Open DEX compiler > Raw JAR compiler provider, select the exact component below, and confirm. Installing the plugin alone does not enable the route, and AutoJs6 never automatically selects a discovered provider.
+
+#### Confirm status
+
+Return to Developer options and confirm that the summary explicitly says raw runtime.loadJar JARs prefer the exact component below. If it shows Built-in D8/dx or no candidate, verify the host build, both package names, plugin enabled state, and signatures. The summary proves only current selection and discovery eligibility; it does not prove that a particular compile was remote or that R1.3 is complete.
+
+#### AutoJs6 example
+
+Place a readable JAR containing JVM `.class` files at `lib/example.jar` beside the script, then replace the sample class and method with a real public API in that JAR. The script uses the selected provider through the existing `runtime.loadJar()` entry; the plugin adds no new JavaScript global.
+
+```javascript
+"use strict";
+
+const jar = files.path("./lib/example.jar");
+if (!files.isFile(jar)) {
+    throw new Error("Missing JAR: " + jar);
+}
+
+runtime.loadJar(jar);
+
+// Replace this with a public class that actually exists in example.jar.
+const Example = Packages.com.example.autojs6.DexPluginExample;
+console.log("DEX compiler example: " + Example.answer());
+```
+
+This example covers raw JARs only. `.aar`, precompiled `.dex`, compatibility helpers, and dynamic `defineClass()` always stay on host built-in paths. Validation does not make untrusted bytecode safe; load only JARs you trust.
+
+#### Collect diagnostics
+
+For a problem report, record the AutoJs6 build/version, plugin version, full exact-component summary from Developer options, device model/API/ABI, input JAR byte count and SHA-256, event time, complete script exception, and reproduction steps. If using ADB, put the one authorized device ID in `<serial>` on every command, capture AndroidClassLoader/AndroidRuntime logs around the failure, and remove private paths, script content, and other sensitive data before sharing.
+
+```powershell
+adb -s <serial> shell dumpsys package org.autojs.autojs6
+adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.dexcompiler
+adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
+```
+
+#### Disable and emergency rollback
+
+In Developer options > Raw JAR compiler provider, select Built-in D8/dx and confirm, then stop and restart AutoJs6. This turns off the experimental route while retaining the selected-component record for later reselection. For an emergency rollback, disable first and restart the host; there is no need to uninstall AutoJs6, clear its data, or delete scripts. An opened process safety circuit intentionally remains open until that AutoJs6 process ends.
+
+#### Understand fallback
+
+When the route is off, the provider is unavailable or incompatible, binding or remote work fails, a timeout occurs, output is invalid, or adoption of a verified artifact fails, one invocation may make at most one host built-in D8/dx attempt; dispatched Binder work is not automatically retried. Caller cancellation or thread interruption propagates with no local fallback. AAR, loadDex, and defineClass never use this plugin. Therefore, a script that ultimately succeeds proves only that some permitted path succeeded, not that the plugin compiled it.
+
+#### Uninstall and recover
+
+Select Built-in D8/dx first, confirm that the summary shows the experiment off, then stop AutoJs6 and uninstall the plugin. Uninstall permanently removes the plugin's own app data and private temporary workspaces, while the host can continue with its built-in compiler. To recover, install a compatible same-signed plugin, reopen Developer options, and explicitly select the exact component again; do not assume the old selection automatically becomes enabled.
+
+#### Known limits and acceptance boundary
+
+V1 performs only bounded raw JVM JAR-to-DEX-ZIP conversion. It provides no R8 shrinking or obfuscation, external classpath, custom desugared library, network compilation, or deterministic byte output. BUSY may lead to host fallback, and D8 CPU work may continue in the isolated process until cleanup after cancellation. API 31 arm64 R1.2 evidence does not replace R1.1 production fault/rollback gates or the R1.3 API 24/25/26/28/34/36 and x86_64/arm64 matrix; treat this guide as a controlled preview until those boxes are checked.
+
+******
+
+### Development roadmap
+
+******
+
+R1.2 is 4/4: 16 host DEX suites/149 tests passed, Android-test Kotlin and host/test APK assembly succeeded, and API 31 arm64 passed two production-concurrency, two real-lifecycle, and three real-corpus methods. The concurrency probe counts committed remote dispatch rather than direct provider openSession calls; the separate heavy multi-dex gate generated 65,700 methods and loaded classes from primary and secondary DEX. Current host/test/plugin SHA-256 prefixes are 181E38E8, 70FAE1E8, and 5B6AC53B with the same 31a681fc signer. Final host/test/plugin uninstalls succeeded, the fake provider remained absent, and the related process count was zero. R1.1 remains 0/7 and R1.3 remains fully open. R2 has started only a recovery slice: the process-once strict-canonical janitor passed plugin 48/48 and workspace recovery 6/6, removed a real force-stop stale UUID before first Binder exposure, and kept the workspace empty after a normal D8 load; broader R2 items remain unchecked.
+
+- [Open the checkable ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
 ******
 

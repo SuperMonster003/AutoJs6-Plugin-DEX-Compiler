@@ -95,7 +95,91 @@ required host build: 5270
 
 ******
 
-> يبقى DEX adapter الحالي في AutoJs6 ميزة experimental معطلة افتراضيا وغير متصلة بـ AndroidClassLoader. تثبيت هذا الملحق وحده لا يستبدل مسار JAR-to-DEX الافتراضي الحالي. يتطلب الاستخدام الكامل adapter مستقبليا للمضيف أو تفعيله صراحة مع اختيار هذا compiler provider.
+> يبقى مسار raw runtime.loadJar معطلا افتراضيا ويتطلب exact component محددا صراحة ومطابقا للتوقيع. يستخدم single-flight في Runtime الإنتاجي الـ cache الدلالية الدائمة والمحدودة بعد تثبيت المفتاح الموثق. تفصل مقاطعة أي waiter, بما فيه الأخير, ذلك المستدعي وحده بلا fallback محلي, ويمكن للـ producer الإكمال وحفظ النتيجة. يبقى الإلغاء التعاوني لآخر waiter ضمن R2 وتظل دائرة الأمان محافظة طوال عمر العملية. تغطي اختبارات الـ provider الحقيقي على API 31 arm64 الآن committed remote dispatch ودورة Binder والـ corpus المحدد لـ DexClassLoader, وبذلك تكمل R1.2 فقط; تبقى R1.1 ومصفوفة API/ABI المتعددة مفتوحة.
+
+******
+
+### دليل تثبيت R1 واستخدامه
+
+******
+
+> هذا مسار R1 يتطلب opt-in صريحا وهو معطل افتراضيا، وليس بديلا للمترجم يتفعّل بمجرد التثبيت. ما تزال مصفوفة R1.3 متعددة API/ABI مفتوحة؛ والدليل canonical الحالي مع provider الحقيقي يغطي API 31 arm64 فقط. لذلك لا يعني نطاق البروتوكول minApi 24 إلى 36 أن القبول اكتمل على كل الأجهزة.
+
+#### المتطلبات المسبقة
+
+احصل على AutoJs6 والملحق فقط من مصدر موثوق يصدرهما كزوج متوافق. يجب أن يكون AutoJs6 من build 5270 أو أحدث، وأن تتطابق المجموعات الكاملة الحالية لشهادات توقيع المضيف والملحق؛ وعند البناء محليا يجب أيضا إبقاء هويات package وservice الثابتة أدناه. انسخ السكربتات وبيانات التطبيق المهمة احتياطيا قبل الترقية. إذا أبلغ Android عن اختلاف التوقيع فلا تتجاوز الفحص بإزالة المضيف أو مسح بياناته.
+
+```text
+host package: org.autojs.autojs6
+plugin package: io.github.supermonster003.autojs6.plugin.dexcompiler
+minimum host build: 5270
+exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
+```
+
+#### التثبيت والتمكين الصريح
+
+ثبّت AutoJs6 المتوافق أو حدّثه أولا، ثم ثبّت APK الملحق. في AutoJs6 افتح الإعدادات > حول التطبيق والمطور واضغط مطولا على أيقونة التطبيق لفتح خيارات المطور. افتح DEX compiler > Raw JAR compiler provider، واختر exact component أدناه ثم أكّد. تثبيت الملحق وحده لا يفعّل المسار، وAutoJs6 لا يختار تلقائيا أي provider تم اكتشافه.
+
+#### تأكيد الحالة
+
+ارجع إلى خيارات المطور وتأكد أن الملخص يذكر صراحة أن ملفات JAR الخام عبر runtime.loadJar تفضّل exact component أدناه. إذا ظهر Built-in D8/dx أو لم يظهر مرشح، فتحقق من build المضيف واسمي package وحالة تمكين الملحق والتواقيع. يثبت الملخص الاختيار الحالي وأهلية الاكتشاف فقط؛ ولا يثبت أن عملية compile بعينها كانت بعيدة أو أن R1.3 اكتمل.
+
+#### مثال AutoJs6
+
+ضع ملف JAR قابلا للقراءة يحتوي ملفات JVM `.class` في `lib/example.jar` بجوار السكربت، واستبدل class وmethod في المثال بواجهة public موجودة فعلا في ذلك JAR. يستخدم السكربت provider المختار عبر مدخل `runtime.loadJar()` الحالي؛ ولا يضيف الملحق أي global جديد إلى JavaScript.
+
+```javascript
+"use strict";
+
+const jar = files.path("./lib/example.jar");
+if (!files.isFile(jar)) {
+    throw new Error("Missing JAR: " + jar);
+}
+
+runtime.loadJar(jar);
+
+// Replace this with a public class that actually exists in example.jar.
+const Example = Packages.com.example.autojs6.DexPluginExample;
+console.log("DEX compiler example: " + Example.answer());
+```
+
+يغطي المثال ملفات JAR الخام فقط. تبقى ملفات `.aar` و`.dex` المسبقة وcompatibility helpers و`defineClass()` الديناميكي دائما على مسارات المضيف المدمجة. التحقق لا يجعل bytecode غير الموثوق آمنا؛ حمّل ملفات JAR التي تثق بها فقط.
+
+#### جمع التشخيصات
+
+عند الإبلاغ عن مشكلة سجّل build/version لـ AutoJs6 وإصدار الملحق وملخص exact-component الكامل من خيارات المطور وطراز الجهاز/API/ABI وعدد بايتات JAR المدخل وSHA-256 ووقت الحدث والاستثناء الكامل للسكربت وخطوات إعادة المشكلة. عند استخدام ADB ضع معرّف الجهاز الوحيد المصرح به في `<serial>` لكل أمر، والتقط سجلات AndroidClassLoader/AndroidRuntime حول الفشل، واحذف المسارات الخاصة ومحتوى السكربت وأي بيانات حساسة قبل المشاركة.
+
+```powershell
+adb -s <serial> shell dumpsys package org.autojs.autojs6
+adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.dexcompiler
+adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
+```
+
+#### التعطيل والتراجع الطارئ
+
+في خيارات المطور > Raw JAR compiler provider اختر Built-in D8/dx وأكّد، ثم أوقف AutoJs6 وأعد تشغيله. يؤدي ذلك إلى إيقاف المسار التجريبي مع الاحتفاظ بسجل component لإعادة اختياره لاحقا. في التراجع الطارئ عطّل المسار أولا وأعد تشغيل المضيف؛ لا حاجة لإزالة AutoJs6 أو مسح بياناته أو حذف السكربتات. يبقى process safety circuit المفتوح مفتوحا عمدا حتى تنتهي عملية AutoJs6 تلك.
+
+#### فهم fallback
+
+عندما يكون المسار معطلا أو provider غير متاح أو غير متوافق، أو يفشل binding أو العمل البعيد، أو يحدث timeout، أو يكون الناتج غير صالح، أو يفشل اعتماد artifact متحقق منه، يمكن للاستدعاء الواحد محاولة D8/dx المدمج في المضيف مرة واحدة كحد أقصى؛ ولا يعاد تلقائيا عمل Binder الذي تم dispatch له. ينتشر إلغاء المستدعي أو thread interruption من دون fallback محلي. لا تستخدم AAR وloadDex وdefineClass هذا الملحق أبدا. لذا نجاح السكربت في النهاية يثبت فقط نجاح مسار مسموح، ولا يثبت أن الملحق أجرى compile.
+
+#### الإزالة والاستعادة
+
+اختر Built-in D8/dx أولا وتأكد من الملخص أن التجربة متوقفة، ثم أوقف AutoJs6 وأزل الملحق. تزيل عملية الإزالة نهائيا بيانات تطبيق الملحق وprivate temporary workspaces الخاصة به، بينما يستطيع المضيف متابعة العمل بالمترجم المدمج. للاستعادة ثبّت ملحقا متوافقا بالتوقيع نفسه، وافتح خيارات المطور واختر exact component صراحة مرة أخرى؛ لا تفترض أن الاختيار القديم سيصبح مفعلا تلقائيا.
+
+#### القيود المعروفة وحدود القبول
+
+ينفذ V1 فقط تحويلا محدودا من raw JVM JAR إلى DEX ZIP. ولا يوفر R8 shrinking/obfuscation أو classpath خارجيا أو desugared library مخصصة أو compile عبر الشبكة أو خرج بايت حتميا. قد تؤدي BUSY إلى fallback لدى المضيف، وقد يستمر عمل D8 على CPU في العملية المعزولة حتى اكتمال التنظيف بعد الإلغاء. لا يعوض دليل R1.2 على API 31 arm64 بوابات production fault/rollback في R1.1 ولا مصفوفة R1.3 لـ API 24/25/26/28/34/36 وx86_64/arm64؛ تعامل مع هذا الدليل كمعاينة مضبوطة حتى توضع العلامات على تلك البنود.
+
+******
+
+### خارطة طريق التطوير
+
+******
+
+بلغت R1.2 نتيجة 4/4: نجحت host DEX 16 suites/149 tests وتجميع Android-test Kotlin وassemble لملفات host/test APK, وعلى API 31 arm64 نجحت منفردة طريقتا production concurrency وطريقتا real lifecycle وثلاث طرق real corpus. يحسب المسبار committed remote dispatch لا استدعاءات provider openSession المباشرة; وأنشأ gate الـ multi-dex الثقيل والمنفصل 65,700 method وحمّل classes من DEX الأساسي والثانوي. بادئات SHA-256 الحالية لـ host/test/plugin هي 181E38E8 و70FAE1E8 و5B6AC53B مع signer واحد 31a681fc. تبقى R1.1 عند 0/7 وR1.3 مفتوحة بالكامل. بدأ في R2 جزء recovery فقط: نجح process-once strict-canonical janitor في plugin 48/48 وworkspace recovery 6/6, وحذف UUID حقيقيا متبقيا من force-stop قبل أول إظهار لـ Binder وأبقى workspace فارغة بعد تحميل D8 عادي; وتبقى بقية بنود R2 غير مؤشرة.
+
+- [فتح ROADMAP.md ذي قائمة التحقق](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
 ******
 

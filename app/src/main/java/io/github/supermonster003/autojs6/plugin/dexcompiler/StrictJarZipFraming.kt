@@ -2,6 +2,11 @@ package io.github.supermonster003.autojs6.plugin.dexcompiler
 
 import org.autojs.plugin.dexcompiler.api.DexCompilerErrorCode
 import org.autojs.plugin.dexcompiler.api.DexCompilerFailurePhase
+import java.io.File
+import java.io.IOException
+import java.io.RandomAccessFile
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
 
 /**
  * Validates the ZIP records that [java.util.zip.ZipInputStream] deliberately does not require.
@@ -9,79 +14,96 @@ import org.autojs.plugin.dexcompiler.api.DexCompilerFailurePhase
  * JAR input must have one canonical, single-disk ZIP framing: local entries start at byte zero,
  * central entries describe those local entries in the same order, and an uncommented EOCD ends the
  * input exactly. ZIP64, encryption, record gaps, comments, and trailing bytes are rejected.
+ *
+ * Records are read by file offset so validation memory is independent of the archive size. The
+ * central directory is consumed in order and only the preceding entry is retained while its local
+ * record is checked against the next local-header offset.
  */
 internal object StrictJarZipFraming {
 
-    fun validate(bytes: ByteArray, maximumEntries: Int): Int {
+    fun validate(file: File, maximumEntries: Int): Int {
         require(maximumEntries > 0)
-        if (bytes.size < ZIP_EOCD_SIZE) invalidArchive("JAR end-of-central-directory record is missing")
+        return try {
+            RandomAccessFile(file, "r").use { archive ->
+                validate(ArchiveReader(archive.channel), maximumEntries)
+            }
+        } catch (error: DexCompileFailure) {
+            throw error
+        } catch (error: IOException) {
+            throw DexCompileFailure(
+                DexCompilerErrorCode.INVALID_ARCHIVE,
+                DexCompilerFailurePhase.INPUT_VALIDATION,
+                "Program JAR could not be read for framing validation",
+                error,
+            )
+        }
+    }
 
-        val eocdOffset = bytes.size - ZIP_EOCD_SIZE
-        if (bytes.leInt(eocdOffset) != ZIP_EOCD_SIGNATURE) {
+    private fun validate(reader: ArchiveReader, maximumEntries: Int): Int {
+        if (reader.size < ZIP_EOCD_SIZE) invalidArchive("JAR end-of-central-directory record is missing")
+
+        val eocdOffset = reader.size - ZIP_EOCD_SIZE
+        val eocd = reader.readBytes(eocdOffset, ZIP_EOCD_SIZE, "JAR end-of-central-directory record")
+        if (eocd.leInt(0) != ZIP_EOCD_SIGNATURE) {
             invalidArchive("JAR end-of-central-directory record is missing or has a comment")
         }
-        if (bytes.leU16(eocdOffset + 4) != 0 || bytes.leU16(eocdOffset + 6) != 0 ||
-            bytes.leU16(eocdOffset + 20) != 0
-        ) {
+        if (eocd.leU16(4) != 0 || eocd.leU16(6) != 0 || eocd.leU16(20) != 0) {
             invalidArchive("Multi-disk, ZIP64, and commented JARs are forbidden")
         }
 
-        val entriesOnDisk = bytes.leU16(eocdOffset + 8)
-        val entryCount = bytes.leU16(eocdOffset + 10)
+        val entriesOnDisk = eocd.leU16(8)
+        val entryCount = eocd.leU16(10)
         if (entryCount == 0 || entryCount != entriesOnDisk || entryCount > maximumEntries ||
             entryCount == ZIP64_U16_SENTINEL
         ) {
             invalidArchive("JAR entry count is invalid or exceeds the provider limit")
         }
 
-        val centralSize = bytes.leU32(eocdOffset + 12)
-        val centralOffset = bytes.leU32(eocdOffset + 16)
+        val centralSize = eocd.leU32(12)
+        val centralOffset = eocd.leU32(16)
         if (centralSize == ZIP64_U32_SENTINEL || centralOffset == ZIP64_U32_SENTINEL ||
-            checkedAdd(centralOffset, centralSize, "central directory") != eocdOffset.toLong()
+            checkedAdd(centralOffset, centralSize, "central directory") != eocdOffset
         ) {
             invalidArchive("JAR central-directory bounds are inconsistent")
         }
 
-        val entries = readCentralEntries(
-            bytes = bytes,
-            offset = centralOffset.toIntExact("central-directory offset"),
-            declaredSize = centralSize.toIntExact("central-directory size"),
+        readCentralEntries(
+            reader = reader,
+            offset = centralOffset,
+            declaredSize = centralSize,
             count = entryCount,
         )
-        entries.forEachIndexed { index, entry ->
-            val expectedEnd = if (index + 1 < entries.size) {
-                entries[index + 1].localHeaderOffset
-            } else {
-                centralOffset
-            }
-            validateLocalEntry(bytes, entry, expectedEnd)
+        if (reader.currentSize() != reader.size) {
+            invalidArchive("JAR size changed during framing validation")
         }
         return entryCount
     }
 
     private fun readCentralEntries(
-        bytes: ByteArray,
-        offset: Int,
-        declaredSize: Int,
+        reader: ArchiveReader,
+        offset: Long,
+        declaredSize: Long,
         count: Int,
-    ): List<CentralEntry> {
-        val entries = ArrayList<CentralEntry>(count)
+    ) {
+        var previousEntry: CentralEntry? = null
         var cursor = offset
-        repeat(count) {
-            bytes.requireRange(cursor.toLong(), ZIP_CENTRAL_HEADER_SIZE.toLong(), "central-directory header")
-            if (bytes.leInt(cursor) != ZIP_CENTRAL_SIGNATURE) invalidArchive("Invalid JAR central-directory signature")
+        repeat(count) { index ->
+            val header = reader.readBytes(cursor, ZIP_CENTRAL_HEADER_SIZE, "central-directory header")
+            if (header.leInt(0) != ZIP_CENTRAL_SIGNATURE) {
+                invalidArchive("Invalid JAR central-directory signature")
+            }
 
-            val flags = bytes.leU16(cursor + 8)
-            val method = bytes.leU16(cursor + 10)
+            val flags = header.leU16(8)
+            val method = header.leU16(10)
             validateFlagsAndMethod(flags, method)
-            val crc32 = bytes.leU32(cursor + 16)
-            val compressedSize = bytes.leU32(cursor + 20)
-            val uncompressedSize = bytes.leU32(cursor + 24)
-            val nameLength = bytes.leU16(cursor + 28)
-            val extraLength = bytes.leU16(cursor + 30)
-            val commentLength = bytes.leU16(cursor + 32)
-            val diskStart = bytes.leU16(cursor + 34)
-            val localHeaderOffset = bytes.leU32(cursor + 42)
+            val crc32 = header.leU32(16)
+            val compressedSize = header.leU32(20)
+            val uncompressedSize = header.leU32(24)
+            val nameLength = header.leU16(28)
+            val extraLength = header.leU16(30)
+            val commentLength = header.leU16(32)
+            val diskStart = header.leU16(34)
+            val localHeaderOffset = header.leU32(42)
             if (compressedSize == ZIP64_U32_SENTINEL || uncompressedSize == ZIP64_U32_SENTINEL ||
                 localHeaderOffset == ZIP64_U32_SENTINEL || diskStart != 0
             ) {
@@ -100,11 +122,16 @@ internal object StrictJarZipFraming {
                 ),
                 "central-directory entry",
             )
-            bytes.requireRange(cursor.toLong(), recordSize, "central-directory entry")
-            val nameOffset = cursor + ZIP_CENTRAL_HEADER_SIZE
-            validateExtraFields(bytes, nameOffset + nameLength, extraLength)
-            entries += CentralEntry(
-                nameBytes = bytes.copyOfRange(nameOffset, nameOffset + nameLength),
+            reader.requireRange(cursor, recordSize, "central-directory entry")
+            val nameOffset = checkedAdd(cursor, ZIP_CENTRAL_HEADER_SIZE.toLong(), "central entry name")
+            validateExtraFields(
+                reader,
+                checkedAdd(nameOffset, nameLength.toLong(), "central entry extra fields"),
+                extraLength,
+            )
+            val entry = CentralEntry(
+                nameOffset = nameOffset,
+                nameLength = nameLength,
                 flags = flags,
                 method = method,
                 crc32 = crc32,
@@ -112,51 +139,59 @@ internal object StrictJarZipFraming {
                 uncompressedSize = uncompressedSize,
                 localHeaderOffset = localHeaderOffset,
             )
-            cursor = checkedAdd(cursor.toLong(), recordSize, "central-directory cursor")
-                .toIntExact("central-directory cursor")
+
+            if (index == 0 && localHeaderOffset != 0L) {
+                invalidArchive("Bytes precede the first local JAR entry")
+            }
+            previousEntry?.let { previous ->
+                if (previous.localHeaderOffset >= localHeaderOffset) {
+                    invalidArchive("JAR local entries are duplicated or out of order")
+                }
+                validateLocalEntry(reader, previous, localHeaderOffset)
+            }
+            previousEntry = entry
+            cursor = checkedAdd(cursor, recordSize, "central-directory cursor")
         }
 
-        val expectedEnd = checkedAdd(offset.toLong(), declaredSize.toLong(), "central-directory size")
-        if (cursor.toLong() != expectedEnd) {
+        val expectedEnd = checkedAdd(offset, declaredSize, "central-directory size")
+        if (cursor != expectedEnd) {
             invalidArchive("JAR central-directory entry count does not match its declared size")
         }
-        entries.zipWithNext().forEach { (first, second) ->
-            if (first.localHeaderOffset >= second.localHeaderOffset) {
-                invalidArchive("JAR local entries are duplicated or out of order")
-            }
-        }
-        if (entries.first().localHeaderOffset != 0L) {
-            invalidArchive("Bytes precede the first local JAR entry")
-        }
-        return entries
+        validateLocalEntry(reader, previousEntry ?: invalidArchive("JAR central directory is empty"), offset)
     }
 
-    private fun validateLocalEntry(bytes: ByteArray, entry: CentralEntry, expectedEnd: Long) {
-        val cursor = entry.localHeaderOffset.toIntExact("local-header offset")
-        bytes.requireRange(cursor.toLong(), ZIP_LOCAL_HEADER_SIZE.toLong(), "local JAR header")
-        if (bytes.leInt(cursor) != ZIP_LOCAL_SIGNATURE) invalidArchive("Invalid local JAR header signature")
+    private fun validateLocalEntry(reader: ArchiveReader, entry: CentralEntry, expectedEnd: Long) {
+        val cursor = entry.localHeaderOffset
+        val header = reader.readBytes(cursor, ZIP_LOCAL_HEADER_SIZE, "local JAR header")
+        if (header.leInt(0) != ZIP_LOCAL_SIGNATURE) invalidArchive("Invalid local JAR header signature")
 
-        val flags = bytes.leU16(cursor + 6)
-        val method = bytes.leU16(cursor + 8)
+        val flags = header.leU16(6)
+        val method = header.leU16(8)
         if (flags != entry.flags || method != entry.method) {
             invalidArchive("Local and central JAR metadata disagree")
         }
-        val localCrc32 = bytes.leU32(cursor + 14)
-        val localCompressedSize = bytes.leU32(cursor + 18)
-        val localUncompressedSize = bytes.leU32(cursor + 22)
-        val nameLength = bytes.leU16(cursor + 26)
-        val extraLength = bytes.leU16(cursor + 28)
+        val localCrc32 = header.leU32(14)
+        val localCompressedSize = header.leU32(18)
+        val localUncompressedSize = header.leU32(22)
+        val nameLength = header.leU16(26)
+        val extraLength = header.leU16(28)
         val metadataSize = checkedAdd(
             ZIP_LOCAL_HEADER_SIZE.toLong(),
             checkedAdd(nameLength.toLong(), extraLength.toLong(), "local entry metadata"),
             "local entry metadata",
         )
-        bytes.requireRange(cursor.toLong(), metadataSize, "local JAR metadata")
-        val nameOffset = cursor + ZIP_LOCAL_HEADER_SIZE
-        if (!bytes.copyOfRange(nameOffset, nameOffset + nameLength).contentEquals(entry.nameBytes)) {
+        reader.requireRange(cursor, metadataSize, "local JAR metadata")
+        val nameOffset = checkedAdd(cursor, ZIP_LOCAL_HEADER_SIZE.toLong(), "local entry name")
+        if (nameLength != entry.nameLength ||
+            !reader.rangesEqual(nameOffset, entry.nameOffset, nameLength, "local and central JAR entry names")
+        ) {
             invalidArchive("Local and central JAR entry names disagree")
         }
-        validateExtraFields(bytes, nameOffset + nameLength, extraLength)
+        validateExtraFields(
+            reader,
+            checkedAdd(nameOffset, nameLength.toLong(), "local entry extra fields"),
+            extraLength,
+        )
 
         val hasDescriptor = flags and ZIP_FLAG_DATA_DESCRIPTOR != 0
         if (!hasDescriptor && (localCrc32 != entry.crc32 || localCompressedSize != entry.compressedSize ||
@@ -171,38 +206,36 @@ internal object StrictJarZipFraming {
             invalidArchive("Local JAR data-descriptor placeholders are inconsistent")
         }
 
-        val dataOffset = checkedAdd(cursor.toLong(), metadataSize, "local entry data")
+        val dataOffset = checkedAdd(cursor, metadataSize, "local entry data")
         val dataEnd = checkedAdd(dataOffset, entry.compressedSize, "compressed entry data")
         if (dataEnd > expectedEnd) invalidArchive("Compressed JAR entry data exceeds its local record")
         if (hasDescriptor) {
-            validateDataDescriptor(bytes, dataEnd, expectedEnd, entry)
+            validateDataDescriptor(reader, dataEnd, expectedEnd, entry)
         } else if (dataEnd != expectedEnd) {
             invalidArchive("Unaccounted bytes follow a local JAR entry")
         }
     }
 
     private fun validateDataDescriptor(
-        bytes: ByteArray,
+        reader: ArchiveReader,
         offset: Long,
         expectedEnd: Long,
         entry: CentralEntry,
     ) {
         val descriptorLength = expectedEnd - offset
-        val valuesOffset = when (descriptorLength) {
-            12L -> offset
-            16L -> {
-                val signatureOffset = offset.toIntExact("data-descriptor offset")
-                if (bytes.leInt(signatureOffset) != ZIP_DATA_DESCRIPTOR_SIGNATURE) {
+        val descriptor = when (descriptorLength) {
+            12L -> reader.readBytes(offset, 12, "JAR data descriptor")
+            16L -> reader.readBytes(offset, 16, "JAR data descriptor").also {
+                if (it.leInt(0) != ZIP_DATA_DESCRIPTOR_SIGNATURE) {
                     invalidArchive("Invalid JAR data-descriptor signature")
                 }
-                offset + 4L
             }
             else -> invalidArchive("JAR data descriptor has an invalid size")
-        }.toIntExact("data-descriptor values offset")
-        bytes.requireRange(valuesOffset.toLong(), 12L, "JAR data descriptor")
-        if (bytes.leU32(valuesOffset) != entry.crc32 ||
-            bytes.leU32(valuesOffset + 4) != entry.compressedSize ||
-            bytes.leU32(valuesOffset + 8) != entry.uncompressedSize
+        }
+        val valuesOffset = if (descriptorLength == 16L) 4 else 0
+        if (descriptor.leU32(valuesOffset) != entry.crc32 ||
+            descriptor.leU32(valuesOffset + 4) != entry.compressedSize ||
+            descriptor.leU32(valuesOffset + 8) != entry.uncompressedSize
         ) {
             invalidArchive("JAR data descriptor disagrees with the central directory")
         }
@@ -220,22 +253,24 @@ internal object StrictJarZipFraming {
         }
     }
 
-    private fun validateExtraFields(bytes: ByteArray, offset: Int, length: Int) {
-        bytes.requireRange(offset.toLong(), length.toLong(), "JAR extra fields")
-        var cursor = offset
-        val end = offset + length
-        while (cursor < end) {
-            if (end - cursor < 4) invalidArchive("Malformed JAR extra field")
-            val id = bytes.leU16(cursor)
-            val size = bytes.leU16(cursor + 2)
+    private fun validateExtraFields(reader: ArchiveReader, offset: Long, length: Int) {
+        val fields = reader.readBytes(offset, length, "JAR extra fields")
+        var cursor = 0
+        while (cursor < fields.size) {
+            if (fields.size - cursor < 4) invalidArchive("Malformed JAR extra field")
+            val id = fields.leU16(cursor)
+            val size = fields.leU16(cursor + 2)
             cursor += 4
-            if (size > end - cursor || id == ZIP64_EXTRA_ID) invalidArchive("Malformed or ZIP64 JAR extra field")
+            if (size > fields.size - cursor || id == ZIP64_EXTRA_ID) {
+                invalidArchive("Malformed or ZIP64 JAR extra field")
+            }
             cursor += size
         }
     }
 
     private data class CentralEntry(
-        val nameBytes: ByteArray,
+        val nameOffset: Long,
+        val nameLength: Int,
         val flags: Int,
         val method: Int,
         val crc32: Long,
@@ -243,6 +278,65 @@ internal object StrictJarZipFraming {
         val uncompressedSize: Long,
         val localHeaderOffset: Long,
     )
+}
+
+private class ArchiveReader(private val channel: FileChannel) {
+    val size: Long = channel.size()
+
+    fun currentSize(): Long = channel.size()
+
+    fun readBytes(offset: Long, length: Int, label: String): ByteArray {
+        requireRange(offset, length.toLong(), label)
+        return ByteArray(length).also { destination ->
+            readInto(offset, destination, length, label)
+        }
+    }
+
+    fun rangesEqual(leftOffset: Long, rightOffset: Long, length: Int, label: String): Boolean {
+        requireRange(leftOffset, length.toLong(), label)
+        requireRange(rightOffset, length.toLong(), label)
+        var cursor = 0
+        while (cursor < length) {
+            val chunkSize = minOf(NAME_COMPARISON_BUFFER_SIZE, length - cursor)
+            readInto(
+                checkedAdd(leftOffset, cursor.toLong(), label),
+                leftComparisonBuffer,
+                chunkSize,
+                label,
+            )
+            readInto(
+                checkedAdd(rightOffset, cursor.toLong(), label),
+                rightComparisonBuffer,
+                chunkSize,
+                label,
+            )
+            for (index in 0 until chunkSize) {
+                if (leftComparisonBuffer[index] != rightComparisonBuffer[index]) return false
+            }
+            cursor += chunkSize
+        }
+        return true
+    }
+
+    fun requireRange(offset: Long, length: Long, label: String) {
+        if (offset < 0L || length < 0L || offset > size || length > size - offset) {
+            invalidArchive("$label exceeds the JAR container")
+        }
+    }
+
+    private fun readInto(offset: Long, destination: ByteArray, length: Int, label: String) {
+        require(length <= destination.size)
+        val buffer = ByteBuffer.wrap(destination, 0, length)
+        var position = offset
+        while (buffer.hasRemaining()) {
+            val read = channel.read(buffer, position)
+            if (read <= 0) invalidArchive("$label could not be read completely")
+            position = checkedAdd(position, read.toLong(), label)
+        }
+    }
+
+    private val leftComparisonBuffer = ByteArray(NAME_COMPARISON_BUFFER_SIZE)
+    private val rightComparisonBuffer = ByteArray(NAME_COMPARISON_BUFFER_SIZE)
 }
 
 private const val ZIP_LOCAL_SIGNATURE = 0x04034b50
@@ -261,6 +355,7 @@ private const val ZIP_ALLOWED_FLAGS = ZIP_FLAG_DATA_DESCRIPTOR or ZIP_FLAG_UTF8 
 private const val ZIP64_EXTRA_ID = 0x0001
 private const val ZIP64_U16_SENTINEL = 0xffff
 private const val ZIP64_U32_SENTINEL = 0xffffffffL
+private const val NAME_COMPARISON_BUFFER_SIZE = 8 * 1024
 
 private fun ByteArray.leU16(offset: Int): Int {
     requireRange(offset.toLong(), 2L, "JAR uint16")
@@ -281,11 +376,6 @@ private fun ByteArray.requireRange(offset: Long, length: Long, label: String) {
     if (offset < 0L || length < 0L || offset > size.toLong() || length > size.toLong() - offset) {
         invalidArchive("$label exceeds the JAR container")
     }
-}
-
-private fun Long.toIntExact(label: String): Int {
-    if (this < 0L || this > Int.MAX_VALUE) invalidArchive("JAR $label cannot be represented safely")
-    return toInt()
 }
 
 private fun checkedAdd(left: Long, right: Long, label: String): Long {

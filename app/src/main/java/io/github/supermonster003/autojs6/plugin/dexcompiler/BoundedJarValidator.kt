@@ -5,7 +5,6 @@ import org.autojs.plugin.dexcompiler.api.DexCompilerErrorCode
 import org.autojs.plugin.dexcompiler.api.DexCompilerFailurePhase
 import org.autojs.plugin.dexcompiler.api.DexCompilerResourceLimits
 import org.autojs.plugin.dexcompiler.api.DexSha256
-import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -71,8 +70,14 @@ internal object BoundedJarValidator {
     }
 
     private fun validateArchive(file: File, limits: DexCompilerResourceLimits): ValidatedJar {
-        val bytes = try {
-            file.readBytes()
+        val archiveSize = file.length()
+        val framedEntryCount = try {
+            if (!hasZipSignature(file)) {
+                fail(DexCompilerErrorCode.INVALID_ARCHIVE, "Program is not a ZIP-compatible JAR")
+            }
+            StrictJarZipFraming.validate(file, limits.maxArchiveEntries)
+        } catch (error: DexCompileFailure) {
+            throw error
         } catch (error: IOException) {
             throw DexCompileFailure(
                 DexCompilerErrorCode.INVALID_ARCHIVE,
@@ -81,10 +86,6 @@ internal object BoundedJarValidator {
                 error,
             )
         }
-        if (!hasZipSignature(bytes)) {
-            fail(DexCompilerErrorCode.INVALID_ARCHIVE, "Program is not a ZIP-compatible JAR")
-        }
-        val framedEntryCount = StrictJarZipFraming.validate(bytes, limits.maxArchiveEntries)
         val seenNames = HashSet<String>()
         var entryCount = 0
         var classCount = 0
@@ -93,7 +94,7 @@ internal object BoundedJarValidator {
         var totalCompressedBytes = 0L
 
         try {
-            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            ZipInputStream(file.inputStream().buffered()).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     entryCount++
@@ -161,6 +162,9 @@ internal object BoundedJarValidator {
         if (classCount == 0) {
             fail(DexCompilerErrorCode.NO_PROGRAM_CLASSES, "Program JAR contains no class files")
         }
+        if (file.length() != archiveSize) {
+            fail(DexCompilerErrorCode.INVALID_ARCHIVE, "Program JAR changed during validation")
+        }
         enforceCompressionRatio(
             uncompressedBytes,
             totalCompressedBytes,
@@ -169,12 +173,12 @@ internal object BoundedJarValidator {
         )
         enforceCompressionRatio(
             uncompressedBytes,
-            bytes.size.toLong(),
+            archiveSize,
             MAX_AGGREGATE_COMPRESSION_RATIO,
             "JAR envelope",
         )
         return ValidatedJar(
-            compressedSizeBytes = bytes.size.toLong(),
+            compressedSizeBytes = archiveSize,
             archiveEntryCount = entryCount,
             classEntryCount = classCount,
             uncompressedSizeBytes = uncompressedBytes,
@@ -231,8 +235,16 @@ internal object BoundedJarValidator {
         }
     }
 
-    private fun hasZipSignature(bytes: ByteArray): Boolean {
-        if (bytes.size < 4) return false
+    private fun hasZipSignature(file: File): Boolean {
+        val bytes = ByteArray(Int.SIZE_BYTES)
+        var offset = 0
+        file.inputStream().buffered().use { input ->
+            while (offset < bytes.size) {
+                val read = input.read(bytes, offset, bytes.size - offset)
+                if (read < 0) return false
+                if (read > 0) offset += read
+            }
+        }
         val signature = (bytes[0].toInt() and 0xff) or
             ((bytes[1].toInt() and 0xff) shl 8) or
             ((bytes[2].toInt() and 0xff) shl 16) or

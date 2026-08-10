@@ -95,7 +95,91 @@ required host build: 5270
 
 ******
 
-> 目前 AutoJs6 中的 DEX adapter 仍是預設關閉的 experimental 功能, 且尚未接入 AndroidClassLoader. 僅安裝本外掛不會取代現有 JAR 到 DEX 預設路徑. 端到端使用仍需未來提供或由主程式明確啟用 adapter 並選擇此 compiler provider.
+> raw runtime.loadJar 路由仍預設關閉, 且要求明確選取同簽章 exact component. production Runtime single-flight 在驗證並最終確定 key 後使用有界持久語意快取. 任一 waiter（包括最後一個）中斷都只分離該呼叫端且不執行本機降級; producer 可在背景完成並寫入快取. last-waiter 協同取消留到 R2, 安全熔斷在目前程序生命週期內維持保守. API 31 arm64 真實 provider 已涵蓋 committed remote dispatch、Binder lifecycle 與指定 DexClassLoader 語料, 僅完成 R1.2; R1.1 與多 API/ABI 矩陣仍未完成.
+
+******
+
+### R1 安裝與使用指南
+
+******
+
+> 這是預設關閉的 R1 明確 opt-in 路徑, 並非安裝後自動生效的替代編譯器. R1.3 多 API/ABI 矩陣尚未閉環; 目前真實 provider 的 canonical 裝置證據只涵蓋 API 31 arm64, 因此不可把 minApi 24 至 36 的協定範圍理解為所有裝置均已驗收.
+
+#### 安裝前提
+
+只從可信且配對發佈的來源取得 AutoJs6 與外掛. AutoJs6 必須為 build 5270 或以上, 而主程式與外掛的完整目前簽章憑證集合必須相同; 自行建置時也須保留下列固定套件與服務身分. 升級前請備份腳本與重要應用程式資料. 若 Android 顯示簽章不符, 不要以解除安裝主程式或清除資料繞過.
+
+```text
+host package: org.autojs.autojs6
+plugin package: io.github.supermonster003.autojs6.plugin.dexcompiler
+minimum host build: 5270
+exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
+```
+
+#### 安裝並明確啟用
+
+先安裝或升級相容的 AutoJs6, 再安裝外掛 APK. 在 AutoJs6 開啟 設定 > 關於應用程式與開發者, 長按應用程式圖示進入開發者選項; 然後開啟 DEX compiler > Raw JAR compiler provider, 選擇下列 exact component 並確認. 只安裝外掛不會啟用路由, AutoJs6 也不會自動選擇已發現的 provider.
+
+#### 確認狀態
+
+返回開發者選項, 確認摘要明確顯示 raw runtime.loadJar JAR 優先使用下列 exact component. 如只顯示 Built-in D8/dx 或沒有候選項, 請核對主程式 build、兩個套件名稱、外掛啟用狀態與簽章. 摘要只證明目前選擇與發現資格, 不代表某次編譯已使用遠端, 也不代表 R1.3 已完成.
+
+#### AutoJs6 範例
+
+把含 JVM `.class` 的可讀 JAR 放在腳本旁的 `lib/example.jar`, 並把範例類別與方法改為該 JAR 真正存在的 public API. 腳本透過現有 `runtime.loadJar()` 入口使用所選 provider; 外掛不會加入新的 JavaScript global.
+
+```javascript
+"use strict";
+
+const jar = files.path("./lib/example.jar");
+if (!files.isFile(jar)) {
+    throw new Error("Missing JAR: " + jar);
+}
+
+runtime.loadJar(jar);
+
+// Replace this with a public class that actually exists in example.jar.
+const Example = Packages.com.example.autojs6.DexPluginExample;
+console.log("DEX compiler example: " + Example.answer());
+```
+
+此範例只涵蓋 raw JAR. `.aar`、已編譯 `.dex`、相容輔助路徑與動態 `defineClass()` 一律保留在主程式內建路徑. 驗證不會讓不可信 bytecode 變安全; 只載入你信任的 JAR.
+
+#### 收集診斷
+
+回報問題時請記錄 AutoJs6 build/版本、外掛版本、開發者選項的完整 exact-component 摘要、裝置型號/API/ABI、輸入 JAR 位元組數與 SHA-256、發生時間、完整腳本例外與重現步驟. 如使用 ADB, 每個指令都要在 `<serial>` 填入唯一已授權裝置, 擷取故障前後的 AndroidClassLoader/AndroidRuntime 日誌, 並在分享前刪除私人路徑、腳本內容與其他敏感資料.
+
+```powershell
+adb -s <serial> shell dumpsys package org.autojs.autojs6
+adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.dexcompiler
+adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
+```
+
+#### 停用與緊急回復
+
+在開發者選項的 Raw JAR compiler provider 選擇 Built-in D8/dx 並確認, 然後停止與重新啟動 AutoJs6. 這會關閉實驗路由, 但保留已選元件記錄以供日後重新選擇. 緊急回復應先停用並重啟主程式; 不必解除安裝 AutoJs6、清除其資料或刪除腳本. 已開啟的程序安全熔斷會保守地維持至該 AutoJs6 程序結束.
+
+#### 理解 fallback
+
+路由關閉、provider 不可用或不相容、繫結或遠端失敗、逾時、輸出無效或已驗證產物載入失敗時, 每次呼叫最多嘗試一次主程式內建 D8/dx; 已 dispatch 的 Binder 工作不會自動重試. 呼叫方取消或 thread interruption 會直接傳播, 不作本機 fallback. AAR、loadDex 與 defineClass 從不使用本外掛. 因此腳本最終成功只表示某條允許路徑成功, 不能單獨證明外掛完成編譯.
+
+#### 解除安裝與恢復
+
+先選 Built-in D8/dx, 確認摘要顯示實驗已關閉, 再停止 AutoJs6 並解除安裝外掛. 解除安裝會永久刪除外掛本身的應用程式資料與私人暫存工作區, 主程式則可繼續使用內建編譯器. 恢復時安裝相容且同簽章外掛, 重新開啟開發者選項並再次明確選擇 exact component; 不要假設舊選擇會自動重新啟用.
+
+#### 已知限制與驗收邊界
+
+V1 只進行有界 raw JVM JAR 到 DEX ZIP 轉換, 不提供 R8 shrinking/obfuscation、外部 classpath、自訂 desugared library、網路編譯或確定性位元組輸出. BUSY 可觸發主程式 fallback, 取消後 D8 CPU 工作可能在隔離程序繼續至清理完成. API 31 arm64 的 R1.2 證據不能取代 R1.1 production fault/rollback 門禁或 API 24/25/26/28/34/36 與 x86_64/arm64 的 R1.3 矩陣; 在相關項目勾選前應把本指南視為受控預覽.
+
+******
+
+### 開發路線圖
+
+******
+
+R1.2 已達 4/4: 主程式 DEX 16 suites/149 tests 全數通過, Android-test Kotlin 與 host/test APK assemble 成功, API 31 arm64 上 2 個 production concurrency、2 個真實 lifecycle 及 3 個真實 corpus 方法逐項通過. 並行探針統計 committed remote dispatch, 不直接統計 provider openSession; 獨立重型 multi-dex 門禁產生 65,700 個方法並從主要、次要 DEX 載入類別. 目前 host/test/plugin SHA-256 前綴為 181E38E8、70FAE1E8、5B6AC53B, signer 同為 31a681fc. 最終 host/test/plugin 解除安裝均成功, fake provider 保持 absent, 相關程序數為 0. R1.1 維持 0/7, R1.3 全部未勾. R2 僅啟動復原切片: process-once strict-canonical janitor 通過外掛 48/48 與 workspace recovery 6/6, 在首次 Binder 暴露前清除真實 force-stop 舊 UUID, 正常 D8 載入後 workspace 仍為空; R2 其餘項繼續未勾.
+
+- [查看可勾選的 ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
 ******
 

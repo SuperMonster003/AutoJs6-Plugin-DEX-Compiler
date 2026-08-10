@@ -1,0 +1,539 @@
+#Requires -Version 7.5
+
+[CmdletBinding()]
+param()
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+$modulePath = Join-Path $PSScriptRoot 'R1MatrixReceipts.psm1'
+$schemaPath = Join-Path $PSScriptRoot 'r1-matrix-receipt.schema.json'
+$cliPath = Join-Path $PSScriptRoot 'r1-matrix-receipts.ps1'
+Import-Module $modulePath -Force
+
+$script:EmptySha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+$script:CampaignSigner = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+$script:TestsPassed = 0
+$script:TestsFailed = 0
+
+function Assert-True {
+    param(
+        [Parameter(Mandatory)]
+        [bool] $Condition,
+
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string] $Message
+    )
+
+    if (-not $Condition) {
+        throw $Message
+    }
+}
+
+function Assert-Throws {
+    param(
+        [Parameter(Mandatory)]
+        [scriptblock] $Action,
+
+        [Parameter(Mandatory)]
+        [string] $MessagePattern
+    )
+
+    $caught = $null
+    try {
+        & $Action
+    } catch {
+        $caught = $_
+    }
+    if ($null -eq $caught) {
+        throw "Expected an exception matching '$MessagePattern', but no exception was thrown"
+    }
+    if ($caught.Exception.Message -notlike $MessagePattern) {
+        throw "Expected exception '$MessagePattern', got '$($caught.Exception.Message)'"
+    }
+}
+
+function Invoke-TestCase {
+    param(
+        [Parameter(Mandatory)]
+        [string] $Name,
+
+        [Parameter(Mandatory)]
+        [scriptblock] $Action
+    )
+
+    try {
+        & $Action
+        $script:TestsPassed++
+        Write-Output "PASS $Name"
+    } catch {
+        $script:TestsFailed++
+        Write-Output "FAIL $Name :: $($_.Exception.Message)"
+    }
+}
+
+function New-TestReceipt {
+    param(
+        [Parameter(Mandatory)]
+        [string] $CampaignId,
+
+        [Parameter(Mandatory)]
+        [int] $ApiLevel,
+
+        [string] $ReceiptId = ([guid]::NewGuid().ToString()),
+
+        [string] $MatrixCellId = "api-$ApiLevel-x86_64",
+
+        [ValidateSet('CANONICAL', 'SMOKE', 'DIAGNOSTIC')]
+        [string] $EvidenceClass = 'CANONICAL',
+
+        [ValidateSet('PASS', 'FAIL', 'BLOCKED')]
+        [string] $Outcome = 'PASS',
+
+        [ValidateSet('PHYSICAL', 'EMULATOR')]
+        [string] $DeviceKind = 'EMULATOR',
+
+        [string] $Abi = 'x86_64'
+    )
+
+    $serial = if ($DeviceKind -eq 'PHYSICAL') { 'QV710AF65F' } else { "emulator-api-$ApiLevel" }
+    $avdName = if ($DeviceKind -eq 'EMULATOR') { "R1_API_$ApiLevel" } else { $null }
+    $passed = $Outcome -eq 'PASS'
+    $commandExit = if ($passed) { 0 } else { 17 }
+    $failure = if ($passed) {
+        $null
+    } else {
+        [ordered]@{
+            stage = 'INFRASTRUCTURE'
+            code = 'TEST_FAILURE'
+            messageSha256 = ('a' * 64)
+        }
+    }
+
+    return [ordered]@{
+        schemaVersion = 'autojs6.dex.r1.matrix-receipt/v1'
+        campaignId = $CampaignId
+        receiptId = $ReceiptId
+        matrixCellId = $MatrixCellId
+        evidenceClass = $EvidenceClass
+        outcome = $Outcome
+        run = [ordered]@{
+            startedAtUtc = '2026-08-10T01:00:00Z'
+            finishedAtUtc = '2026-08-10T01:01:00Z'
+        }
+        repositories = [ordered]@{
+            host = [ordered]@{
+                versionName = '6.8.0-alpha7'
+                versionCode = 5273
+                commit = ('a' * 40)
+                treeState = 'CLEAN'
+                treeDigestSha256 = $script:EmptySha256
+            }
+            plugin = [ordered]@{
+                versionName = '1.0.0'
+                versionCode = 4
+                commit = ('b' * 40)
+                treeState = 'CLEAN'
+                treeDigestSha256 = $script:EmptySha256
+            }
+        }
+        apks = [ordered]@{
+            host = [ordered]@{
+                packageName = 'org.autojs.autojs6'
+                versionName = '6.8.0-alpha7'
+                versionCode = 5273
+                sha256 = ('c' * 64)
+                signerCertificateSha256 = @($script:CampaignSigner)
+            }
+            plugin = [ordered]@{
+                packageName = 'io.github.supermonster003.autojs6.plugin.dexcompiler'
+                versionName = '1.0.0'
+                versionCode = 4
+                sha256 = ('d' * 64)
+                signerCertificateSha256 = @($script:CampaignSigner)
+            }
+            test = [ordered]@{
+                packageName = 'org.autojs.autojs6.test'
+                versionName = '6.8.0-alpha7'
+                versionCode = 5273
+                sha256 = ('e' * 64)
+                signerCertificateSha256 = @($script:CampaignSigner)
+            }
+        }
+        device = [ordered]@{
+            serial = $serial
+            apiLevel = $ApiLevel
+            abi = $Abi
+            allAbis = @($Abi)
+            kind = $DeviceKind
+            avdName = $avdName
+            buildFingerprintSha256 = ('7' * 64)
+        }
+        safety = [ordered]@{
+            userAuthorized = $true
+            explicitSerialEveryAdbCommand = $true
+            fakeProviderInstalled = $false
+            preflightStateSha256 = ('8' * 64)
+        }
+        input = [ordered]@{
+            corpusId = 'r1-real-d8-load-v1'
+            sizeBytes = 4096
+            sha256 = ('3' * 64)
+        }
+        request = [ordered]@{
+            compilerPath = if ($ApiLevel -le 25) { 'D8_CLI_FALLBACK' } else { 'D8_COMMAND' }
+            mode = 'DEBUG'
+            minApi = $ApiLevel
+            multiDexExpected = $false
+            outputFormat = 'DEX_ZIP'
+        }
+        provider = [ordered]@{
+            kind = 'REAL'
+            component = 'io.github.supermonster003.autojs6.plugin.dexcompiler/.DexCompilerService'
+            packageName = 'io.github.supermonster003.autojs6.plugin.dexcompiler'
+            uid = 10123
+            versionName = '1.0.0'
+            versionCode = 4
+            signerCertificateSha256 = @($script:CampaignSigner)
+            protocolMajor = 1
+            protocolMinor = 0
+            runtimeLibraryFingerprintSha256 = ('1' * 64)
+            compilerFamily = 'D8'
+            compilerVersion = '8.13.17'
+            capabilityDigestSha256 = ('2' * 64)
+        }
+        output = [ordered]@{
+            present = $passed
+            sizeBytes = if ($passed) { 8192 } else { 0 }
+            sha256 = if ($passed) { ('4' * 64) } else { $null }
+            dexEntryCount = if ($passed) { 1 } else { 0 }
+            entryManifestSha256 = if ($passed) { ('5' * 64) } else { $null }
+        }
+        execution = [ordered]@{
+            attempted = $passed
+            passed = $passed
+            className = if ($passed) { 'org.autojs.matrix.Entry' } else { $null }
+            resultSha256 = if ($passed) { ('6' * 64) } else { $null }
+        }
+        commands = @(
+            [ordered]@{
+                ordinal = 1
+                phase = 'TEST'
+                command = "adb -s $serial shell am instrument -w -e class org.autojs.MatrixTest org.autojs.autojs6.test/androidx.test.runner.AndroidJUnitRunner"
+                exitCode = $commandExit
+                stdoutSha256 = $script:EmptySha256
+                stderrSha256 = $script:EmptySha256
+                startedAtUtc = '2026-08-10T01:00:05Z'
+                finishedAtUtc = '2026-08-10T01:00:50Z'
+            }
+        )
+        cleanup = [ordered]@{
+            attempted = $true
+            succeeded = $passed
+            packagesRestoredToPreflight = $passed
+            processesStopped = $passed
+            workspaceClean = $passed
+            postStateSha256 = ('9' * 64)
+        }
+        failure = $failure
+    }
+}
+
+function Write-TestReceipt {
+    param(
+        [Parameter(Mandatory)]
+        [System.Collections.IDictionary] $Receipt,
+
+        [Parameter(Mandatory)]
+        [string] $Path
+    )
+
+    $json = $Receipt | ConvertTo-Json -Depth 100
+    [IO.File]::WriteAllText($Path, $json, [Text.UTF8Encoding]::new($false))
+}
+
+function Add-TestReceipt {
+    param(
+        [Parameter(Mandatory)]
+        [System.Collections.IDictionary] $Receipt,
+
+        [Parameter(Mandatory)]
+        [string] $JournalPath,
+
+        [Parameter(Mandatory)]
+        [string] $ReceiptPath
+    )
+
+    Write-TestReceipt -Receipt $Receipt -Path $ReceiptPath
+    return Add-R1MatrixReceipt -JournalPath $JournalPath -ReceiptPath $ReceiptPath -SchemaPath $schemaPath
+}
+
+function Add-CompleteMatrix {
+    param(
+        [Parameter(Mandatory)]
+        [string] $CampaignId,
+
+        [Parameter(Mandatory)]
+        [string] $JournalPath,
+
+        [Parameter(Mandatory)]
+        [string] $ReceiptPath,
+
+        [scriptblock] $Mutate
+    )
+
+    foreach ($api in @(24, 25, 26, 28, 34, 36)) {
+        $receipt = if ($api -eq 36) {
+            New-TestReceipt `
+                -CampaignId $CampaignId `
+                -ApiLevel $api `
+                -MatrixCellId 'api-36-arm64-physical' `
+                -DeviceKind PHYSICAL `
+                -Abi 'arm64-v8a'
+        } else {
+            New-TestReceipt -CampaignId $CampaignId -ApiLevel $api
+        }
+        if ($null -ne $Mutate) {
+            & $Mutate $receipt $api
+        }
+        [void](Add-TestReceipt -Receipt $receipt -JournalPath $JournalPath -ReceiptPath $ReceiptPath)
+    }
+}
+
+$tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)
+$tempRoot = Join-Path $tempBase ("autojs6-r1-matrix-tests-" + [guid]::NewGuid().ToString('N'))
+[void](New-Item -ItemType Directory -Path $tempRoot)
+
+try {
+    Invoke-TestCase -Name 'complete canonical matrix passes' -Action {
+        $caseDir = Join-Path $tempRoot 'complete'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition $gate.passed -Message ($gate.reasons -join '; ')
+        Assert-True -Condition ($gate.canonicalReceiptCount -eq 6) -Message 'Expected six canonical receipts'
+        Assert-True -Condition ($gate.coveredApiLevels.Count -eq 6) -Message 'Expected six covered APIs'
+        Assert-True -Condition $gate.physicalArm64Covered -Message 'Physical arm64 coverage missing'
+        Assert-True -Condition $gate.emulatorX86_64Covered -Message 'Emulator x86_64 coverage missing'
+
+        $verified = Read-R1MatrixJournal -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition ($verified.Entries.Count -eq 6) -Message 'Journal verification lost entries'
+        Assert-True -Condition ($verified.HeadEntrySha256 -match '^[a-f0-9]{64}$') -Message 'Journal head hash missing'
+        $minApis = @($verified.Entries | ForEach-Object { $_.Receipt.request.minApi } | Sort-Object -Unique)
+        Assert-True -Condition ($minApis.Count -eq 6) -Message 'Cross-API campaign did not retain one device-specific minApi per row'
+    }
+
+    Invoke-TestCase -Name 'canonical failure cannot be overwritten by a later pass' -Action {
+        $caseDir = Join-Path $tempRoot 'failure-preserved'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $campaign = [guid]::NewGuid().ToString()
+        $failure = New-TestReceipt `
+            -CampaignId $campaign `
+            -ApiLevel 24 `
+            -MatrixCellId 'api-24-formal' `
+            -Outcome FAIL
+        [void](Add-TestReceipt -Receipt $failure -JournalPath $journal -ReceiptPath $candidate)
+        $laterPass = New-TestReceipt `
+            -CampaignId $campaign `
+            -ApiLevel 24 `
+            -MatrixCellId 'api-24-formal'
+        [void](Add-TestReceipt -Receipt $laterPass -JournalPath $journal -ReceiptPath $candidate)
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'A later PASS incorrectly masked a formal failure'
+        Assert-True -Condition ($gate.failedCanonicalReceiptIds -contains $failure.receiptId) -Message 'Failed receipt ID was not preserved'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*later PASS receipts cannot overwrite it*') -Message 'Missing non-overwrite gate reason'
+        Assert-True -Condition (([IO.File]::ReadAllLines($journal)).Count -eq 2) -Message 'Append did not preserve both entries'
+    }
+
+    Invoke-TestCase -Name 'smoke evidence never satisfies canonical coverage' -Action {
+        $caseDir = Join-Path $tempRoot 'smoke'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $smoke = New-TestReceipt `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -ApiLevel 24 `
+            -EvidenceClass SMOKE
+        [void](Add-TestReceipt -Receipt $smoke -JournalPath $journal -ReceiptPath $candidate)
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Smoke evidence incorrectly passed the canonical gate'
+        Assert-True -Condition ($gate.canonicalReceiptCount -eq 0) -Message 'Smoke evidence was counted as canonical'
+        Assert-True -Condition ($gate.ignoredNonCanonicalReceiptCount -eq 1) -Message 'Smoke receipt was not reported as ignored'
+    }
+
+    Invoke-TestCase -Name 'journal tampering breaks the hash chain' -Action {
+        $caseDir = Join-Path $tempRoot 'tamper'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $receipt = New-TestReceipt -CampaignId ([guid]::NewGuid().ToString()) -ApiLevel 24
+        [void](Add-TestReceipt -Receipt $receipt -JournalPath $journal -ReceiptPath $candidate)
+        $line = [IO.File]::ReadAllText($journal, [Text.UTF8Encoding]::new($false, $true))
+        $tampered = $line.Replace('"apiLevel":24', '"apiLevel":25')
+        Assert-True -Condition ($tampered -cne $line) -Message 'Test did not locate the API field to tamper'
+        [IO.File]::WriteAllText($journal, $tampered, [Text.UTF8Encoding]::new($false))
+
+        Assert-Throws `
+            -Action { Read-R1MatrixJournal -JournalPath $journal -SchemaPath $schemaPath } `
+            -MessagePattern '*hash mismatch*'
+    }
+
+    Invoke-TestCase -Name 'missing final LF is treated as a truncated append' -Action {
+        $caseDir = Join-Path $tempRoot 'truncated'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $receipt = New-TestReceipt -CampaignId ([guid]::NewGuid().ToString()) -ApiLevel 24
+        [void](Add-TestReceipt -Receipt $receipt -JournalPath $journal -ReceiptPath $candidate)
+        $bytes = [IO.File]::ReadAllBytes($journal)
+        Assert-True -Condition ($bytes[$bytes.Length - 1] -eq 0x0A) -Message 'Writer did not terminate the journal entry with LF'
+        [IO.File]::WriteAllBytes($journal, $bytes[0..($bytes.Length - 2)])
+
+        Assert-Throws `
+            -Action { Read-R1MatrixJournal -JournalPath $journal -SchemaPath $schemaPath } `
+            -MessagePattern '*truncated final append*'
+    }
+
+    Invoke-TestCase -Name 'duplicate receipt IDs are rejected before append' -Action {
+        $caseDir = Join-Path $tempRoot 'duplicate-id'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $receipt = New-TestReceipt -CampaignId ([guid]::NewGuid().ToString()) -ApiLevel 24
+        [void](Add-TestReceipt -Receipt $receipt -JournalPath $journal -ReceiptPath $candidate)
+
+        Assert-Throws `
+            -Action { Add-TestReceipt -Receipt $receipt -JournalPath $journal -ReceiptPath $candidate } `
+            -MessagePattern '*receiptId already exists*'
+        Assert-True -Condition (([IO.File]::ReadAllLines($journal)).Count -eq 1) -Message 'Rejected duplicate changed the journal'
+    }
+
+    Invoke-TestCase -Name 'mixed artifact identity fails closed' -Action {
+        $caseDir = Join-Path $tempRoot 'identity-drift'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 34) { $receipt.apks.plugin.sha256 = ('0' * 64) }
+            }
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Mixed plugin APK identity incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*mix repository, APK, input, or compile-request identities*') -Message 'Identity drift was not explained'
+    }
+
+    Invoke-TestCase -Name 'dirty source tree fails canonical gate' -Action {
+        $caseDir = Join-Path $tempRoot 'dirty-tree'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 28) {
+                    $receipt.repositories.host.treeState = 'DIRTY'
+                    $receipt.repositories.host.treeDigestSha256 = ('a' * 64)
+                }
+            }
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Dirty source tree incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*not collected from two clean source trees*') -Message 'Dirty-tree reason missing'
+    }
+
+    Invoke-TestCase -Name 'request minApi must equal the receipt device API' -Action {
+        $caseDir = Join-Path $tempRoot 'min-api-drift'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 34) { $receipt.request.minApi = 33 }
+            }
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'A device/request minApi mismatch incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*request.minApi 33 does not equal device API 34*') -Message 'minApi mismatch reason missing'
+    }
+
+    Invoke-TestCase -Name 'schema omissions are rejected before journal creation' -Action {
+        $caseDir = Join-Path $tempRoot 'schema-reject'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $receipt = New-TestReceipt -CampaignId ([guid]::NewGuid().ToString()) -ApiLevel 24
+        $receipt.Remove('provider')
+        Write-TestReceipt -Receipt $receipt -Path $candidate
+
+        Assert-Throws `
+            -Action { Add-R1MatrixReceipt -JournalPath $journal -ReceiptPath $candidate -SchemaPath $schemaPath } `
+            -MessagePattern '*violates the R1 receipt schema*'
+        Assert-True -Condition (-not (Test-Path -LiteralPath $journal)) -Message 'Invalid receipt created a journal'
+    }
+
+    Invoke-TestCase -Name 'resolved explicit serial is independently enforced' -Action {
+        $caseDir = Join-Path $tempRoot 'serial-reject'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $receipt = New-TestReceipt -CampaignId ([guid]::NewGuid().ToString()) -ApiLevel 24
+        $receipt.commands[0].command = 'adb shell am instrument -w org.autojs.autojs6.test/androidx.test.runner.AndroidJUnitRunner'
+        [void](Add-TestReceipt -Receipt $receipt -JournalPath $journal -ReceiptPath $candidate)
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Unscoped adb command incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*invokes adb without the recorded explicit serial*') -Message 'Explicit-serial reason missing'
+    }
+
+    Invoke-TestCase -Name 'CLI report creation is create-new and non-overwriting' -Action {
+        $caseDir = Join-Path $tempRoot 'cli'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $report = Join-Path $caseDir 'gate.json'
+        Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+
+        & pwsh -NoLogo -NoProfile -File $cliPath Gate -JournalPath $journal -ReportPath $report | Out-Null
+        Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Expected CLI gate exit 0, got $LASTEXITCODE"
+        Assert-True -Condition (Test-Path -LiteralPath $report -PathType Leaf) -Message 'CLI report was not created'
+        $before = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
+        & pwsh -NoLogo -NoProfile -File $cliPath Gate -JournalPath $journal -ReportPath $report | Out-Null
+        Assert-True -Condition ($LASTEXITCODE -eq 2) -Message "Expected create-new refusal exit 2, got $LASTEXITCODE"
+        $after = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
+        Assert-True -Condition ($before -ceq $after) -Message 'Existing report was overwritten'
+    }
+} finally {
+    $resolvedRoot = [IO.Path]::GetFullPath($tempRoot)
+    $parent = [IO.Path]::GetDirectoryName($resolvedRoot).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    $leaf = [IO.Path]::GetFileName($resolvedRoot)
+    if ($parent -cne $tempBase -or $leaf -notlike 'autojs6-r1-matrix-tests-*') {
+        throw "Refusing to remove unexpected test directory: $resolvedRoot"
+    }
+    Remove-Item -LiteralPath $resolvedRoot -Recurse -Force
+}
+
+Write-Output "RESULT passed=$script:TestsPassed failed=$script:TestsFailed"
+if ($script:TestsFailed -ne 0) {
+    exit 1
+}
+exit 0

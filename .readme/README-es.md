@@ -95,7 +95,91 @@ Se requiere la build 5270 o posterior del host. El plugin no contiene biblioteca
 
 ******
 
-> El DEX adapter actual de AutoJs6 sigue siendo una función experimental desactivada por defecto y no está conectado a AndroidClassLoader. Instalar solo este plugin no reemplaza la ruta JAR a DEX predeterminada. El uso de extremo a extremo requiere un futuro adapter del host o su activación explícita y la selección de este compiler provider.
+> La ruta raw de runtime.loadJar sigue desactivada por defecto y exige seleccionar explícitamente un exact component con la misma firma. El single-flight del Runtime de producción usa la caché semántica persistente y acotada después de finalizar la clave autenticada. Interrumpir cualquier waiter, incluido el último, solo separa a ese llamador sin fallback local; el producer puede terminar y llenar la caché. La cancelación cooperativa del último waiter queda para R2 y el circuito de seguridad se mantiene conservador durante la vida del proceso. Las pruebas del provider real en API 31 arm64 ya cubren committed remote dispatch, el ciclo de vida Binder y el corpus DexClassLoader definido, completando solo R1.2; R1.1 y la matriz multi-API/ABI siguen abiertos.
+
+******
+
+### Guía de instalación y uso de R1
+
+******
+
+> Esta es una ruta R1 de activación explícita y deshabilitada de forma predeterminada, no un compilador de reemplazo que se active al instalarlo. La matriz R1.3 de varias API/ABI sigue abierta; la evidencia canónica actual con el provider real solo cubre API 31 arm64. Por tanto, el rango de protocolo minApi 24 a 36 no equivale a aceptación en todos los dispositivos.
+
+#### Requisitos previos
+
+Obtén AutoJs6 y el plugin únicamente de una fuente de versiones emparejada y de confianza. AutoJs6 debe ser build 5270 o posterior y los conjuntos completos de certificados de firma actuales del host y del plugin deben coincidir; los builds propios también deben conservar las identidades fijas de paquete y servicio indicadas abajo. Haz una copia de seguridad de scripts y datos importantes antes de actualizar. Si Android informa de una firma distinta, no lo evites desinstalando el host ni borrando sus datos.
+
+```text
+host package: org.autojs.autojs6
+plugin package: io.github.supermonster003.autojs6.plugin.dexcompiler
+minimum host build: 5270
+exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
+```
+
+#### Instalar y habilitar explícitamente
+
+Instala o actualiza primero el AutoJs6 compatible y luego instala el APK del plugin. En AutoJs6 abre Ajustes > Acerca de la aplicación y el desarrollador y mantén pulsado el icono para abrir Opciones de desarrollador. Abre DEX compiler > Raw JAR compiler provider, selecciona el exact component de abajo y confirma. Instalar el plugin por sí solo no habilita la ruta y AutoJs6 nunca selecciona automáticamente un provider descubierto.
+
+#### Confirmar el estado
+
+Vuelve a Opciones de desarrollador y confirma que el resumen dice explícitamente que los JAR raw runtime.loadJar prefieren el exact component de abajo. Si muestra Built-in D8/dx o no hay candidato, comprueba el build del host, ambos nombres de paquete, el estado habilitado del plugin y las firmas. El resumen solo prueba la selección actual y la elegibilidad para descubrimiento; no prueba que una compilación concreta fuera remota ni que R1.3 esté completo.
+
+#### Ejemplo de AutoJs6
+
+Coloca un JAR legible con archivos JVM `.class` en `lib/example.jar` junto al script y sustituye la clase y el método de ejemplo por una API pública que exista realmente en ese JAR. El script usa el provider seleccionado mediante la entrada existente `runtime.loadJar()`; el plugin no añade ningún global de JavaScript nuevo.
+
+```javascript
+"use strict";
+
+const jar = files.path("./lib/example.jar");
+if (!files.isFile(jar)) {
+    throw new Error("Missing JAR: " + jar);
+}
+
+runtime.loadJar(jar);
+
+// Replace this with a public class that actually exists in example.jar.
+const Example = Packages.com.example.autojs6.DexPluginExample;
+console.log("DEX compiler example: " + Example.answer());
+```
+
+Este ejemplo solo cubre JAR raw. Los `.aar`, `.dex` precompilados, asistentes de compatibilidad y `defineClass()` dinámico permanecen siempre en las rutas integradas del host. La validación no vuelve seguro el bytecode no confiable; carga solo JAR de confianza.
+
+#### Recopilar diagnósticos
+
+Al informar de un problema, registra build/versión de AutoJs6, versión del plugin, resumen exact-component completo de Opciones de desarrollador, modelo/API/ABI del dispositivo, bytes y SHA-256 del JAR de entrada, hora del evento, excepción completa del script y pasos de reproducción. Si usas ADB, indica el único dispositivo autorizado en `<serial>` en cada comando, captura los logs AndroidClassLoader/AndroidRuntime alrededor del fallo y elimina rutas privadas, contenido del script y otros datos sensibles antes de compartir.
+
+```powershell
+adb -s <serial> shell dumpsys package org.autojs.autojs6
+adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.dexcompiler
+adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
+```
+
+#### Deshabilitar y revertir en emergencia
+
+En Opciones de desarrollador > Raw JAR compiler provider, selecciona Built-in D8/dx y confirma; después detén y reinicia AutoJs6. Esto apaga la ruta experimental, pero conserva el registro del componente para volver a seleccionarlo. En una emergencia, deshabilita primero y reinicia el host; no hace falta desinstalar AutoJs6, borrar sus datos ni eliminar scripts. Un circuito de seguridad abierto permanece abierto deliberadamente hasta que termina ese proceso de AutoJs6.
+
+#### Entender el fallback
+
+Si la ruta está apagada, el provider no está disponible o es incompatible, falla el binding o el trabajo remoto, vence el tiempo, la salida es inválida o falla la adopción de un artefacto verificado, una invocación puede intentar como máximo una vez el D8/dx integrado del host; el trabajo Binder ya dispatchado no se reintenta automáticamente. La cancelación del llamador o interrupción del hilo se propaga sin fallback local. AAR, loadDex y defineClass nunca usan este plugin. Por ello, que el script termine bien solo prueba que alguna ruta permitida funcionó, no que el plugin lo compiló.
+
+#### Desinstalar y recuperar
+
+Selecciona primero Built-in D8/dx, confirma que el resumen muestra el experimento apagado, detén AutoJs6 y desinstala el plugin. La desinstalación elimina permanentemente los datos y espacios temporales privados del plugin; el host puede continuar con su compilador integrado. Para recuperar, instala un plugin compatible con la misma firma, vuelve a Opciones de desarrollador y selecciona explícitamente otra vez el exact component; no supongas que la selección antigua se habilitará sola.
+
+#### Límites conocidos y frontera de aceptación
+
+V1 solo realiza conversión acotada de JAR JVM raw a DEX ZIP. No ofrece shrinking/obfuscation de R8, classpath externo, biblioteca desugared personalizada, compilación por red ni salida binaria determinista. BUSY puede llevar al fallback del host y el trabajo CPU de D8 puede continuar en el proceso aislado hasta la limpieza tras una cancelación. La evidencia R1.2 de API 31 arm64 no sustituye las puertas production fault/rollback de R1.1 ni la matriz R1.3 API 24/25/26/28/34/36 y x86_64/arm64; considera esta guía una vista previa controlada hasta que esas casillas estén marcadas.
+
+******
+
+### Hoja de ruta de desarrollo
+
+******
+
+R1.2 alcanza 4/4: pasaron 16 suites/149 tests DEX del host, la compilación Android-test Kotlin y el assemble de los APK host/test; en API 31 arm64 pasaron por separado dos métodos de concurrencia production, dos de ciclo de vida real y tres de corpus real. La sonda cuenta committed remote dispatch y no llamadas directas provider openSession; el gate multi-dex pesado separado generó 65 700 métodos y cargó clases desde los DEX primario y secundario. Los prefijos SHA-256 actuales de host/test/plugin son 181E38E8, 70FAE1E8 y 5B6AC53B con el mismo signer 31a681fc. R1.1 sigue 0/7 y R1.3 totalmente abierto. R2 solo inició un tramo de recuperación: el janitor process-once strict-canonical pasó 48/48 tests del plugin y 6/6 de workspace recovery, eliminó un UUID real obsoleto de force-stop antes de exponer el primer Binder y mantuvo vacío el workspace tras una carga D8 normal; los demás elementos R2 siguen sin marcar.
+
+- [Abrir el ROADMAP.md verificable](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
 ******
 
