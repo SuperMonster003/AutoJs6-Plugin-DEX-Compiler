@@ -72,6 +72,10 @@ android {
         resValues = true
     }
 
+    compileOptions {
+        isCoreLibraryDesugaringEnabled = true
+    }
+
     sourceSets.named("main") {
         kotlin.directories += "src/main/java"
     }
@@ -121,6 +125,7 @@ androidComponents {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.2.21")
     implementation("com.android.tools:r8:8.13.17")
+    coreLibraryDesugaring(libs.desugar)
 
     implementation(files("$rootDir/libs/common-plugin-api.aar"))
     implementation(files("$rootDir/libs/protocol-wire-api.aar"))

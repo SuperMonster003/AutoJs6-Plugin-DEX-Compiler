@@ -130,7 +130,7 @@ commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "co
 constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }
 core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 exifinterface = { module = "androidx.exifinterface:exifinterface", version.ref = "exifinterface" }
-desugar = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
+desugar = { module = "com.android.tools:desugar_jdk_libs_nio", version.ref = "desugar" }
 easywindow = { module = "com.github.getActivity:EasyWindow", version.ref = "easywindow" }
 eventbus = { module = "org.greenrobot:eventbus", version.ref = "eventbus" }
 flexbox = { module = "com.google.android.flexbox:flexbox", version.ref = "flexbox" }
