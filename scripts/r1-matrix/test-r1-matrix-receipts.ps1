@@ -83,7 +83,7 @@ function New-TestReceipt {
 
         [string] $ReceiptId = ([guid]::NewGuid().ToString()),
 
-        [string] $MatrixCellId = "api-$ApiLevel-x86_64",
+        [string] $MatrixCellId = "api$ApiLevel-x86_64-emulator",
 
         [ValidateSet('CANONICAL', 'SMOKE', 'DIAGNOSTIC')]
         [string] $EvidenceClass = 'CANONICAL',
@@ -97,8 +97,20 @@ function New-TestReceipt {
         [string] $Abi = 'x86_64'
     )
 
-    $serial = if ($DeviceKind -eq 'PHYSICAL') { 'QV710AF65F' } else { "emulator-api-$ApiLevel" }
-    $avdName = if ($DeviceKind -eq 'EMULATOR') { "R1_API_$ApiLevel" } else { $null }
+    $serial = if ($DeviceKind -eq 'PHYSICAL') {
+        'QV710AF65F'
+    } else {
+        switch ($ApiLevel) {
+            24 { 'emulator-5580' }
+            25 { 'emulator-5582' }
+            26 { 'emulator-5584' }
+            28 { 'emulator-5586' }
+            34 { 'emulator-5588' }
+            36 { 'emulator-5590' }
+            default { "emulator-$ApiLevel" }
+        }
+    }
+    $avdName = if ($DeviceKind -eq 'EMULATOR') { "DEX_R1_API${ApiLevel}_X64" } else { $null }
     $passed = $Outcome -eq 'PASS'
     $commandExit = if ($passed) { 0 } else { 17 }
     $failure = if ($passed) {
@@ -124,8 +136,8 @@ function New-TestReceipt {
         }
         repositories = [ordered]@{
             host = [ordered]@{
-                versionName = '6.8.0-alpha7'
-                versionCode = 5273
+                versionName = '6.8.0 Alpha7'
+                versionCode = 5274
                 commit = ('a' * 40)
                 treeState = 'CLEAN'
                 treeDigestSha256 = $script:EmptySha256
@@ -141,8 +153,8 @@ function New-TestReceipt {
         apks = [ordered]@{
             host = [ordered]@{
                 packageName = 'org.autojs.autojs6'
-                versionName = '6.8.0-alpha7'
-                versionCode = 5273
+                versionName = '6.8.0 Alpha7'
+                versionCode = 5274
                 sha256 = ('c' * 64)
                 signerCertificateSha256 = @($script:CampaignSigner)
             }
@@ -155,8 +167,6 @@ function New-TestReceipt {
             }
             test = [ordered]@{
                 packageName = 'org.autojs.autojs6.test'
-                versionName = '6.8.0-alpha7'
-                versionCode = 5273
                 sha256 = ('e' * 64)
                 signerCertificateSha256 = @($script:CampaignSigner)
             }
@@ -183,7 +193,7 @@ function New-TestReceipt {
         }
         request = [ordered]@{
             compilerPath = if ($ApiLevel -le 25) { 'D8_CLI_FALLBACK' } else { 'D8_COMMAND' }
-            mode = 'DEBUG'
+            mode = 'RELEASE'
             minApi = $ApiLevel
             multiDexExpected = $false
             outputFormat = 'DEX_ZIP'
@@ -284,21 +294,23 @@ function Add-CompleteMatrix {
     )
 
     foreach ($api in @(24, 25, 26, 28, 34, 36)) {
-        $receipt = if ($api -eq 36) {
-            New-TestReceipt `
-                -CampaignId $CampaignId `
-                -ApiLevel $api `
-                -MatrixCellId 'api-36-arm64-physical' `
-                -DeviceKind PHYSICAL `
-                -Abi 'arm64-v8a'
-        } else {
-            New-TestReceipt -CampaignId $CampaignId -ApiLevel $api
-        }
+        $receipt = New-TestReceipt -CampaignId $CampaignId -ApiLevel $api
         if ($null -ne $Mutate) {
             & $Mutate $receipt $api
         }
         [void](Add-TestReceipt -Receipt $receipt -JournalPath $JournalPath -ReceiptPath $ReceiptPath)
     }
+
+    $physicalReceipt = New-TestReceipt `
+        -CampaignId $CampaignId `
+        -ApiLevel 31 `
+        -MatrixCellId 'api31-arm64-v8a-physical-qv710af65f' `
+        -DeviceKind PHYSICAL `
+        -Abi 'arm64-v8a'
+    if ($null -ne $Mutate) {
+        & $Mutate $physicalReceipt 31
+    }
+    [void](Add-TestReceipt -Receipt $physicalReceipt -JournalPath $JournalPath -ReceiptPath $ReceiptPath)
 }
 
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)
@@ -315,16 +327,22 @@ try {
 
         $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
         Assert-True -Condition $gate.passed -Message ($gate.reasons -join '; ')
-        Assert-True -Condition ($gate.canonicalReceiptCount -eq 6) -Message 'Expected six canonical receipts'
-        Assert-True -Condition ($gate.coveredApiLevels.Count -eq 6) -Message 'Expected six covered APIs'
+        Assert-True -Condition ($gate.canonicalReceiptCount -eq 7) -Message 'Expected seven canonical receipts'
+        Assert-True -Condition ($gate.passingCanonicalReceiptCount -eq 7) -Message 'Expected seven passing canonical receipts'
+        Assert-True -Condition ($gate.coveredApiLevels.Count -eq 7) -Message 'Expected seven covered device APIs'
+        Assert-True -Condition (($gate.coveredApiLevels -join ',') -ceq '24,25,26,28,31,34,36') -Message 'Covered device API set drifted'
+        Assert-True -Condition ($gate.requiredMatrixCellIds.Count -eq 7) -Message 'Expected seven required matrix cells'
+        Assert-True -Condition ($gate.coveredMatrixCellIds.Count -eq 7) -Message 'Expected seven covered matrix cells'
+        Assert-True -Condition ($gate.missingMatrixCellIds.Count -eq 0) -Message 'Complete matrix reported missing cells'
+        Assert-True -Condition ($gate.unexpectedMatrixCellIds.Count -eq 0) -Message 'Complete matrix reported unexpected cells'
         Assert-True -Condition $gate.physicalArm64Covered -Message 'Physical arm64 coverage missing'
         Assert-True -Condition $gate.emulatorX86_64Covered -Message 'Emulator x86_64 coverage missing'
 
         $verified = Read-R1MatrixJournal -JournalPath $journal -SchemaPath $schemaPath
-        Assert-True -Condition ($verified.Entries.Count -eq 6) -Message 'Journal verification lost entries'
+        Assert-True -Condition ($verified.Entries.Count -eq 7) -Message 'Journal verification lost entries'
         Assert-True -Condition ($verified.HeadEntrySha256 -match '^[a-f0-9]{64}$') -Message 'Journal head hash missing'
         $minApis = @($verified.Entries | ForEach-Object { $_.Receipt.request.minApi } | Sort-Object -Unique)
-        Assert-True -Condition ($minApis.Count -eq 6) -Message 'Cross-API campaign did not retain one device-specific minApi per row'
+        Assert-True -Condition ($minApis.Count -eq 7) -Message 'Cross-device campaign did not retain one device-specific minApi per row'
     }
 
     Invoke-TestCase -Name 'canonical failure cannot be overwritten by a later pass' -Action {
@@ -336,13 +354,13 @@ try {
         $failure = New-TestReceipt `
             -CampaignId $campaign `
             -ApiLevel 24 `
-            -MatrixCellId 'api-24-formal' `
+            -MatrixCellId 'api24-x86_64-emulator' `
             -Outcome FAIL
         [void](Add-TestReceipt -Receipt $failure -JournalPath $journal -ReceiptPath $candidate)
         $laterPass = New-TestReceipt `
             -CampaignId $campaign `
             -ApiLevel 24 `
-            -MatrixCellId 'api-24-formal'
+            -MatrixCellId 'api24-x86_64-emulator'
         [void](Add-TestReceipt -Receipt $laterPass -JournalPath $journal -ReceiptPath $candidate)
 
         $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
@@ -435,6 +453,104 @@ try {
         Assert-True -Condition (($gate.reasons -join ' ') -like '*mix repository, APK, input, or compile-request identities*') -Message 'Identity drift was not explained'
     }
 
+    Invoke-TestCase -Name 'canonical receipt must identify the exact Android test APK' -Action {
+        $caseDir = Join-Path $tempRoot 'missing-test-apk'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 28) { [void]$receipt.apks.Remove('test') }
+            }
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Canonical receipt without a test APK identity incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*does not identify the exact Android test APK*') -Message 'Missing-test-APK reason was not explained'
+    }
+
+    Invoke-TestCase -Name 'test APK SHA drift changes the campaign identity' -Action {
+        $caseDir = Join-Path $tempRoot 'test-apk-drift'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 34) { $receipt.apks.test.sha256 = ('0' * 64) }
+            }
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Mixed test APK identity incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*mix repository, APK, input, or compile-request identities*') -Message 'Test APK drift was not included in the campaign identity'
+        Assert-True -Condition ($null -eq $gate.campaignIdentitySha256) -Message 'Mixed test APK identities produced one campaign identity'
+    }
+
+    Invoke-TestCase -Name 'unexpected canonical cell ID fails closed' -Action {
+        $caseDir = Join-Path $tempRoot 'unexpected-cell'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 28) { $receipt.matrixCellId = 'api29-x86_64-emulator' }
+            }
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Unexpected canonical matrixCellId incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*Missing required CANONICAL matrixCellId values*api28-x86_64-emulator*') -Message 'Missing canonical cell was not explained'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*Unexpected CANONICAL matrixCellId values*api29-x86_64-emulator*') -Message 'Unexpected canonical cell was not explained'
+    }
+
+    Invoke-TestCase -Name 'canonical receipt count is exactly seven' -Action {
+        $caseDir = Join-Path $tempRoot 'canonical-count'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 31) { $receipt.evidenceClass = 'SMOKE' }
+            }
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Six canonical receipts incorrectly passed the seven-cell gate'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*Expected exactly 7 CANONICAL receipts, found 6*') -Message 'Exact canonical-count reason missing'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*api31-arm64-v8a-physical-qv710af65f*') -Message 'Missing physical cell was not explained'
+    }
+
+    Invoke-TestCase -Name 'canonical cell device shape is exact' -Action {
+        $caseDir = Join-Path $tempRoot 'cell-shape'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 34) { $receipt.device.avdName = 'DEX_R1_API33_X64' }
+            }
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        Assert-True -Condition (-not $gate.passed) -Message 'Wrong AVD shape incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like "*api34-x86_64-emulator*device.avdName*DEX_R1_API34_X64*") -Message 'Wrong AVD shape was not explained'
+    }
+
     Invoke-TestCase -Name 'dirty source tree fails canonical gate' -Action {
         $caseDir = Join-Path $tempRoot 'dirty-tree'
         [void](New-Item -ItemType Directory -Path $caseDir)
@@ -489,6 +605,22 @@ try {
             -Action { Add-R1MatrixReceipt -JournalPath $journal -ReceiptPath $candidate -SchemaPath $schemaPath } `
             -MessagePattern '*violates the R1 receipt schema*'
         Assert-True -Condition (-not (Test-Path -LiteralPath $journal)) -Message 'Invalid receipt created a journal'
+    }
+
+    Invoke-TestCase -Name 'test APK identity rejects invented version fields' -Action {
+        $caseDir = Join-Path $tempRoot 'test-apk-version-reject'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $receipt = New-TestReceipt -CampaignId ([guid]::NewGuid().ToString()) -ApiLevel 24
+        $receipt.apks.test.Add('versionName', '6.8.0 Alpha7')
+        $receipt.apks.test.Add('versionCode', 5274)
+        Write-TestReceipt -Receipt $receipt -Path $candidate
+
+        Assert-Throws `
+            -Action { Add-R1MatrixReceipt -JournalPath $journal -ReceiptPath $candidate -SchemaPath $schemaPath } `
+            -MessagePattern '*violates the R1 receipt schema*'
+        Assert-True -Condition (-not (Test-Path -LiteralPath $journal)) -Message 'Invented test APK version fields created a journal'
     }
 
     Invoke-TestCase -Name 'resolved explicit serial is independently enforced' -Action {

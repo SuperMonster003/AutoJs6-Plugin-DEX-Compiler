@@ -8,6 +8,64 @@ $script:GateSchemaVersion = 'autojs6.dex.r1.matrix-gate/v1'
 $script:GenesisHash = 'GENESIS'
 $script:EmptySha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 $script:DefaultRequiredApiLevels = @(24, 25, 26, 28, 34, 36)
+$script:CanonicalCellShapes = [ordered]@{
+    'api24-x86_64-emulator' = [pscustomobject][ordered]@{
+        ApiLevel = 24
+        Abi = 'x86_64'
+        Kind = 'EMULATOR'
+        AvdName = 'DEX_R1_API24_X64'
+        ExactSerial = $null
+        SerialPattern = '^emulator-[0-9]+$'
+    }
+    'api25-x86_64-emulator' = [pscustomobject][ordered]@{
+        ApiLevel = 25
+        Abi = 'x86_64'
+        Kind = 'EMULATOR'
+        AvdName = 'DEX_R1_API25_X64'
+        ExactSerial = $null
+        SerialPattern = '^emulator-[0-9]+$'
+    }
+    'api26-x86_64-emulator' = [pscustomobject][ordered]@{
+        ApiLevel = 26
+        Abi = 'x86_64'
+        Kind = 'EMULATOR'
+        AvdName = 'DEX_R1_API26_X64'
+        ExactSerial = $null
+        SerialPattern = '^emulator-[0-9]+$'
+    }
+    'api28-x86_64-emulator' = [pscustomobject][ordered]@{
+        ApiLevel = 28
+        Abi = 'x86_64'
+        Kind = 'EMULATOR'
+        AvdName = 'DEX_R1_API28_X64'
+        ExactSerial = $null
+        SerialPattern = '^emulator-[0-9]+$'
+    }
+    'api34-x86_64-emulator' = [pscustomobject][ordered]@{
+        ApiLevel = 34
+        Abi = 'x86_64'
+        Kind = 'EMULATOR'
+        AvdName = 'DEX_R1_API34_X64'
+        ExactSerial = $null
+        SerialPattern = '^emulator-[0-9]+$'
+    }
+    'api36-x86_64-emulator' = [pscustomobject][ordered]@{
+        ApiLevel = 36
+        Abi = 'x86_64'
+        Kind = 'EMULATOR'
+        AvdName = 'DEX_R1_API36_X64'
+        ExactSerial = $null
+        SerialPattern = '^emulator-[0-9]+$'
+    }
+    'api31-arm64-v8a-physical-qv710af65f' = [pscustomobject][ordered]@{
+        ApiLevel = 31
+        Abi = 'arm64-v8a'
+        Kind = 'PHYSICAL'
+        AvdName = $null
+        ExactSerial = 'QV710AF65F'
+        SerialPattern = $null
+    }
+}
 
 function Get-R1Sha256Text {
     param(
@@ -623,9 +681,25 @@ function Invoke-R1MatrixGate {
     $nonCanonical = @($journal.Entries | Where-Object { $_.Receipt.evidenceClass -ne 'CANONICAL' })
     $passingCanonical = @($canonical | Where-Object { $_.Receipt.outcome -eq 'PASS' })
     $failedCanonical = @($canonical | Where-Object { $_.Receipt.outcome -ne 'PASS' })
+    $requiredCellIds = @($script:CanonicalCellShapes.Keys)
+    $canonicalCellIds = @($canonical | ForEach-Object { $_.Receipt.matrixCellId } | Sort-Object -Unique)
+    $missingCellIds = @($requiredCellIds | Where-Object { $_ -cnotin $canonicalCellIds })
+    $unexpectedCellIds = @($canonicalCellIds | Where-Object { $_ -cnotin $requiredCellIds })
 
     if ($canonical.Count -eq 0) {
         $reasons.Add('No CANONICAL receipts are present; smoke and diagnostic receipts never satisfy the gate.')
+    }
+    if ($canonical.Count -ne $requiredCellIds.Count) {
+        $reasons.Add("Expected exactly $($requiredCellIds.Count) CANONICAL receipts, found $($canonical.Count).")
+    }
+    if ($passingCanonical.Count -ne $requiredCellIds.Count) {
+        $reasons.Add("Expected exactly $($requiredCellIds.Count) passing CANONICAL receipts, found $($passingCanonical.Count).")
+    }
+    if ($missingCellIds.Count -gt 0) {
+        $reasons.Add("Missing required CANONICAL matrixCellId values: $($missingCellIds -join ', ').")
+    }
+    if ($unexpectedCellIds.Count -gt 0) {
+        $reasons.Add("Unexpected CANONICAL matrixCellId values: $($unexpectedCellIds -join ', ').")
     }
     foreach ($entry in $failedCanonical) {
         $reasons.Add("Canonical receipt $($entry.Receipt.receiptId) is $($entry.Receipt.outcome); later PASS receipts cannot overwrite it.")
@@ -645,6 +719,33 @@ function Invoke-R1MatrixGate {
 
     foreach ($entry in $canonical) {
         $receipt = $entry.Receipt
+        $expectedShape = $script:CanonicalCellShapes[$receipt.matrixCellId]
+        if ($null -ne $expectedShape) {
+            if ($receipt.device.apiLevel -ne $expectedShape.ApiLevel) {
+                $reasons.Add("Canonical matrixCellId '$($receipt.matrixCellId)' has device.apiLevel $($receipt.device.apiLevel); expected $($expectedShape.ApiLevel).")
+            }
+            if ($receipt.device.abi -cne $expectedShape.Abi) {
+                $reasons.Add("Canonical matrixCellId '$($receipt.matrixCellId)' has device.abi '$($receipt.device.abi)'; expected '$($expectedShape.Abi)'.")
+            }
+            if ($receipt.device.kind -cne $expectedShape.Kind) {
+                $reasons.Add("Canonical matrixCellId '$($receipt.matrixCellId)' has device.kind '$($receipt.device.kind)'; expected '$($expectedShape.Kind)'.")
+            }
+            $avdMatches = if ($null -eq $expectedShape.AvdName) {
+                $null -eq $receipt.device.avdName
+            } else {
+                $receipt.device.avdName -ceq $expectedShape.AvdName
+            }
+            if (-not $avdMatches) {
+                $reasons.Add("Canonical matrixCellId '$($receipt.matrixCellId)' has device.avdName '$($receipt.device.avdName)'; expected '$($expectedShape.AvdName)'.")
+            }
+            if ($null -ne $expectedShape.ExactSerial) {
+                if ($receipt.device.serial -cne $expectedShape.ExactSerial) {
+                    $reasons.Add("Canonical matrixCellId '$($receipt.matrixCellId)' has device.serial '$($receipt.device.serial)'; expected '$($expectedShape.ExactSerial)'.")
+                }
+            } elseif ($receipt.device.serial -cnotmatch $expectedShape.SerialPattern) {
+                $reasons.Add("Canonical matrixCellId '$($receipt.matrixCellId)' has non-emulator device.serial '$($receipt.device.serial)'.")
+            }
+        }
         if ($receipt.repositories.host.treeState -ne 'CLEAN' -or $receipt.repositories.plugin.treeState -ne 'CLEAN') {
             $reasons.Add("Canonical receipt $($receipt.receiptId) was not collected from two clean source trees.")
         }
@@ -696,7 +797,9 @@ function Invoke-R1MatrixGate {
         if ($hostSigners -cne $pluginSigners -or $pluginSigners -cne $providerSigners) {
             $reasons.Add("Canonical receipt $($receipt.receiptId) does not preserve the exact host/plugin/provider signer set.")
         }
-        if ($receipt.apks.PSObject.Properties.Name -contains 'test') {
+        if (-not ($receipt.apks.PSObject.Properties.Name -contains 'test')) {
+            $reasons.Add("Canonical receipt $($receipt.receiptId) does not identify the exact Android test APK.")
+        } else {
             $testSigners = Get-R1NormalizedSignerKey -Signers @($receipt.apks.test.signerCertificateSha256)
             if ($hostSigners -cne $testSigners) {
                 $reasons.Add("Canonical receipt $($receipt.receiptId) test APK signer set differs from the host.")
@@ -751,6 +854,10 @@ function Invoke-R1MatrixGate {
         passingCanonicalReceiptCount = $passingCanonical.Count
         failedCanonicalReceiptIds = @($failedCanonical | ForEach-Object { $_.Receipt.receiptId })
         ignoredNonCanonicalReceiptCount = $nonCanonical.Count
+        requiredMatrixCellIds = $requiredCellIds
+        coveredMatrixCellIds = $canonicalCellIds
+        missingMatrixCellIds = $missingCellIds
+        unexpectedMatrixCellIds = $unexpectedCellIds
         requiredApiLevels = $expectedApis
         coveredApiLevels = $coveredApis
         missingApiLevels = $missingApis

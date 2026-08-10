@@ -83,7 +83,7 @@
           "$ref": "#/definitions/apkIdentity"
         },
         "test": {
-          "$ref": "#/definitions/apkIdentity"
+          "$ref": "#/definitions/testArtifactIdentity"
         }
       }
     },
@@ -562,6 +562,26 @@
         "versionCode": {
           "type": "integer",
           "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/definitions/sha256"
+        },
+        "signerCertificateSha256": {
+          "$ref": "#/definitions/signerSet"
+        }
+      }
+    },
+    "testArtifactIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageName",
+        "sha256",
+        "signerCertificateSha256"
+      ],
+      "properties": {
+        "packageName": {
+          "$ref": "#/definitions/packageName"
         },
         "sha256": {
           "$ref": "#/definitions/sha256"
