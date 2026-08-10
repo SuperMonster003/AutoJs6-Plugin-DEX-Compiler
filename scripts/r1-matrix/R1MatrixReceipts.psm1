@@ -8,6 +8,22 @@ $script:GateSchemaVersion = 'autojs6.dex.r1.matrix-gate/v1'
 $script:GenesisHash = 'GENESIS'
 $script:EmptySha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 $script:DefaultRequiredApiLevels = @(24, 25, 26, 28, 34, 36)
+$script:CanonicalAttemptSchemaVersion = 'autojs6.dex.r1.matrix-canonical-attempt/v1'
+$script:CanonicalAttemptMarkerSuffix = '.canonical-attempt.json'
+$script:CanonicalAttemptFields = @(
+    'schemaVersion',
+    'campaignId',
+    'matrixCellId',
+    'receiptId',
+    'serial',
+    'createdAtUtc',
+    'runnerSha256',
+    'hostCommit',
+    'pluginCommit',
+    'hostApkSha256',
+    'pluginApkSha256',
+    'testApkSha256'
+)
 $script:CanonicalCellShapes = [ordered]@{
     'api24-x86_64-emulator' = [pscustomobject][ordered]@{
         ApiLevel = 24
@@ -658,6 +674,189 @@ function Test-R1ResolvedAdbSerial {
     return $Command -match "(?i)(?:^|\s)-s\s+(?:`"$escapedSerial`"|'$escapedSerial'|$escapedSerial)(?:\s|$)"
 }
 
+function Read-R1CanonicalAttemptMarkers {
+    param(
+        [Parameter(Mandatory)]
+        [string] $AttemptDirectory,
+
+        [Parameter(Mandatory)]
+        [string] $CampaignId
+    )
+
+    $reasons = [Collections.Generic.List[string]]::new()
+    $markers = [Collections.Generic.List[object]]::new()
+    $resolvedAttemptDirectory = $null
+    try {
+        $resolvedAttemptDirectory = [IO.Path]::GetFullPath($AttemptDirectory).TrimEnd(
+            [char[]] @([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
+        )
+    } catch {
+        $reasons.Add("Canonical attempt directory path is invalid: $($_.Exception.Message)")
+        return [pscustomobject][ordered]@{
+            Directory = $null
+            DirectFileCount = 0
+            Markers = @()
+            Reasons = @($reasons)
+        }
+    }
+
+    $attemptsDirectoryInfo = [IO.DirectoryInfo]::new($resolvedAttemptDirectory)
+    $campaignDirectoryInfo = $attemptsDirectoryInfo.Parent
+    $runsDirectoryInfo = if ($null -ne $campaignDirectoryInfo) { $campaignDirectoryInfo.Parent } else { $null }
+    if (
+        $attemptsDirectoryInfo.Name -cne 'attempts' -or
+        $null -eq $campaignDirectoryInfo -or
+        $campaignDirectoryInfo.Name -cne $CampaignId -or
+        $null -eq $runsDirectoryInfo -or
+        $runsDirectoryInfo.Name -cne 'runs'
+    ) {
+        $reasons.Add("Canonical attempt directory must be externalRoot/runs/$CampaignId/attempts.")
+    }
+
+    if (-not (Test-Path -LiteralPath $resolvedAttemptDirectory -PathType Container)) {
+        $reasons.Add("Canonical attempt directory does not exist: $resolvedAttemptDirectory")
+        return [pscustomobject][ordered]@{
+            Directory = $resolvedAttemptDirectory
+            DirectFileCount = 0
+            Markers = @()
+            Reasons = @($reasons)
+        }
+    }
+
+    $entries = try {
+        @(Get-ChildItem -LiteralPath $resolvedAttemptDirectory -Force -ErrorAction Stop | Sort-Object Name)
+    } catch {
+        $reasons.Add("Canonical attempt directory cannot be enumerated: $($_.Exception.Message)")
+        return [pscustomobject][ordered]@{
+            Directory = $resolvedAttemptDirectory
+            DirectFileCount = 0
+            Markers = @()
+            Reasons = @($reasons)
+        }
+    }
+
+    $files = [Collections.Generic.List[IO.FileInfo]]::new()
+    foreach ($entry in $entries) {
+        $isReparsePoint = ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+        if ($entry.PSIsContainer -or $isReparsePoint -or $entry -isnot [IO.FileInfo]) {
+            $reasons.Add("Canonical attempt directory contains a non-regular direct child: $($entry.Name)")
+            continue
+        }
+        $files.Add($entry)
+    }
+
+    $expectedFileNames = @($script:CanonicalCellShapes.Keys | ForEach-Object {
+        "$_$($script:CanonicalAttemptMarkerSuffix)"
+    })
+    $actualFileNames = @($files | ForEach-Object { $_.Name })
+    $missingFileNames = @($expectedFileNames | Where-Object { $_ -cnotin $actualFileNames })
+    $unexpectedFileNames = @($actualFileNames | Where-Object { $_ -cnotin $expectedFileNames })
+    if ($files.Count -ne $expectedFileNames.Count) {
+        $reasons.Add("Expected exactly $($expectedFileNames.Count) canonical attempt marker files, found $($files.Count).")
+    }
+    if ($missingFileNames.Count -gt 0) {
+        $reasons.Add("Missing canonical attempt marker files: $($missingFileNames -join ', ').")
+    }
+    if ($unexpectedFileNames.Count -gt 0) {
+        $reasons.Add("Unexpected canonical attempt marker files: $($unexpectedFileNames -join ', ').")
+    }
+
+    $strictUtf8 = [Text.UTF8Encoding]::new($false, $true)
+    foreach ($file in $files) {
+        try {
+            $bytes = [IO.File]::ReadAllBytes($file.FullName)
+            if ($bytes.Length -eq 0) {
+                throw 'file is empty'
+            }
+            if (
+                $bytes.Length -ge 3 -and
+                $bytes[0] -eq 0xEF -and
+                $bytes[1] -eq 0xBB -and
+                $bytes[2] -eq 0xBF
+            ) {
+                throw 'UTF-8 BOM is forbidden'
+            }
+            $lineFeedCount = @($bytes | Where-Object { $_ -eq 0x0A }).Count
+            if ($bytes[$bytes.Length - 1] -ne 0x0A -or $lineFeedCount -ne 1 -or $bytes -contains 0x0D) {
+                throw 'file must contain one JSON line followed by exactly one LF'
+            }
+            $text = $strictUtf8.GetString($bytes)
+            $json = $text.Substring(0, $text.Length - 1)
+            if ([string]::IsNullOrWhiteSpace($json)) {
+                throw 'JSON payload is empty'
+            }
+            $marker = ConvertFrom-R1StrictJson -Json $json -Label "attempt marker '$($file.Name)'"
+            if ($marker -isnot [pscustomobject]) {
+                throw 'JSON root must be an object'
+            }
+
+            $propertyNames = @($marker.PSObject.Properties.Name)
+            $missingFields = @($script:CanonicalAttemptFields | Where-Object { $_ -cnotin $propertyNames })
+            $extraFields = @($propertyNames | Where-Object { $_ -cnotin $script:CanonicalAttemptFields })
+            if (
+                $propertyNames.Count -ne $script:CanonicalAttemptFields.Count -or
+                $missingFields.Count -gt 0 -or
+                $extraFields.Count -gt 0
+            ) {
+                throw "marker must contain only the exact field set; missing=[$($missingFields -join ', ')] extra=[$($extraFields -join ', ')]"
+            }
+            foreach ($field in $script:CanonicalAttemptFields) {
+                $value = $marker.$field
+                if ($value -isnot [string] -or [string]::IsNullOrWhiteSpace([string] $value)) {
+                    throw "field '$field' must be a non-empty string"
+                }
+            }
+            if ($marker.schemaVersion -cne $script:CanonicalAttemptSchemaVersion) {
+                throw "schemaVersion must be $($script:CanonicalAttemptSchemaVersion)"
+            }
+            if ($marker.campaignId -notmatch '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[1-8][A-Fa-f0-9]{3}-[89AaBb][A-Fa-f0-9]{3}-[A-Fa-f0-9]{12}$') {
+                throw 'campaignId is not a UUID'
+            }
+            if ($marker.receiptId -notmatch '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[1-8][A-Fa-f0-9]{3}-[89AaBb][A-Fa-f0-9]{3}-[A-Fa-f0-9]{12}$') {
+                throw 'receiptId is not a UUID'
+            }
+            if ($marker.matrixCellId -notmatch '^[a-z0-9][a-z0-9._-]{2,95}$') {
+                throw 'matrixCellId is invalid'
+            }
+            if ($marker.serial -notmatch '^[A-Za-z0-9._:-]+$' -or $marker.serial.Length -gt 128) {
+                throw 'serial is invalid'
+            }
+            [void](Assert-R1UtcTimestamp -Value $marker.createdAtUtc -Label "attempt marker '$($file.Name)' createdAtUtc")
+            foreach ($field in @('runnerSha256', 'hostApkSha256', 'pluginApkSha256', 'testApkSha256')) {
+                if ($marker.$field -notmatch '^[A-Fa-f0-9]{64}$') {
+                    throw "field '$field' is not a SHA-256 digest"
+                }
+            }
+            foreach ($field in @('hostCommit', 'pluginCommit')) {
+                if ($marker.$field -notmatch '^(?:[A-Fa-f0-9]{40}|[A-Fa-f0-9]{64})$') {
+                    throw "field '$field' is not a full commit digest"
+                }
+            }
+
+            $contentFileName = "$($marker.matrixCellId)$($script:CanonicalAttemptMarkerSuffix)"
+            if ($file.Name -cne $contentFileName) {
+                $reasons.Add("Canonical attempt marker '$($file.Name)' does not match its matrixCellId filename '$contentFileName'.")
+            }
+            $markers.Add([pscustomobject][ordered]@{
+                FileName = $file.Name
+                Value = $marker
+            })
+        } catch {
+            $reasons.Add("Canonical attempt marker '$($file.Name)' is malformed: $($_.Exception.Message)")
+        }
+    }
+    if ($markers.Count -ne $expectedFileNames.Count) {
+        $reasons.Add("Expected exactly $($expectedFileNames.Count) valid canonical attempt markers, decoded $($markers.Count).")
+    }
+
+    return [pscustomobject][ordered]@{
+        Directory = $resolvedAttemptDirectory
+        DirectFileCount = $files.Count
+        Markers = @($markers)
+        Reasons = @($reasons)
+    }
+}
+
 function Invoke-R1MatrixGate {
     [CmdletBinding()]
     param(
@@ -666,6 +865,9 @@ function Invoke-R1MatrixGate {
 
         [Parameter(Mandatory)]
         [string] $SchemaPath,
+
+        [Parameter(Mandatory)]
+        [string] $AttemptDirectory,
 
         [int[]] $RequiredApiLevels = $script:DefaultRequiredApiLevels
     )
@@ -685,6 +887,11 @@ function Invoke-R1MatrixGate {
     $canonicalCellIds = @($canonical | ForEach-Object { $_.Receipt.matrixCellId } | Sort-Object -Unique)
     $missingCellIds = @($requiredCellIds | Where-Object { $_ -cnotin $canonicalCellIds })
     $unexpectedCellIds = @($canonicalCellIds | Where-Object { $_ -cnotin $requiredCellIds })
+    $attemptRead = Read-R1CanonicalAttemptMarkers -AttemptDirectory $AttemptDirectory -CampaignId $journal.CampaignId
+    foreach ($attemptReason in $attemptRead.Reasons) {
+        $reasons.Add($attemptReason)
+    }
+    $attemptMarkers = @($attemptRead.Markers)
 
     if ($canonical.Count -eq 0) {
         $reasons.Add('No CANONICAL receipts are present; smoke and diagnostic receipts never satisfy the gate.')
@@ -823,6 +1030,82 @@ function Invoke-R1MatrixGate {
         }
     }
 
+    $attemptReceiptGroups = @($attemptMarkers | Group-Object { $_.Value.receiptId })
+    foreach ($group in $attemptReceiptGroups) {
+        if ($group.Count -gt 1) {
+            $reasons.Add("Canonical attempt receiptId '$($group.Name)' occurs $($group.Count) times and is ambiguous.")
+        }
+    }
+    $attemptCellGroups = @($attemptMarkers | Group-Object { $_.Value.matrixCellId })
+    foreach ($group in $attemptCellGroups) {
+        if ($group.Count -gt 1) {
+            $reasons.Add("Canonical attempt matrixCellId '$($group.Name)' occurs $($group.Count) times and is ambiguous.")
+        }
+    }
+
+    $runnerShaKeys = @($attemptMarkers | ForEach-Object {
+        $_.Value.runnerSha256.ToLowerInvariant()
+    } | Sort-Object -Unique)
+    if ($runnerShaKeys.Count -ne 1) {
+        $reasons.Add("Canonical attempt markers must share exactly one runnerSha256; found $($runnerShaKeys.Count).")
+    }
+
+    $boundAttemptCount = 0
+    foreach ($attemptEntry in $attemptMarkers) {
+        $marker = $attemptEntry.Value
+        $matchingReceipts = @($canonical | Where-Object { $_.Receipt.receiptId -ceq $marker.receiptId })
+        if ($matchingReceipts.Count -eq 0) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' is dangling; receiptId '$($marker.receiptId)' is not a CANONICAL receipt.")
+            continue
+        }
+        if ($matchingReceipts.Count -gt 1) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' matches multiple CANONICAL receipts.")
+            continue
+        }
+        $receipt = $matchingReceipts[0].Receipt
+        $boundAttemptCount++
+        if ($marker.campaignId -cne $journal.CampaignId -or $marker.campaignId -cne $receipt.campaignId) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' campaignId does not match its journal and receipt.")
+        }
+        if ($marker.matrixCellId -cne $receipt.matrixCellId) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' matrixCellId does not match receipt $($receipt.receiptId).")
+        }
+        if ($marker.serial -cne $receipt.device.serial) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' serial does not match receipt $($receipt.receiptId).")
+        }
+        if ($marker.hostCommit -ine $receipt.repositories.host.commit) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' hostCommit does not match receipt $($receipt.receiptId).")
+        }
+        if ($marker.pluginCommit -ine $receipt.repositories.plugin.commit) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' pluginCommit does not match receipt $($receipt.receiptId).")
+        }
+        if ($marker.hostApkSha256 -ine $receipt.apks.host.sha256) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' hostApkSha256 does not match receipt $($receipt.receiptId).")
+        }
+        if ($marker.pluginApkSha256 -ine $receipt.apks.plugin.sha256) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' pluginApkSha256 does not match receipt $($receipt.receiptId).")
+        }
+        if (
+            $receipt.apks.PSObject.Properties.Name -contains 'test' -and
+            $marker.testApkSha256 -ine $receipt.apks.test.sha256
+        ) {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' testApkSha256 does not match receipt $($receipt.receiptId).")
+        }
+        if ($receipt.outcome -cne 'PASS') {
+            $reasons.Add("Canonical attempt marker '$($attemptEntry.FileName)' binds receipt $($receipt.receiptId) with outcome $($receipt.outcome), not PASS.")
+        }
+    }
+
+    $missingAttemptReceiptIds = [Collections.Generic.List[string]]::new()
+    foreach ($entry in $canonical) {
+        $receipt = $entry.Receipt
+        $matches = @($attemptMarkers | Where-Object { $_.Value.receiptId -ceq $receipt.receiptId })
+        if ($matches.Count -eq 0) {
+            $missingAttemptReceiptIds.Add($receipt.receiptId)
+            $reasons.Add("CANONICAL receipt $($receipt.receiptId) has no canonical attempt marker.")
+        }
+    }
+
     $coveredApis = @($passingCanonical | ForEach-Object { [int] $_.Receipt.device.apiLevel } | Sort-Object -Unique)
     $missingApis = @($expectedApis | Where-Object { $_ -notin $coveredApis })
     if ($missingApis.Count -gt 0) {
@@ -854,6 +1137,12 @@ function Invoke-R1MatrixGate {
         passingCanonicalReceiptCount = $passingCanonical.Count
         failedCanonicalReceiptIds = @($failedCanonical | ForEach-Object { $_.Receipt.receiptId })
         ignoredNonCanonicalReceiptCount = $nonCanonical.Count
+        attemptDirectory = $attemptRead.Directory
+        attemptMarkerFileCount = $attemptRead.DirectFileCount
+        validAttemptMarkerCount = $attemptMarkers.Count
+        boundAttemptMarkerCount = $boundAttemptCount
+        missingAttemptReceiptIds = @($missingAttemptReceiptIds)
+        attemptRunnerSha256 = if ($runnerShaKeys.Count -eq 1) { $runnerShaKeys[0] } else { $null }
         requiredMatrixCellIds = $requiredCellIds
         coveredMatrixCellIds = $canonicalCellIds
         missingMatrixCellIds = $missingCellIds

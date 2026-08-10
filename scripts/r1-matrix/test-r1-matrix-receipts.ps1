@@ -13,6 +13,8 @@ Import-Module $modulePath -Force
 
 $script:EmptySha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
 $script:CampaignSigner = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+$script:CanonicalAttemptSchemaVersion = 'autojs6.dex.r1.matrix-canonical-attempt/v1'
+$script:CanonicalAttemptRunnerSha256 = '1111111111111111111111111111111111111111111111111111111111111111'
 $script:TestsPassed = 0
 $script:TestsFailed = 0
 
@@ -250,6 +252,34 @@ function New-TestReceipt {
     }
 }
 
+function Set-TestReceiptFailure {
+    param(
+        [Parameter(Mandatory)]
+        [System.Collections.IDictionary] $Receipt
+    )
+
+    $Receipt.outcome = 'FAIL'
+    $Receipt.output.present = $false
+    $Receipt.output.sizeBytes = 0
+    $Receipt.output.sha256 = $null
+    $Receipt.output.dexEntryCount = 0
+    $Receipt.output.entryManifestSha256 = $null
+    $Receipt.execution.attempted = $false
+    $Receipt.execution.passed = $false
+    $Receipt.execution.className = $null
+    $Receipt.execution.resultSha256 = $null
+    $Receipt.commands[0].exitCode = 17
+    $Receipt.cleanup.succeeded = $false
+    $Receipt.cleanup.packagesRestoredToPreflight = $false
+    $Receipt.cleanup.processesStopped = $false
+    $Receipt.cleanup.workspaceClean = $false
+    $Receipt.failure = [ordered]@{
+        stage = 'INFRASTRUCTURE'
+        code = 'TEST_FAILURE'
+        messageSha256 = ('a' * 64)
+    }
+}
+
 function Write-TestReceipt {
     param(
         [Parameter(Mandatory)]
@@ -277,6 +307,78 @@ function Add-TestReceipt {
 
     Write-TestReceipt -Receipt $Receipt -Path $ReceiptPath
     return Add-R1MatrixReceipt -JournalPath $JournalPath -ReceiptPath $ReceiptPath -SchemaPath $schemaPath
+}
+
+function Write-TestAttemptMarker {
+    param(
+        [Parameter(Mandatory)]
+        [System.Collections.IDictionary] $Marker,
+
+        [Parameter(Mandatory)]
+        [string] $Path
+    )
+
+    $json = $Marker | ConvertTo-Json -Depth 20 -Compress
+    [IO.File]::WriteAllText($Path, $json + "`n", [Text.UTF8Encoding]::new($false))
+}
+
+function Write-TestAttemptMarkersFromJournal {
+    param(
+        [Parameter(Mandatory)]
+        [string] $JournalPath,
+
+        [Parameter(Mandatory)]
+        [string] $CaseDirectory,
+
+        [string] $RunnerSha256 = $script:CanonicalAttemptRunnerSha256
+    )
+
+    $journal = Read-R1MatrixJournal -JournalPath $JournalPath -SchemaPath $schemaPath
+    $attemptDirectory = Join-Path $CaseDirectory "externalRoot\runs\$($journal.CampaignId)\attempts"
+    [void](New-Item -ItemType Directory -Path $attemptDirectory -Force)
+    foreach ($entry in @($journal.Entries | Where-Object { $_.Receipt.evidenceClass -eq 'CANONICAL' })) {
+        $receipt = $entry.Receipt
+        $testApkSha256 = if ($receipt.apks.PSObject.Properties.Name -contains 'test') {
+            $receipt.apks.test.sha256
+        } else {
+            ('e' * 64)
+        }
+        $marker = [ordered]@{
+            schemaVersion = $script:CanonicalAttemptSchemaVersion
+            campaignId = $receipt.campaignId
+            matrixCellId = $receipt.matrixCellId
+            receiptId = $receipt.receiptId
+            serial = $receipt.device.serial
+            createdAtUtc = $receipt.run.startedAtUtc
+            runnerSha256 = $RunnerSha256
+            hostCommit = $receipt.repositories.host.commit
+            pluginCommit = $receipt.repositories.plugin.commit
+            hostApkSha256 = $receipt.apks.host.sha256
+            pluginApkSha256 = $receipt.apks.plugin.sha256
+            testApkSha256 = $testApkSha256
+        }
+        $path = Join-Path $attemptDirectory "$($receipt.matrixCellId).canonical-attempt.json"
+        Write-TestAttemptMarker -Marker $marker -Path $path
+    }
+    return $attemptDirectory
+}
+
+function Invoke-TestMatrixGate {
+    param(
+        [Parameter(Mandatory)]
+        [string] $JournalPath,
+
+        [Parameter(Mandatory)]
+        [string] $CaseDirectory
+    )
+
+    $attemptDirectory = Write-TestAttemptMarkersFromJournal `
+        -JournalPath $JournalPath `
+        -CaseDirectory $CaseDirectory
+    return Invoke-R1MatrixGate `
+        -JournalPath $JournalPath `
+        -SchemaPath $schemaPath `
+        -AttemptDirectory $attemptDirectory
 }
 
 function Add-CompleteMatrix {
@@ -325,7 +427,7 @@ try {
         $candidate = Join-Path $caseDir 'candidate.json'
         Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition $gate.passed -Message ($gate.reasons -join '; ')
         Assert-True -Condition ($gate.canonicalReceiptCount -eq 7) -Message 'Expected seven canonical receipts'
         Assert-True -Condition ($gate.passingCanonicalReceiptCount -eq 7) -Message 'Expected seven passing canonical receipts'
@@ -335,6 +437,11 @@ try {
         Assert-True -Condition ($gate.coveredMatrixCellIds.Count -eq 7) -Message 'Expected seven covered matrix cells'
         Assert-True -Condition ($gate.missingMatrixCellIds.Count -eq 0) -Message 'Complete matrix reported missing cells'
         Assert-True -Condition ($gate.unexpectedMatrixCellIds.Count -eq 0) -Message 'Complete matrix reported unexpected cells'
+        Assert-True -Condition ($gate.attemptMarkerFileCount -eq 7) -Message 'Expected seven attempt marker files'
+        Assert-True -Condition ($gate.validAttemptMarkerCount -eq 7) -Message 'Expected seven valid attempt markers'
+        Assert-True -Condition ($gate.boundAttemptMarkerCount -eq 7) -Message 'Expected seven receipt-bound attempt markers'
+        Assert-True -Condition ($gate.missingAttemptReceiptIds.Count -eq 0) -Message 'Complete matrix reported unbound receipts'
+        Assert-True -Condition ($gate.attemptRunnerSha256 -ceq $script:CanonicalAttemptRunnerSha256) -Message 'Attempt runner identity drifted'
         Assert-True -Condition $gate.physicalArm64Covered -Message 'Physical arm64 coverage missing'
         Assert-True -Condition $gate.emulatorX86_64Covered -Message 'Emulator x86_64 coverage missing'
 
@@ -343,6 +450,147 @@ try {
         Assert-True -Condition ($verified.HeadEntrySha256 -match '^[a-f0-9]{64}$') -Message 'Journal head hash missing'
         $minApis = @($verified.Entries | ForEach-Object { $_.Receipt.request.minApi } | Sort-Object -Unique)
         Assert-True -Condition ($minApis.Count -eq 7) -Message 'Cross-device campaign did not retain one device-specific minApi per row'
+    }
+
+    Invoke-TestCase -Name 'missing canonical attempt marker fails closed' -Action {
+        $caseDir = Join-Path $tempRoot 'attempt-missing'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+        $attemptDirectory = Write-TestAttemptMarkersFromJournal -JournalPath $journal -CaseDirectory $caseDir
+        Remove-Item -LiteralPath (Join-Path $attemptDirectory 'api28-x86_64-emulator.canonical-attempt.json')
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath -AttemptDirectory $attemptDirectory
+        Assert-True -Condition (-not $gate.passed) -Message 'A missing attempt marker incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*Missing canonical attempt marker files*api28-x86_64-emulator*') -Message 'Missing marker filename was not explained'
+        Assert-True -Condition ($gate.validAttemptMarkerCount -eq 6) -Message 'Missing marker did not reduce the valid marker count'
+        Assert-True -Condition ($gate.missingAttemptReceiptIds.Count -eq 1) -Message 'Missing receipt binding was not reported'
+    }
+
+    Invoke-TestCase -Name 'dangling extra canonical attempt marker fails closed' -Action {
+        $caseDir = Join-Path $tempRoot 'attempt-dangling'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+        $attemptDirectory = Write-TestAttemptMarkersFromJournal -JournalPath $journal -CaseDirectory $caseDir
+        $sourcePath = Join-Path $attemptDirectory 'api28-x86_64-emulator.canonical-attempt.json'
+        $extraMarker = [IO.File]::ReadAllText($sourcePath, [Text.UTF8Encoding]::new($false, $true)) |
+            ConvertFrom-Json -AsHashtable -DateKind String
+        $extraMarker.matrixCellId = 'api99-x86_64-emulator'
+        $extraMarker.receiptId = [guid]::NewGuid().ToString()
+        $extraMarker.serial = 'emulator-5592'
+        Write-TestAttemptMarker `
+            -Marker $extraMarker `
+            -Path (Join-Path $attemptDirectory 'api99-x86_64-emulator.canonical-attempt.json')
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath -AttemptDirectory $attemptDirectory
+        Assert-True -Condition (-not $gate.passed) -Message 'A dangling extra attempt marker incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*Unexpected canonical attempt marker files*api99-x86_64-emulator*') -Message 'Extra marker filename was not explained'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*is dangling*') -Message 'Dangling receipt binding was not explained'
+    }
+
+    Invoke-TestCase -Name 'malformed canonical attempt marker exact fields fail closed' -Action {
+        $caseDir = Join-Path $tempRoot 'attempt-malformed-fields'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+        $attemptDirectory = Write-TestAttemptMarkersFromJournal -JournalPath $journal -CaseDirectory $caseDir
+        $path = Join-Path $attemptDirectory 'api34-x86_64-emulator.canonical-attempt.json'
+        $marker = [IO.File]::ReadAllText($path, [Text.UTF8Encoding]::new($false, $true)) |
+            ConvertFrom-Json -AsHashtable -DateKind String
+        $marker.Add('inventedField', 'forbidden')
+        Write-TestAttemptMarker -Marker $marker -Path $path
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath -AttemptDirectory $attemptDirectory
+        Assert-True -Condition (-not $gate.passed) -Message 'A marker with an extra field incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*is malformed*exact field set*') -Message 'Malformed marker fields were not explained'
+        Assert-True -Condition ($gate.validAttemptMarkerCount -eq 6) -Message 'Malformed marker was counted as valid'
+    }
+
+    Invoke-TestCase -Name 'canonical attempt marker framing is exact' -Action {
+        $caseDir = Join-Path $tempRoot 'attempt-malformed-framing'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+        $attemptDirectory = Write-TestAttemptMarkersFromJournal -JournalPath $journal -CaseDirectory $caseDir
+        $path = Join-Path $attemptDirectory 'api25-x86_64-emulator.canonical-attempt.json'
+        $withoutFinalLf = [IO.File]::ReadAllText($path, [Text.UTF8Encoding]::new($false, $true)).TrimEnd("`n")
+        [IO.File]::WriteAllText($path, $withoutFinalLf, [Text.UTF8Encoding]::new($false))
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath -AttemptDirectory $attemptDirectory
+        Assert-True -Condition (-not $gate.passed) -Message 'A marker without its terminal LF incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*is malformed*exactly one LF*') -Message 'Malformed marker framing was not explained'
+    }
+
+    Invoke-TestCase -Name 'canonical attempt marker identity must bind its receipt' -Action {
+        $caseDir = Join-Path $tempRoot 'attempt-identity-mismatch'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+        $attemptDirectory = Write-TestAttemptMarkersFromJournal -JournalPath $journal -CaseDirectory $caseDir
+        $path = Join-Path $attemptDirectory 'api34-x86_64-emulator.canonical-attempt.json'
+        $marker = [IO.File]::ReadAllText($path, [Text.UTF8Encoding]::new($false, $true)) |
+            ConvertFrom-Json -AsHashtable -DateKind String
+        $marker.campaignId = [guid]::NewGuid().ToString()
+        $marker.matrixCellId = 'api35-x86_64-emulator'
+        $marker.serial = 'emulator-9998'
+        $marker.hostCommit = ('0' * 40)
+        $marker.pluginCommit = ('1' * 40)
+        $marker.hostApkSha256 = ('0' * 64)
+        $marker.pluginApkSha256 = ('1' * 64)
+        $marker.testApkSha256 = ('2' * 64)
+        Write-TestAttemptMarker -Marker $marker -Path $path
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath -AttemptDirectory $attemptDirectory
+        $reasons = $gate.reasons -join ' '
+        Assert-True -Condition (-not $gate.passed) -Message 'A marker with mismatched receipt identity incorrectly passed'
+        foreach ($field in @('campaignId', 'matrixCellId', 'serial', 'hostCommit', 'pluginCommit', 'hostApkSha256', 'pluginApkSha256', 'testApkSha256')) {
+            Assert-True -Condition ($reasons -like "*$field*") -Message "Marker mismatch for $field was not explained"
+        }
+    }
+
+    Invoke-TestCase -Name 'canonical attempt markers use one runner binary' -Action {
+        $caseDir = Join-Path $tempRoot 'attempt-runner-drift'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+        $attemptDirectory = Write-TestAttemptMarkersFromJournal -JournalPath $journal -CaseDirectory $caseDir
+        $path = Join-Path $attemptDirectory 'api36-x86_64-emulator.canonical-attempt.json'
+        $marker = [IO.File]::ReadAllText($path, [Text.UTF8Encoding]::new($false, $true)) |
+            ConvertFrom-Json -AsHashtable -DateKind String
+        $marker.runnerSha256 = ('2' * 64)
+        Write-TestAttemptMarker -Marker $marker -Path $path
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath -AttemptDirectory $attemptDirectory
+        Assert-True -Condition (-not $gate.passed) -Message 'Mixed runner identities incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*share exactly one runnerSha256; found 2*') -Message 'Runner identity drift was not explained'
+        Assert-True -Condition ($null -eq $gate.attemptRunnerSha256) -Message 'Mixed runners produced one gate runner identity'
+    }
+
+    Invoke-TestCase -Name 'canonical attempt marker binds only a PASS receipt' -Action {
+        $caseDir = Join-Path $tempRoot 'attempt-non-pass'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        Add-CompleteMatrix `
+            -CampaignId ([guid]::NewGuid().ToString()) `
+            -JournalPath $journal `
+            -ReceiptPath $candidate `
+            -Mutate {
+                param($receipt, $api)
+                if ($api -eq 34) { Set-TestReceiptFailure -Receipt $receipt }
+            }
+        $attemptDirectory = Write-TestAttemptMarkersFromJournal -JournalPath $journal -CaseDirectory $caseDir
+
+        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath -AttemptDirectory $attemptDirectory
+        Assert-True -Condition (-not $gate.passed) -Message 'An attempt marker bound to a FAIL receipt incorrectly passed'
+        Assert-True -Condition (($gate.reasons -join ' ') -like '*with outcome FAIL, not PASS*') -Message 'Non-PASS attempt binding was not explained'
     }
 
     Invoke-TestCase -Name 'canonical failure cannot be overwritten by a later pass' -Action {
@@ -363,7 +611,7 @@ try {
             -MatrixCellId 'api24-x86_64-emulator'
         [void](Add-TestReceipt -Receipt $laterPass -JournalPath $journal -ReceiptPath $candidate)
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'A later PASS incorrectly masked a formal failure'
         Assert-True -Condition ($gate.failedCanonicalReceiptIds -contains $failure.receiptId) -Message 'Failed receipt ID was not preserved'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*later PASS receipts cannot overwrite it*') -Message 'Missing non-overwrite gate reason'
@@ -381,7 +629,7 @@ try {
             -EvidenceClass SMOKE
         [void](Add-TestReceipt -Receipt $smoke -JournalPath $journal -ReceiptPath $candidate)
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Smoke evidence incorrectly passed the canonical gate'
         Assert-True -Condition ($gate.canonicalReceiptCount -eq 0) -Message 'Smoke evidence was counted as canonical'
         Assert-True -Condition ($gate.ignoredNonCanonicalReceiptCount -eq 1) -Message 'Smoke receipt was not reported as ignored'
@@ -448,7 +696,7 @@ try {
                 if ($api -eq 34) { $receipt.apks.plugin.sha256 = ('0' * 64) }
             }
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Mixed plugin APK identity incorrectly passed'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*mix repository, APK, input, or compile-request identities*') -Message 'Identity drift was not explained'
     }
@@ -467,7 +715,7 @@ try {
                 if ($api -eq 28) { [void]$receipt.apks.Remove('test') }
             }
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Canonical receipt without a test APK identity incorrectly passed'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*does not identify the exact Android test APK*') -Message 'Missing-test-APK reason was not explained'
     }
@@ -486,7 +734,7 @@ try {
                 if ($api -eq 34) { $receipt.apks.test.sha256 = ('0' * 64) }
             }
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Mixed test APK identity incorrectly passed'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*mix repository, APK, input, or compile-request identities*') -Message 'Test APK drift was not included in the campaign identity'
         Assert-True -Condition ($null -eq $gate.campaignIdentitySha256) -Message 'Mixed test APK identities produced one campaign identity'
@@ -506,7 +754,7 @@ try {
                 if ($api -eq 28) { $receipt.matrixCellId = 'api29-x86_64-emulator' }
             }
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Unexpected canonical matrixCellId incorrectly passed'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*Missing required CANONICAL matrixCellId values*api28-x86_64-emulator*') -Message 'Missing canonical cell was not explained'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*Unexpected CANONICAL matrixCellId values*api29-x86_64-emulator*') -Message 'Unexpected canonical cell was not explained'
@@ -526,7 +774,7 @@ try {
                 if ($api -eq 31) { $receipt.evidenceClass = 'SMOKE' }
             }
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Six canonical receipts incorrectly passed the seven-cell gate'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*Expected exactly 7 CANONICAL receipts, found 6*') -Message 'Exact canonical-count reason missing'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*api31-arm64-v8a-physical-qv710af65f*') -Message 'Missing physical cell was not explained'
@@ -546,7 +794,7 @@ try {
                 if ($api -eq 34) { $receipt.device.avdName = 'DEX_R1_API33_X64' }
             }
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Wrong AVD shape incorrectly passed'
         Assert-True -Condition (($gate.reasons -join ' ') -like "*api34-x86_64-emulator*device.avdName*DEX_R1_API34_X64*") -Message 'Wrong AVD shape was not explained'
     }
@@ -568,7 +816,7 @@ try {
                 }
             }
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Dirty source tree incorrectly passed'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*not collected from two clean source trees*') -Message 'Dirty-tree reason missing'
     }
@@ -587,7 +835,7 @@ try {
                 if ($api -eq 34) { $receipt.request.minApi = 33 }
             }
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'A device/request minApi mismatch incorrectly passed'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*request.minApi 33 does not equal device API 34*') -Message 'minApi mismatch reason missing'
     }
@@ -632,9 +880,23 @@ try {
         $receipt.commands[0].command = 'adb shell am instrument -w org.autojs.autojs6.test/androidx.test.runner.AndroidJUnitRunner'
         [void](Add-TestReceipt -Receipt $receipt -JournalPath $journal -ReceiptPath $candidate)
 
-        $gate = Invoke-R1MatrixGate -JournalPath $journal -SchemaPath $schemaPath
+        $gate = Invoke-TestMatrixGate -JournalPath $journal -CaseDirectory $caseDir
         Assert-True -Condition (-not $gate.passed) -Message 'Unscoped adb command incorrectly passed'
         Assert-True -Condition (($gate.reasons -join ' ') -like '*invokes adb without the recorded explicit serial*') -Message 'Explicit-serial reason missing'
+    }
+
+    Invoke-TestCase -Name 'CLI Append and Verify remain independent of attempt markers' -Action {
+        $caseDir = Join-Path $tempRoot 'cli-compatible'
+        [void](New-Item -ItemType Directory -Path $caseDir)
+        $journal = Join-Path $caseDir 'journal.jsonl'
+        $candidate = Join-Path $caseDir 'candidate.json'
+        $receipt = New-TestReceipt -CampaignId ([guid]::NewGuid().ToString()) -ApiLevel 24
+        Write-TestReceipt -Receipt $receipt -Path $candidate
+
+        & pwsh -NoLogo -NoProfile -File $cliPath Append -JournalPath $journal -ReceiptPath $candidate | Out-Null
+        Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Expected CLI Append without -AttemptDirectory to exit 0, got $LASTEXITCODE"
+        & pwsh -NoLogo -NoProfile -File $cliPath Verify -JournalPath $journal | Out-Null
+        Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Expected CLI Verify without -AttemptDirectory to exit 0, got $LASTEXITCODE"
     }
 
     Invoke-TestCase -Name 'CLI report creation is create-new and non-overwriting' -Action {
@@ -643,13 +905,19 @@ try {
         $journal = Join-Path $caseDir 'journal.jsonl'
         $candidate = Join-Path $caseDir 'candidate.json'
         $report = Join-Path $caseDir 'gate.json'
+        $missingAttemptReport = Join-Path $caseDir 'missing-attempt-gate.json'
         Add-CompleteMatrix -CampaignId ([guid]::NewGuid().ToString()) -JournalPath $journal -ReceiptPath $candidate
+        $attemptDirectory = Write-TestAttemptMarkersFromJournal -JournalPath $journal -CaseDirectory $caseDir
 
-        & pwsh -NoLogo -NoProfile -File $cliPath Gate -JournalPath $journal -ReportPath $report | Out-Null
+        & pwsh -NoLogo -NoProfile -File $cliPath Gate -JournalPath $journal -ReportPath $missingAttemptReport | Out-Null
+        Assert-True -Condition ($LASTEXITCODE -eq 2) -Message "Expected missing -AttemptDirectory refusal exit 2, got $LASTEXITCODE"
+        Assert-True -Condition (-not (Test-Path -LiteralPath $missingAttemptReport)) -Message 'CLI wrote a report without -AttemptDirectory'
+
+        & pwsh -NoLogo -NoProfile -File $cliPath Gate -JournalPath $journal -AttemptDirectory $attemptDirectory -ReportPath $report | Out-Null
         Assert-True -Condition ($LASTEXITCODE -eq 0) -Message "Expected CLI gate exit 0, got $LASTEXITCODE"
         Assert-True -Condition (Test-Path -LiteralPath $report -PathType Leaf) -Message 'CLI report was not created'
         $before = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
-        & pwsh -NoLogo -NoProfile -File $cliPath Gate -JournalPath $journal -ReportPath $report | Out-Null
+        & pwsh -NoLogo -NoProfile -File $cliPath Gate -JournalPath $journal -AttemptDirectory $attemptDirectory -ReportPath $report | Out-Null
         Assert-True -Condition ($LASTEXITCODE -eq 2) -Message "Expected create-new refusal exit 2, got $LASTEXITCODE"
         $after = (Get-FileHash -LiteralPath $report -Algorithm SHA256).Hash
         Assert-True -Condition ($before -ceq $after) -Message 'Existing report was overwritten'

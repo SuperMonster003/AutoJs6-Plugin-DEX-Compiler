@@ -13,6 +13,8 @@ param(
 
     [string] $ReportPath,
 
+    [string] $AttemptDirectory,
+
     [string] $SchemaPath = (Join-Path $PSScriptRoot 'r1-matrix-receipt.schema.json')
 )
 
@@ -46,7 +48,13 @@ try {
             exit 0
         }
         'Gate' {
-            $result = Invoke-R1MatrixGate -JournalPath $JournalPath -SchemaPath $SchemaPath
+            if ([string]::IsNullOrWhiteSpace($AttemptDirectory)) {
+                throw '-AttemptDirectory is required for Gate'
+            }
+            $result = Invoke-R1MatrixGate `
+                -JournalPath $JournalPath `
+                -SchemaPath $SchemaPath `
+                -AttemptDirectory $AttemptDirectory
             $json = $result | ConvertTo-Json -Depth 100
             if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
                 Write-R1CreateNewUtf8File -Path $ReportPath -Content $json
