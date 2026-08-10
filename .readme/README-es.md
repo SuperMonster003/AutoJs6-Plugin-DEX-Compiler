@@ -95,7 +95,7 @@ Se requiere la build 5270 o posterior del host. El plugin no contiene biblioteca
 
 ******
 
-> La ruta raw de runtime.loadJar sigue desactivada por defecto y exige seleccionar explícitamente un exact component con la misma firma. El single-flight del Runtime de producción usa la caché semántica persistente y acotada después de finalizar la clave autenticada. Interrumpir cualquier waiter, incluido el último, solo separa a ese llamador sin fallback local; el producer puede terminar y llenar la caché. La cancelación cooperativa del último waiter queda para R2 y el circuito de seguridad se mantiene conservador durante la vida del proceso. Las pruebas del provider real en API 31 arm64 ya cubren committed remote dispatch, el ciclo de vida Binder y el corpus DexClassLoader definido, completando solo R1.2; R1.1 y la matriz multi-API/ABI siguen abiertos.
+> La ruta raw de runtime.loadJar sigue desactivada por defecto y exige seleccionar explícitamente un exact component con la misma firma. R1 está cerrado: R1.1 7/7, R1.2 4/4 y matriz canónica del provider real 7/7. El single-flight del Runtime de producción usa la caché semántica persistente y acotada tras finalizar la clave autenticada. Interrumpir cualquier waiter, incluido el último, solo separa a ese llamador sin fallback local; el producer puede terminar y llenar la caché. La cancelación cooperativa del último waiter queda para R2 y el circuito de seguridad se mantiene conservador durante la vida del proceso.
 
 ******
 
@@ -103,7 +103,7 @@ Se requiere la build 5270 o posterior del host. El plugin no contiene biblioteca
 
 ******
 
-> Esta es una ruta R1 de activación explícita y deshabilitada de forma predeterminada, no un compilador de reemplazo que se active al instalarlo. La matriz R1.3 de varias API/ABI sigue abierta; la evidencia canónica actual con el provider real solo cubre API 31 arm64. Por tanto, el rango de protocolo minApi 24 a 36 no equivale a aceptación en todos los dispositivos.
+Esta es una ruta R1 de activación explícita y deshabilitada de forma predeterminada, no un compilador de reemplazo que se active al instalarlo. La aceptación R1 incluye ahora ejecución con provider real en API 24/25/26/28/31/34/36 sobre emuladores x86_64 y un dispositivo físico arm64. Esto cierra las puertas R1 fijadas; no activa la ruta automáticamente, no convierte el plugin en predeterminado ni amplía el protocolo V1 acotado.
 
 #### Requisitos previos
 
@@ -122,7 +122,7 @@ Instala o actualiza primero el AutoJs6 compatible y luego instala el APK del plu
 
 #### Confirmar el estado
 
-Vuelve a Opciones de desarrollador y confirma que el resumen dice explícitamente que los JAR raw runtime.loadJar prefieren el exact component de abajo. Si muestra Built-in D8/dx o no hay candidato, comprueba el build del host, ambos nombres de paquete, el estado habilitado del plugin y las firmas. El resumen solo prueba la selección actual y la elegibilidad para descubrimiento; no prueba que una compilación concreta fuera remota ni que R1.3 esté completo.
+Vuelve a Opciones de desarrollador y confirma que el resumen dice explícitamente que los JAR raw runtime.loadJar prefieren el exact component de abajo. Si muestra Built-in D8/dx o no hay candidato, comprueba el build del host, ambos nombres de paquete, el estado habilitado del plugin y las firmas. El resumen solo prueba la selección actual y la elegibilidad para descubrimiento; no prueba que una compilación concreta fuera remota. El cierre de la matriz R1 no elimina la revalidación de identidad, el handshake, la validación ni las reglas de fallback de cada solicitud.
 
 #### Ejemplo de AutoJs6
 
@@ -169,7 +169,7 @@ Selecciona primero Built-in D8/dx, confirma que el resumen muestra el experiment
 
 #### Límites conocidos y frontera de aceptación
 
-V1 solo realiza conversión acotada de JAR JVM raw a DEX ZIP. No ofrece shrinking/obfuscation de R8, classpath externo, biblioteca desugared personalizada, compilación por red ni salida binaria determinista. BUSY puede llevar al fallback del host y el trabajo CPU de D8 puede continuar en el proceso aislado hasta la limpieza tras una cancelación. La evidencia R1.2 de API 31 arm64 no sustituye las puertas production fault/rollback de R1.1 ni la matriz R1.3 API 24/25/26/28/34/36 y x86_64/arm64; considera esta guía una vista previa controlada hasta que esas casillas estén marcadas.
+V1 solo realiza conversión acotada de JAR JVM raw a DEX ZIP. No ofrece shrinking/obfuscation de R8, classpath externo, biblioteca desugared personalizada, compilación por red ni salida binaria determinista. BUSY puede llevar al fallback del host y el trabajo CPU de D8 puede continuar en el proceso aislado hasta la limpieza tras una cancelación. La cancelación cooperativa cuando se va el último waiter sigue en R2; la promoción de rendimiento, la activación predeterminada y la retirada de dependencias del compilador host quedan fuera del R1 completado.
 
 ******
 
@@ -177,7 +177,7 @@ V1 solo realiza conversión acotada de JAR JVM raw a DEX ZIP. No ofrece shrinkin
 
 ******
 
-R1.2 alcanza 4/4: pasaron 16 suites/149 tests DEX del host, la compilación Android-test Kotlin y el assemble de los APK host/test; en API 31 arm64 pasaron por separado dos métodos de concurrencia production, dos de ciclo de vida real y tres de corpus real. La sonda cuenta committed remote dispatch y no llamadas directas provider openSession; el gate multi-dex pesado separado generó 65 700 métodos y cargó clases desde los DEX primario y secundario. Los prefijos SHA-256 actuales de host/test/plugin son 181E38E8, 70FAE1E8 y 5B6AC53B con el mismo signer 31a681fc. R1.1 sigue 0/7 y R1.3 totalmente abierto. R2 solo inició un tramo de recuperación: el janitor process-once strict-canonical pasó 48/48 tests del plugin y 6/6 de workspace recovery, eliminó un UUID real obsoleto de force-stop antes de exponer el primer Binder y mantuvo vacío el workspace tras una carga D8 normal; los demás elementos R2 siguen sin marcar.
+R1 está cerrado: R1.1 producción 7/7, R1.2 automatización 4/4, R1.3 matriz real 7/7 y tres condiciones de salida marcadas. API 34 production routing pasó 8/8; host DEX 16 suites/149 tests, wire 4/24, fake-provider 5/25 y los 48 tests del plugin pasaron, con lint 0 errores. La campaña canónica f3c2b1af-be93-41e7-b541-f167f90e5cc1 pasó sus siete celdas con provider real: API 24/25 CLI, API 26/28/34/36 D8Command en x86_64 y API 31 en el dispositivo QV arm64 multiusuario. Su journal head es a5abaf62 y el SHA-256 del runner ca89ac16; se conservan las campañas anteriores fallidas o terminadas. La ruta sigue desactivada por defecto y la cancelación cooperativa del último waiter y la recuperación más amplia siguen sin marcar en R2.
 
 - [Abrir el ROADMAP.md verificable](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 

@@ -95,7 +95,7 @@ required host build: 5270
 
 ******
 
-> يبقى مسار raw runtime.loadJar معطلا افتراضيا ويتطلب exact component محددا صراحة ومطابقا للتوقيع. يستخدم single-flight في Runtime الإنتاجي الـ cache الدلالية الدائمة والمحدودة بعد تثبيت المفتاح الموثق. تفصل مقاطعة أي waiter, بما فيه الأخير, ذلك المستدعي وحده بلا fallback محلي, ويمكن للـ producer الإكمال وحفظ النتيجة. يبقى الإلغاء التعاوني لآخر waiter ضمن R2 وتظل دائرة الأمان محافظة طوال عمر العملية. تغطي اختبارات الـ provider الحقيقي على API 31 arm64 الآن committed remote dispatch ودورة Binder والـ corpus المحدد لـ DexClassLoader, وبذلك تكمل R1.2 فقط; تبقى R1.1 ومصفوفة API/ABI المتعددة مفتوحة.
+> يبقى مسار raw runtime.loadJar معطلا افتراضيا ويتطلب exact component محددا صراحة ومطابقا للتوقيع. أغلقت R1: ‏R1.1 بنتيجة 7/7 وR1.2 بنتيجة 4/4 ومصفوفة الـ provider الحقيقي canonical بنتيجة 7/7. يستخدم single-flight في Runtime الإنتاجي الـ cache الدلالية الدائمة والمحدودة بعد تثبيت المفتاح الموثق. تفصل مقاطعة أي waiter, بما فيه الأخير, ذلك المستدعي وحده بلا fallback محلي, ويمكن للـ producer الإكمال وحفظ النتيجة. يبقى الإلغاء التعاوني لآخر waiter ضمن R2 وتظل دائرة الأمان محافظة طوال عمر العملية.
 
 ******
 
@@ -103,7 +103,7 @@ required host build: 5270
 
 ******
 
-> هذا مسار R1 يتطلب opt-in صريحا وهو معطل افتراضيا، وليس بديلا للمترجم يتفعّل بمجرد التثبيت. ما تزال مصفوفة R1.3 متعددة API/ABI مفتوحة؛ والدليل canonical الحالي مع provider الحقيقي يغطي API 31 arm64 فقط. لذلك لا يعني نطاق البروتوكول minApi 24 إلى 36 أن القبول اكتمل على كل الأجهزة.
+هذا مسار R1 يتطلب opt-in صريحا وهو معطل افتراضيا، وليس بديلا للمترجم يتفعّل بمجرد التثبيت. يشمل قبول R1 الآن تنفيذ الـ provider الحقيقي على API 24/25/26/28/31/34/36 عبر محاكيات x86_64 وجهاز arm64 فعلي. يغلق ذلك بوابات R1 الثابتة، لكنه لا يفعّل المسار تلقائيا ولا يجعله افتراضيا ولا يوسّع بروتوكول V1 المحدود.
 
 #### المتطلبات المسبقة
 
@@ -122,7 +122,7 @@ exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.
 
 #### تأكيد الحالة
 
-ارجع إلى خيارات المطور وتأكد أن الملخص يذكر صراحة أن ملفات JAR الخام عبر runtime.loadJar تفضّل exact component أدناه. إذا ظهر Built-in D8/dx أو لم يظهر مرشح، فتحقق من build المضيف واسمي package وحالة تمكين الملحق والتواقيع. يثبت الملخص الاختيار الحالي وأهلية الاكتشاف فقط؛ ولا يثبت أن عملية compile بعينها كانت بعيدة أو أن R1.3 اكتمل.
+ارجع إلى خيارات المطور وتأكد أن الملخص يذكر صراحة أن ملفات JAR الخام عبر runtime.loadJar تفضّل exact component أدناه. إذا ظهر Built-in D8/dx أو لم يظهر مرشح، فتحقق من build المضيف واسمي package وحالة تمكين الملحق والتواقيع. يثبت الملخص الاختيار الحالي وأهلية الاكتشاف فقط، ولا يثبت أن عملية compile بعينها كانت بعيدة. لا يلغي إغلاق مصفوفة R1 إعادة التحقق من identity والـ handshake والتحقق وقواعد fallback لكل طلب.
 
 #### مثال AutoJs6
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### القيود المعروفة وحدود القبول
 
-ينفذ V1 فقط تحويلا محدودا من raw JVM JAR إلى DEX ZIP. ولا يوفر R8 shrinking/obfuscation أو classpath خارجيا أو desugared library مخصصة أو compile عبر الشبكة أو خرج بايت حتميا. قد تؤدي BUSY إلى fallback لدى المضيف، وقد يستمر عمل D8 على CPU في العملية المعزولة حتى اكتمال التنظيف بعد الإلغاء. لا يعوض دليل R1.2 على API 31 arm64 بوابات production fault/rollback في R1.1 ولا مصفوفة R1.3 لـ API 24/25/26/28/34/36 وx86_64/arm64؛ تعامل مع هذا الدليل كمعاينة مضبوطة حتى توضع العلامات على تلك البنود.
+ينفذ V1 فقط تحويلا محدودا من raw JVM JAR إلى DEX ZIP. ولا يوفر R8 shrinking/obfuscation أو classpath خارجيا أو desugared library مخصصة أو compile عبر الشبكة أو خرج بايت حتميا. قد تؤدي BUSY إلى fallback لدى المضيف، وقد يستمر عمل D8 على CPU في العملية المعزولة حتى اكتمال التنظيف بعد الإلغاء. يبقى الإلغاء التعاوني بعد مغادرة آخر waiter ضمن R2؛ أما ترقية الأداء والتفعيل الافتراضي وإزالة اعتماد مترجم المضيف فهي خارج R1 المكتملة.
 
 ******
 
@@ -177,7 +177,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 ******
 
-بلغت R1.2 نتيجة 4/4: نجحت host DEX 16 suites/149 tests وتجميع Android-test Kotlin وassemble لملفات host/test APK, وعلى API 31 arm64 نجحت منفردة طريقتا production concurrency وطريقتا real lifecycle وثلاث طرق real corpus. يحسب المسبار committed remote dispatch لا استدعاءات provider openSession المباشرة; وأنشأ gate الـ multi-dex الثقيل والمنفصل 65,700 method وحمّل classes من DEX الأساسي والثانوي. بادئات SHA-256 الحالية لـ host/test/plugin هي 181E38E8 و70FAE1E8 و5B6AC53B مع signer واحد 31a681fc. تبقى R1.1 عند 0/7 وR1.3 مفتوحة بالكامل. بدأ في R2 جزء recovery فقط: نجح process-once strict-canonical janitor في plugin 48/48 وworkspace recovery 6/6, وحذف UUID حقيقيا متبقيا من force-stop قبل أول إظهار لـ Binder وأبقى workspace فارغة بعد تحميل D8 عادي; وتبقى بقية بنود R2 غير مؤشرة.
+أغلقت R1: ‏R1.1 production ‏7/7 وR1.2 automation ‏4/4 ومصفوفة R1.3 الحقيقية 7/7 وشروط الخروج 3/3. نجح API 34 production routing بنتيجة 8/8، وhost DEX ‏16 suites/149 tests وwire ‏4/24 وfake-provider ‏5/25 وplugin ‏48 tests، مع lint ‏0 error. نجحت الحملة canonical ‏f3c2b1af-be93-41e7-b541-f167f90e5cc1 في خلايا الـ provider الحقيقي السبع: API 24/25 عبر CLI وAPI 26/28/34/36 عبر D8Command على x86_64 وAPI 31 على جهاز QV arm64 متعدد المستخدمين. قيمة journal head هي a5abaf62 وrunner SHA-256 هي ca89ac16؛ وتظل الحملات السابقة الفاشلة أو الموقوفة محفوظة. يبقى المسار معطلا افتراضيا، ويبقى إلغاء last-waiter التعاوني والتعافي الأوسع غير مؤشرين ضمن R2.
 
 - [فتح ROADMAP.md ذي قائمة التحقق](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 

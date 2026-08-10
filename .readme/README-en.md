@@ -95,7 +95,7 @@ Host build 5270 or later is required. The plugin has no native library, so one p
 
 ******
 
-> The raw runtime.loadJar route remains default-off and requires an explicitly selected same-signed exact component. Production Runtime single-flight coalescing uses the bounded persistent semantic cache after authenticated key finalization. Interrupting any waiter, including the last, detaches only that caller without local fallback; the producer may finish and cache the result. Cooperative last-waiter cancellation remains R2, and an opened safety circuit stays conservative for the process lifetime. API 31 arm64 real-provider tests now cover committed remote dispatch, Binder lifecycle, and the specified DexClassLoader corpus, completing R1.2 only; R1.1 and the multi-API/ABI matrix remain open.
+> The raw runtime.loadJar route remains default-off and requires an explicitly selected same-signed exact component. R1 is closed at R1.1 7/7, R1.2 4/4, and the canonical real-provider matrix 7/7. Production Runtime single-flight coalescing uses the bounded persistent semantic cache after authenticated key finalization. Interrupting any waiter, including the last, detaches only that caller without local fallback; the producer may finish and cache the result. Cooperative last-waiter cancellation remains R2, and an opened safety circuit stays conservative for the process lifetime.
 
 ******
 
@@ -103,7 +103,7 @@ Host build 5270 or later is required. The plugin has no native library, so one p
 
 ******
 
-> This is a default-off R1 explicit opt-in path, not a compiler replacement that activates when installed. The R1.3 multi-API/ABI matrix is still open; canonical real-provider device evidence currently covers API 31 arm64 only, so the protocol range of minApi 24 through 36 must not be read as acceptance on every device.
+This is a default-off R1 explicit opt-in path, not a compiler replacement that activates when installed. R1 acceptance now includes real-provider execution on API 24/25/26/28/31/34/36 across x86_64 emulators and an arm64 physical device. That closes the fixed R1 gates; it does not auto-enable the route, make the plugin the default, or expand the bounded V1 protocol.
 
 #### Prerequisites
 
@@ -122,7 +122,7 @@ Install or update the compatible AutoJs6 first, then install the plugin APK. In 
 
 #### Confirm status
 
-Return to Developer options and confirm that the summary explicitly says raw runtime.loadJar JARs prefer the exact component below. If it shows Built-in D8/dx or no candidate, verify the host build, both package names, plugin enabled state, and signatures. The summary proves only current selection and discovery eligibility; it does not prove that a particular compile was remote or that R1.3 is complete.
+Return to Developer options and confirm that the summary explicitly says raw runtime.loadJar JARs prefer the exact component below. If it shows Built-in D8/dx or no candidate, verify the host build, both package names, plugin enabled state, and signatures. The summary proves only current selection and discovery eligibility; it does not prove that a particular compile was remote. Completion of the R1 matrix does not remove per-request identity revalidation, handshake, validation, or fallback rules.
 
 #### AutoJs6 example
 
@@ -169,7 +169,7 @@ Select Built-in D8/dx first, confirm that the summary shows the experiment off, 
 
 #### Known limits and acceptance boundary
 
-V1 performs only bounded raw JVM JAR-to-DEX-ZIP conversion. It provides no R8 shrinking or obfuscation, external classpath, custom desugared library, network compilation, or deterministic byte output. BUSY may lead to host fallback, and D8 CPU work may continue in the isolated process until cleanup after cancellation. API 31 arm64 R1.2 evidence does not replace R1.1 production fault/rollback gates or the R1.3 API 24/25/26/28/34/36 and x86_64/arm64 matrix; treat this guide as a controlled preview until those boxes are checked.
+V1 performs only bounded raw JVM JAR-to-DEX-ZIP conversion. It provides no R8 shrinking or obfuscation, external classpath, custom desugared library, network compilation, or deterministic byte output. BUSY may lead to host fallback, and D8 CPU work may continue in the isolated process until cleanup after cancellation. Cooperative cancellation after the final waiter leaves remains R2; performance promotion, making the route default, and removing host compiler dependencies are outside the completed R1 scope.
 
 ******
 
@@ -177,7 +177,7 @@ V1 performs only bounded raw JVM JAR-to-DEX-ZIP conversion. It provides no R8 sh
 
 ******
 
-R1.2 is 4/4: 16 host DEX suites/149 tests passed, Android-test Kotlin and host/test APK assembly succeeded, and API 31 arm64 passed two production-concurrency, two real-lifecycle, and three real-corpus methods. The concurrency probe counts committed remote dispatch rather than direct provider openSession calls; the separate heavy multi-dex gate generated 65,700 methods and loaded classes from primary and secondary DEX. Current host/test/plugin SHA-256 prefixes are 181E38E8, 70FAE1E8, and 5B6AC53B with the same 31a681fc signer. Final host/test/plugin uninstalls succeeded, the fake provider remained absent, and the related process count was zero. R1.1 remains 0/7 and R1.3 remains fully open. R2 has started only a recovery slice: the process-once strict-canonical janitor passed plugin 48/48 and workspace recovery 6/6, removed a real force-stop stale UUID before first Binder exposure, and kept the workspace empty after a normal D8 load; broader R2 items remain unchecked.
+R1 is closed: R1.1 production loading is 7/7, R1.2 automation is 4/4, R1.3 is 7/7, and all three exit conditions are checked. API 34 production routing passed 8/8; host DEX passed 16 suites/149 tests, wire 4/24, fake-provider 5/25, and the plugin 48 tests with lint at 0 errors. Canonical campaign f3c2b1af-be93-41e7-b541-f167f90e5cc1 passed all seven real-provider cells: API 24/25 CLI, API 26/28/34/36 D8Command on x86_64, and API 31 on the QV arm64 multi-user device. Its journal head is a5abaf62 and runner SHA-256 is ca89ac16; failed and intentionally terminated earlier campaigns remain preserved. The route stays default-off, and last-waiter cooperative cancellation plus the broader recovery work remain unchecked in R2.
 
 - [Open the checkable ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 

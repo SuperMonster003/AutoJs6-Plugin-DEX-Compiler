@@ -95,7 +95,7 @@ required host build: 5270
 
 ******
 
-> raw runtime.loadJar 路由仍默认关闭, 且要求显式选择同签名 exact component. production Runtime single-flight 在认证并最终化 key 后使用有界持久语义 cache. 任一 waiter（包括最后一个）中断都只分离该调用方且不作本地回退; producer 可在后台完成并写入 cache. last-waiter 协作取消留到 R2, 安全熔断在当前进程生命周期内保持保守. API 31 arm64 真实 provider 已覆盖 committed remote dispatch、Binder lifecycle 与指定 DexClassLoader 语料, 仅完成 R1.2; R1.1 与多 API/ABI 矩阵仍未完成.
+> raw runtime.loadJar 路由仍默认关闭, 且要求显式选择同签名 exact component. R1 已闭环: R1.1 为 7/7、R1.2 为 4/4、canonical 真实 provider 矩阵为 7/7. production Runtime single-flight 在认证并最终化 key 后使用有界持久语义 cache. 任一 waiter（包括最后一个）中断都只分离该调用方且不作本地回退; producer 可在后台完成并写入 cache. last-waiter 协作取消留到 R2, 安全熔断在当前进程生命周期内保持保守.
 
 ******
 
@@ -103,7 +103,7 @@ required host build: 5270
 
 ******
 
-> 这是默认关闭的 R1 显式 opt-in 路径, 不是安装后自动生效的替代编译器. R1.3 多 API/ABI 矩阵尚未闭环; 当前真实 provider 的 canonical 设备证据仅覆盖 API 31 arm64, 因而不得把 minApi 24 至 36 的协议范围误当成全部设备已验收.
+这是默认关闭的 R1 显式 opt-in 路径, 不是安装后自动生效的替代编译器. R1 验收现已包含 API 24/25/26/28/31/34/36 的真实 provider 执行, 覆盖 x86_64 模拟器与 arm64 真机. 这关闭的是固定 R1 门禁, 不会自动启用路由、把插件提升为默认编译器或扩大有界 V1 协议范围.
 
 #### 安装前提
 
@@ -122,7 +122,7 @@ exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.
 
 #### 确认状态
 
-回到开发者选项确认摘要明确显示 raw runtime.loadJar JAR 优先使用下方 exact component. 如果只显示 Built-in D8/dx 或找不到候选项, 请先核对宿主 build、两个包名、插件启用状态与签名. 该摘要只证明当前选择与发现资格, 不等于某一次编译已走远端, 更不等于 R1.3 已完成.
+回到开发者选项确认摘要明确显示 raw runtime.loadJar JAR 优先使用下方 exact component. 如果只显示 Built-in D8/dx 或找不到候选项, 请先核对宿主 build、两个包名、插件启用状态与签名. 该摘要只证明当前选择与发现资格, 不等于某一次编译已走远端. R1 矩阵闭环也不会取消每次请求的身份复核、握手、验证或回退规则.
 
 #### AutoJs6 示例
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### 已知限制与验收边界
 
-V1 仅处理有界 raw JVM JAR 到 DEX ZIP 的转换, 不提供 R8 shrinking/obfuscation、外部 classpath、自定义 desugared library、网络编译或确定性字节输出. BUSY 可触发宿主回退, 取消后 D8 CPU 工作可能在隔离进程中继续到清理完成. API 31 arm64 的 R1.2 证据不能替代 R1.1 production fault/rollback 门禁或 API 24/25/26/28/34/36 与 x86_64/arm64 的 R1.3 矩阵; 在这些项勾选前应把本指南视为受控预览.
+V1 仅处理有界 raw JVM JAR 到 DEX ZIP 的转换, 不提供 R8 shrinking/obfuscation、外部 classpath、自定义 desugared library、网络编译或确定性字节输出. BUSY 可触发宿主回退, 取消后 D8 CPU 工作可能在隔离进程中继续到清理完成. 最后 waiter 离开后的协作取消仍属于 R2; 性能晋级、默认启用及移除宿主编译器依赖均不在已完成的 R1 范围内.
 
 ******
 
@@ -177,7 +177,7 @@ V1 仅处理有界 raw JVM JAR 到 DEX ZIP 的转换, 不提供 R8 shrinking/obf
 
 ******
 
-R1.2 已达 4/4: 宿主 DEX 16 suites/149 tests 全通过, Android-test Kotlin 与 host/test APK assemble 成功, API 31 arm64 上 2 个 production concurrency、2 个真实 lifecycle 和 3 个真实 corpus 方法逐项通过. 并发探针统计 committed remote dispatch, 不直接统计 provider openSession; 独立重型 multi-dex 门禁生成 65,700 个方法并从主、次 DEX 加载类. 当前 host/test/plugin SHA-256 前缀为 181E38E8、70FAE1E8、5B6AC53B, signer 同为 31a681fc. 最终 host/test/plugin 卸载均成功, fake provider 保持 absent, 相关进程数为 0. R1.1 保持 0/7, R1.3 全未勾. R2 仅启动恢复切片: process-once strict-canonical janitor 通过插件 48/48 与 workspace recovery 6/6, 在首次 Binder 暴露前清除真实 force-stop 旧 UUID, 正常 D8 加载后 workspace 仍为空; R2 其余项继续未勾.
+R1 已闭环: R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 真实设备矩阵 7/7, 三项退出条件全部勾选. API 34 production routing 8/8, 宿主 DEX 16 suites/149 tests、wire 4/24、fake-provider 5/25 及插件 48 tests 全通过, lint 为 0 error. Canonical campaign f3c2b1af-be93-41e7-b541-f167f90e5cc1 的七个真实 provider 单元全部 PASS: API 24/25 使用 CLI, API 26/28/34/36 在 x86_64 上使用 D8Command, API 31 使用 QV arm64 多用户真机. journal head 为 a5abaf62, runner SHA-256 为 ca89ac16; 较早失败或主动终止的 campaign 继续原样保留. 路由仍默认关闭, last-waiter 协作取消与更广泛恢复工作仍属于未勾选的 R2.
 
 - [查看可勾选的 ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 

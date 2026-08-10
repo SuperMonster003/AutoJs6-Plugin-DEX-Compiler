@@ -95,7 +95,7 @@ required host build: 5270
 
 ******
 
-> runtime.loadJar の raw 経路はデフォルト無効のままで, ホストと同一署名の exact component を明示的に選択する必要があります. production Runtime の single-flight は認証済み key の確定後に有界永続セマンティックキャッシュを使用します. 最後の waiter を含む任意の割り込みはその呼び出し元だけをローカルフォールバックなしで切り離し, producer は完了してキャッシュへ保存できます. last-waiter 協調キャンセルは R2 に残り, safety circuit はプロセス存続中は保守的です. API 31 arm64 の実 provider テストは committed remote dispatch, Binder lifecycle, 指定 DexClassLoader コーパスをカバーし, R1.2 のみ完了しました; R1.1 と複数 API/ABI マトリクスは未完了です.
+> runtime.loadJar の raw 経路はデフォルト無効のままで, ホストと同一署名の exact component を明示的に選択する必要があります. R1 は R1.1 7/7、R1.2 4/4、canonical 実 provider マトリクス 7/7 で完了しました. production Runtime の single-flight は認証済み key の確定後に有界永続セマンティックキャッシュを使用します. 最後の waiter を含む任意の割り込みはその呼び出し元だけをローカルフォールバックなしで切り離し, producer は完了してキャッシュへ保存できます. last-waiter 協調キャンセルは R2 に残り, safety circuit はプロセス存続中は保守的です.
 
 ******
 
@@ -103,7 +103,7 @@ required host build: 5270
 
 ******
 
-> これは既定で無効な R1 の明示的 opt-in 経路であり, インストールだけで有効になる代替コンパイラではありません. R1.3 の複数 API/ABI マトリクスは未完了です. 現在の実 provider の canonical 端末証拠は API 31 arm64 のみなので, minApi 24 から 36 というプロトコル範囲を全端末での受け入れ完了と解釈しないでください.
+これは既定で無効な R1 の明示的 opt-in 経路であり, インストールだけで有効になる代替コンパイラではありません. R1 受入証拠は API 24/25/26/28/31/34/36 の実 provider 実行を含み, x86_64 エミュレーターと arm64 実機をカバーします. これは固定 R1 gate を閉じるもので, 経路の自動有効化、既定化、有界 V1 プロトコルの拡張ではありません.
 
 #### 前提条件
 
@@ -122,7 +122,7 @@ exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.
 
 #### 状態の確認
 
-開発者向けオプションに戻り, raw runtime.loadJar JAR が下記 exact component を優先するという要約が明示されていることを確認します. Built-in D8/dx または候補なしの場合, ホスト build、両 package 名、プラグインの有効状態、署名を確認してください. この要約が証明するのは現在の選択と discovery eligibility だけで, 特定のコンパイルが遠隔だったことや R1.3 完了は証明しません.
+開発者向けオプションに戻り, raw runtime.loadJar JAR が下記 exact component を優先するという要約が明示されていることを確認します. Built-in D8/dx または候補なしの場合, ホスト build、両 package 名、プラグインの有効状態、署名を確認してください. この要約が証明するのは現在の選択と discovery eligibility だけで, 特定のコンパイルが遠隔だったことは証明しません. R1 マトリクス完了後も要求ごとの identity 再検証、handshake、検証、fallback 規則は維持されます.
 
 #### AutoJs6 の例
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### 既知の制限と受け入れ境界
 
-V1 は bounded raw JVM JAR から DEX ZIP への変換だけを行います. R8 shrinking/obfuscation、外部 classpath、custom desugared library、network compile、deterministic byte output は提供しません. BUSY はホスト fallback につながる場合があり, cancel 後も D8 CPU 処理は cleanup 完了まで isolated process で続くことがあります. API 31 arm64 の R1.2 証拠は R1.1 production fault/rollback gate や API 24/25/26/28/34/36 と x86_64/arm64 の R1.3 matrix を代替しません. これらがチェックされるまでは本ガイドを controlled preview と扱ってください.
+V1 は bounded raw JVM JAR から DEX ZIP への変換だけを行います. R8 shrinking/obfuscation、外部 classpath、custom desugared library、network compile、deterministic byte output は提供しません. BUSY はホスト fallback につながる場合があり, cancel 後も D8 CPU 処理は cleanup 完了まで isolated process で続くことがあります. 最後の waiter 離脱後の協調キャンセルは R2 のままで, 性能昇格、既定化、ホストコンパイラ依存削除は完了済み R1 の範囲外です.
 
 ******
 
@@ -177,7 +177,7 @@ V1 は bounded raw JVM JAR から DEX ZIP への変換だけを行います. R8 
 
 ******
 
-R1.2 は 4/4 です: ホスト DEX 16 suites/149 tests, Android-test Kotlin コンパイル, host/test APK assemble が成功し, API 31 arm64 で production concurrency 2 件, 実 lifecycle 2 件, 実 corpus 3 件を個別に通過しました. プローブは provider openSession の直接呼び出しではなく committed remote dispatch を数えます; 独立した重い multi-dex ゲートは 65,700 メソッドを生成し, primary と secondary DEX のクラスをロードしました. 現在の host/test/plugin SHA-256 接頭辞は 181E38E8, 70FAE1E8, 5B6AC53B で, signer は同じ 31a681fc です. R1.1 は 0/7, R1.3 は全項未完了です. R2 は回復スライスのみ開始: process-once strict-canonical janitor は plugin 48/48 と workspace recovery 6/6 を通過し, 最初の Binder 公開前に実際の force-stop 残存 UUID を削除し, 通常 D8 ロード後も workspace を空に保ちました; 他の R2 項目は未チェックです.
+R1 は完了しました: R1.1 production 7/7、R1.2 automation 4/4、R1.3 実機マトリクス 7/7、終了条件 3/3. API 34 production routing 8/8、host DEX 16 suites/149 tests、wire 4/24、fake-provider 5/25、plugin 48 tests が成功し, lint は 0 error. Canonical campaign f3c2b1af-be93-41e7-b541-f167f90e5cc1 は実 provider 7 cell 全て PASS: API 24/25 CLI、API 26/28/34/36 は x86_64 上の D8Command、API 31 は QV arm64 multi-user 実機. journal head は a5abaf62, runner SHA-256 は ca89ac16 で, 以前の失敗/意図的終了 campaign は保持されています. 経路はデフォルト無効のままで, last-waiter 協調キャンセルと広範な回復作業は R2 で未チェックです.
 
 - [チェック可能な ROADMAP.md を開く](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 

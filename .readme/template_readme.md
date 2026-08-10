@@ -90,7 +90,7 @@ required host build: {{ required_host_build }}
 
 ******
 
-> {{ p_user_guide_r1_boundary }}
+{{ p_user_guide_r1_boundary }}
 
 #### {{ h4_user_guide_prerequisites }}
 

@@ -1,6 +1,6 @@
 # DEX Compiler Roadmap
 
-更新日期: 2026-08-09
+更新日期: 2026-08-11
 
 本路线图把后续工作拆成可独立验收的 R0-R4。每个复选框只表示对应条目已经有可复核证据，不能用较低层级的测试替代较高层级的验收。例如，JVM 单元测试通过不等于跨 APK Binder 或真实设备加载已经通过。
 
@@ -18,8 +18,8 @@
 | 阶段 | 状态 | 核心结果 | 主要仓库 |
 |---|---|---|---|
 | R0 | 已完成 | 低内存 JAR 验证、对抗性测试语料和可重复本地门禁 | 本插件 |
-| R1 | 进行中 | AutoJs6 显式 opt-in 接入与真实 provider 设备矩阵 | AutoJs6 + 本插件 |
-| R2 | 待开始 | 结构化诊断、取消/超时语义和进程恢复 | AutoJs6 + 本插件 |
+| R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
+| R2 | 已启动（仅恢复切片） | 结构化诊断、取消/超时语义和进程恢复 | AutoJs6 + 本插件 |
 | R3 | 待开始 | 协议 V2 的受控依赖输入、宿主规范化和多输入缓存扩展 | 协议 + AutoJs6 + 本插件 |
 | R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
 
@@ -138,17 +138,17 @@ R1.0 本轮实现边界:
 
 ### R1.1 生产加载链路
 
-宿主工作树已经落地 R1.1 source wiring，并完成静态代码审阅、当前修正版代码/APK Gradle 门禁及 API 31 arm64 真实插件定向方法。宿主 DEX 定向门禁 16 suites/149 tests 全通过，Android test Kotlin 及 host/test APK 均成功 assemble；production concurrency、真实 lifecycle 与真实 corpus 共 7 个方法逐项通过。以下七项仍保持 0/7 未勾，因为 R1.2 的定向自动化证据尚未覆盖 R1.1 各条生产链路所要求的完整 failure、回滚、身份、回退与兼容性门禁，也不能替代 R1.3 设备矩阵。
+宿主工作树已经完成 R1.1 production wiring。API 34 上 8/8 production-routing instrumentation、宿主 DEX 16 suites/149 tests、wire 4 suites/24 tests、fake-provider 5 suites/25 tests、既有 API 31 arm64 真实 provider lifecycle/concurrency/corpus，以及下述 canonical 7-cell 真实 provider Gate 共同关闭七项生产链路门禁。fake provider 与 JVM 结果只承担各自层级的故障注入和回归覆盖；R1.1 的端到端结论由真实 provider、真实 Binder/PFD、宿主验证/发布和 `DexClassLoader` 执行证据支撑。
 
-R1.1 最初落地时的验证后发布只作为一次性 classloader handoff。该描述是 R1.1 当时的历史边界，不再代表当前工作树；后续 R1.2 源码部署已将其升级为有界的持久语义 cache。R1.1 七项仍须由当前主源码门禁及更高层级证据确认后才能勾选。
+R1.1 最初落地时的验证后发布只作为一次性 classloader handoff。该描述是历史边界，不再代表当前工作树；R1.2 已将其升级为有界的持久语义 cache，并由当前主源码门禁、production-routing instrumentation 与 canonical 设备矩阵复核。
 
-- [ ] 实施中: 宿主固定 raw JAR 输入快照，先计算大小和 SHA-256 再打开 session；若远端失败需要本地回退，只能复用同一份已保留快照。
-- [ ] 实施中: 只通过用户显式选择且与宿主完整 signer 集一致的 exact component 建立 Binder 会话；跨进程只传文件描述符，不向插件暴露路径。
-- [ ] 实施中: 固定 provider 身份并完成 Binder 握手后才最终化协议版本和 runtime library fingerprint；capability 与 ceiling 只用于验证或拒绝，不重写请求。
-- [ ] 实施中: 宿主用完整 `DexIndexedZipValidator` 独立复验输出大小、双重摘要、DEX header、命名连续性和条目边界。
-- [ ] 实施中: 验证产物仅能经宿主持有的复制、复核与原子发布进入 cache；失败、取消、超时、Binder death 或进程死亡使事务失效，不留下可加载半成品。
-- [ ] 实施中: 只有 raw `runtime.loadJar()` JAR 可把宿主已验证的 DEX ZIP 交给 `AndroidClassLoader`；AAR、`loadDex()`、`defineClass()` 与兼容辅助路径继续使用内置实现。
-- [ ] 实施中: 实验默认关闭；provider 未启用、不可用、远端失败、输出拒绝或 verified ZIP 接管失败时至多执行一次内置 D8/dx 回退，用户取消作为中断传播且不切换编译器。
+- [x] 已验证: 宿主固定 raw JAR 输入快照，先计算大小和 SHA-256 再打开 session；若远端失败需要本地回退，只能复用同一份已保留快照。
+- [x] 已验证: 只通过用户显式选择且与宿主完整 signer 集一致的 exact component 建立 Binder 会话；跨进程只传文件描述符，不向插件暴露路径。
+- [x] 已验证: 固定 provider 身份并完成 Binder 握手后才最终化协议版本和 runtime library fingerprint；capability 与 ceiling 只用于验证或拒绝，不重写请求。
+- [x] 已验证: 宿主用完整 `DexIndexedZipValidator` 独立复验输出大小、双重摘要、DEX header、命名连续性和条目边界。
+- [x] 已验证: 验证产物仅能经宿主持有的复制、复核与原子发布进入 cache；失败、取消、超时、Binder death 或进程死亡使事务失效，不留下可加载半成品。
+- [x] 已验证: 只有 raw `runtime.loadJar()` JAR 可把宿主已验证的 DEX ZIP 交给 `AndroidClassLoader`；AAR、`loadDex()`、`defineClass()` 与兼容辅助路径继续使用内置实现。
+- [x] 已验证: 实验默认关闭；provider 未启用、不可用、远端失败、输出拒绝或 verified ZIP 接管失败时至多执行一次内置 D8/dx 回退，用户取消作为中断传播且不切换编译器。
 
 ### R1.2 自动化测试
 
@@ -168,38 +168,42 @@ R1.2 的四项精确定义均已有可复核的 JVM、编译与 API 31 arm64 真
 
 ### R1.3 真实设备矩阵
 
-- [ ] API 24 和 25: 验证 D8 CLI fallback 与真实类加载。
-- [ ] API 26: 验证 `D8Command` 分界版本。
-- [ ] API 28: 验证中间版本兼容性。
-- [ ] API 34 和 36: 验证现代 Android 行为与目标 SDK 边界。
-- [ ] 至少覆盖一个 arm64 真机和一个 x86_64 模拟器；具体设备必须先获得用户许可。
-- [ ] 每个 canonical matrix 单元记录宿主/插件版本、commit、API/ABI、输入摘要、provider identity、输出摘要和执行结果。
-- [ ] 失败矩阵证据保留原样；替代设备或 smoke 通过不能覆盖原失败记录。
+Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS。API 24/25 使用 D8 CLI fallback；API 26/28/34/36 使用 `D8Command`，均为 x86_64 模拟器；API 31 使用获授权的 `QV710AF65F` arm64-v8a 真机，并在不改变其 user 0/user 10 拓扑及邻近包的前提下完成多用户 fail-closed 清理。
+
+- [x] API 24 和 25: 验证 D8 CLI fallback 与真实类加载。
+- [x] API 26: 验证 `D8Command` 分界版本。
+- [x] API 28: 验证中间版本兼容性。
+- [x] API 34 和 36: 验证现代 Android 行为与目标 SDK 边界。
+- [x] 至少覆盖一个 arm64 真机和一个 x86_64 模拟器；具体设备已经用户许可。
+- [x] 每个 canonical matrix 单元记录宿主/插件版本、commit、API/ABI、输入摘要、provider identity、输出摘要和执行结果。
+- [x] 失败矩阵证据保留原样；替代设备或 smoke 通过没有覆盖原失败记录。
 
 #### R1 退出条件
 
-- [ ] 显式 opt-in、回退和回滚路径均可用，默认用户行为未改变。
-- [ ] 真实插件设备矩阵全部通过，且未用 fake provider 冒充端到端验收。
-- [ ] 用户文档提供安装、启用、诊断、禁用和回退步骤。
+- [x] 显式 opt-in、回退和回滚路径均可用，默认用户行为未改变。
+- [x] 真实插件设备矩阵全部通过，且未用 fake provider 冒充端到端验收。
+- [x] 用户文档提供安装、启用、诊断、禁用和回退步骤。
 
-### R1 本轮阶段证据（2026-08-09，2026-08-10 更新）
+### R1 本轮阶段证据（2026-08-09 至 2026-08-11）
 
-- 状态: R1 已启动，R1.0 接入决策完成；R1.1 source wiring、R1.2 持久 cache 与 production single-flight 已落地并通过静态审阅、定向 JVM、APK assemble 与 API 31 arm64 真实插件定向门禁。R1.2 按四项精确定义为 4/4；R1.1 仍为 0/7，R1.3 全部未勾，不能把单一 API/ABI 的定向结果泛化为生产链路或设备矩阵验收。
+- 状态: R1 已闭环。R1.0 接入决策、R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 真实设备矩阵 7/7 及 R1 三项退出条件均已完成；默认关闭、显式同签名 exact component、单次失败回退与取消不回退语义保持不变。
 - 默认与回滚: provider 设置默认关闭，只能显式选择同签名 exact component；启用后仅 raw `runtime.loadJar()` JAR 优先远端，失败至多回退一次内置 D8/dx，用户取消不回退，AAR 与 `defineClass()` 继续使用内置路径。
 - 回退与 ownership: 宿主保留同一输入快照、输出事务、独立验证、host-only copy、原子 cache 发布与回滚 ownership；插件不能直接发布可加载产物。R1.2 源码在认证握手并最终化 semantic key 后、claim FD 与 `openSession` 前查找持久 cache，命中仍使用当前 validator 复验。
 - 协商与身份: 协议版本和当次 runtime library fingerprint 在 Binder 握手后用于最终化请求，capability/ceiling 用于验证或拒绝；最小宿主构建号、固定 component/UID/signer 及同签名要求继续生效。
 - R1.0 基线门禁: 从宿主 `85373a59c` 创建临时 detached worktree并运行 DEX 定向测试；10 个 suite、105 个 test，failure/error/skipped 均为 0。该结果只属于 R1.0 基线，不能替代当前 R1.1 代码与主门禁确认。
-- R1.1 门禁边界: 生产接线、测试源码、文档与本地化已经落地，静态审阅未发现剩余代码阻断。当前修正版 Gradle 门禁为宿主 DEX 16 suites/149 tests，failure/error/skipped 均为 0；Android test Kotlin 编译以及 host/test APK assemble 均成功。较早门禁中的 wire 4 suites/24 tests 与 fake-provider JVM 5 suites/25 tests 也为全绿，但它们不替代真实 provider。完整 failure、FD ownership、回调顺序、回滚、身份边界和语料覆盖尚未完成，因此 R1.1 仍为 0/7。
+- R1.1 门禁: API 34 上 `DexCompilerProductionRoutingAndroidTest` 8/8 通过，覆盖 raw JAR opt-in 与单次 fallback、兼容 JAR/AAR/DEX/`defineClass()` 内置路由、固定决策快照、verified adoption 失败后的精确淘汰与回退、取消不启动本地编译、同 key 并发及探针故障隔离；持久证据位于 `D:\idea-projects\AutoJs6-DEX-R1-Evidence-20260810\production-routing-api34-8a479f65-bba1-4163-aded-00bf210e8ca9\report.json`，SHA-256 为 `9de8dff6f06fd1f16dd078199335b21e69c584a24455892b5ef318e3ec180737`。宿主 DEX 16 suites/149 tests、wire 4 suites/24 tests、fake-provider 5 suites/25 tests 全绿；fake provider 只承担故障注入，真实端到端结论由 API 31 lifecycle/concurrency/corpus 和 canonical 7-cell Gate 支撑。
 - Cache 源码与测试: 已部署 generation manifest/checksum、严格 fsync/原子 commit、16 MiB 单项/128 MiB 总量/32 项、恢复/LRU/损坏精确淘汰及 descriptor 同 inode 复验。持久 cache 的 11 项 pure JVM、production Runtime single-flight 的 14/14 pure JVM、独立 Harness 52 项（含 6 项 cache 路径）与真实设备的同 key 合并、fresh caller capability、命中及 exact cleanup 共同覆盖 key、hit、single-flight、atomic publish、corrupt eviction 和 retry，满足 R1.2 cache 项。
 - R1.2 JVM/编译门禁: 当前修正版宿主 DEX 16 suites/149 tests 全绿；Android test Kotlin 与 host/test APK assemble 成功。真实设备方法使用 host arm64 APK `181E38E8…A0A47`、严格修正版 test APK `70FAE1E8…39B0C` 与修复后插件 APK `5B6AC53B…640C4B`；三者 v2 signer certificate SHA-256 均为 `31a681fc…c213`。
 - 新增 Android 方法: 2 个 production concurrency 方法覆盖相同 semantic key 的共享 producer/独立 capability，以及 follower 中断而 leader 继续发布；探针在宿主完成 committed remote dispatch 时计数，不把 provider `openSession` 的直接调用次数伪装成生产语义证据。2 个真实 lifecycle 方法覆盖阻塞 session 的 BUSY/FD/terminal，以及显式 force-stop 的 Binder death、pipe EOF 和 exact recovery。3 个真实 corpus 方法覆盖 Java/Kotlin single-dex 与重复加载、缺失依赖的 ART 解析边界，以及真实 D8 multi-dex。
 - 重型 multi-dex 边界: 该 corpus 在运行时生成 7,300 个 class，每个含构造器和 8 个静态方法，共 65,700 个方法；输出解析每个真实 DEX 的 header、map 和 class_defs，并从 `classes.dex`、`classes2.dex` 各动态选择并执行一个生成类。它作为独立门禁在 21.692 s 内通过，不能泛化为其他 API/ABI。
 - API 31 arm64 真实插件结果: same-key committed dispatch/fresh capabilities 1.479 s；follower interrupt/leader publish 0.583 s；BUSY/FD/callback/gate-reuse 严格修正版 2.177 s；Java+Kotlin single-dex/duplicate identity 0.555 s；missing dependency ART boundary 0.524 s；65,700-method multi-dex primary+secondary load 21.692 s；Binder-death/EOF/no-provider-terminal/rebind 严格修正版 1.355 s。各项均 PASS，测试后 workspace 为空；最终 host/test/plugin 卸载均 `Success`，fake provider 保持 absent，相关进程数为 0。
-- R1.2 证据边界: 上述方法关闭的是 R1.2 四个精确定义的自动化测试项。它不覆盖 R1.1 七条生产链路的全部 failure/回退/回滚/身份门禁，也不覆盖 API 24/25/26/28/34/36 与 x86_64，因此 R1.1 保持 0/7，R1.3 全未勾。
+- R1.3 canonical Gate: campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 `gate-report.json` 为 `passed=true`、canonical receipt 7/7、attempt marker 7/7，journal head `a5abaf62803c6277aa015563cf16f2771eb0ffa9f9a226a20e7ac835ed54581b`，runner SHA-256 `ca89ac1637e5c690ced9e2e2d0b3d35aecf5c32584c6816883a21c363f040057`，campaign identity `6b859228a4943d74ab67707fa6c9a785f77248768ec1a4807e5e214034383665`；报告位于 `D:\idea-projects\AutoJs6-DEX-R1-Evidence-20260810\runs\f3c2b1af-be93-41e7-b541-f167f90e5cc1\gate-report.json`。
+- Canonical identity: clean host commit `e39023758e3a66a24f0ce90466b5bc77a503515d`、plugin commit `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448`；host/test/plugin APK SHA-256 分别为 `505bc077ad3586b802ba41eec5b093a01b3e7be011e0de7bf0b83dbf0aa1b878`、`4199d54d2f0fa8bd96d3c67d3c7073bf20a0c6f51f8248d2727e2dd75a75da24`、`65e432a7b4866cfb3db0392b87ac60e3dbab9161acc232b42b57a66abf08bd88`，完整 signer certificate SHA-256 均为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`。
+- 失败证据保留: campaign `74dc8c24-62fc-4dd6-ad55-e33af3d0787e` 在 API 26 因空 WCHAN 的清理解析失败而没有 receipt；campaign `4ee685d9-4631-4fd0-878f-fd87efd0c17b` 在 API 26/24/25 PASS 后因 process grammar 仍不够 fail-closed 而主动终止；campaign `e7e6c30e-9d8f-4c65-b808-4e8c676af899` 达到 6/7 后，因单用户 runner 无法安全处理 QV 的 user 10 而主动终止。三者均原样保留，没有被最终 PASS 覆盖或改写。
 - 并发与熔断边界: 中断任一 caller（包括最后 waiter）只 detach 并返回取消，绝不切换到本地编译器；producer 可继续在后台完成并写入 cache。last-waiter cooperative cancel 留到 R2。安全熔断一旦触发即在当前进程生命周期内保守保持打开，不声称能硬中止已阻塞工作。
 - 文档门禁: 宿主 10 个 changelog JSON 与 10 locale 资源、本插件 10 个 README locale JSON 均纳入解析检查；两仓生成器连续运行两次并要求第二次无变化，最终结果见本轮交付报告。
-- 证据层级: 本轮确认了定向 JVM、Android test Kotlin 编译、host/test APK assemble，以及 API 31 arm64 上真实 Binder lifecycle、production single-flight 与完整指定 corpus。它仍不能代表 R1.1 全链路或 R1.3 API/ABI 矩阵。
-- 执行边界: 每个真实方法独立执行；force-stop 使用精确包同意，并在恢复后复核 workspace。`emulator-5554` API 37 与 `emulator-5556` API 25 的外部状态未被当作替代矩阵证据。
+- 证据层级: JVM、Android 编译/APK、API 34 production routing、API 31 Binder lifecycle/concurrency/corpus 与 canonical 7-cell 真实 provider Gate 分层记录；没有把静态、fake 或单设备结果提升为矩阵验收。
+- 执行边界: 每条设备命令均绑定显式 serial；canonical 单元完成宿主/插件/test/fake provider 的前后状态、精确安装/卸载、进程与 workspace 清理复核。QV 多用户拓扑与同名前缀邻近包保持不变。
 - 插件恢复边界: force-stop 暴露出旧进程留下的真实 session workspace，促成 R2 的 process-once strict canonical janitor；该恢复切片见下节，不能倒推为 R2.2 全部完成。
 
 ## R2: 诊断、取消与恢复
@@ -303,7 +307,7 @@ R1.2 的四项精确定义均已有可复核的 JVM、编译与 API 31 arm64 真
 | 阶段 | 日期 | Commit | 结果 | 证据 |
 |---|---|---|---|---|
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
-| R1 | 2026-08-10 | 未提交 | 进行中 | R1.0 已完成；R1.1 source wiring、R1.2 持久 cache 与 production Runtime single-flight 已落地。宿主 DEX 16 suites/149 tests 全绿，Android test Kotlin 与 host/test APK assemble 成功；API 31 arm64 上 2 concurrency、2 lifecycle、3 corpus 方法逐项通过。R1.2 为 4/4；R1.1 为 0/7，R1.3 全未勾 |
+| R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
 | R2 | 2026-08-10 | 未提交 | 已启动/恢复切片进行中 | process-once strict canonical workspace janitor 已通过 48/48 插件 JVM、6/6 recovery、lint 与 Debug/Release build；API 31 旧 UUID 经首次 bind/kill/recovery 后清空，正常 D8 后保持空 root；R2 checkbox 全未勾 |
 | R3 | - | - | 待开始 | - |
 | R4 | - | - | 待开始 | - |
