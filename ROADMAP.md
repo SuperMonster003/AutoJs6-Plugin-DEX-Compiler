@@ -20,7 +20,7 @@
 | R0 | 已完成 | 低内存 JAR 验证、对抗性测试语料和可重复本地门禁 | 本插件 |
 | R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
-| R3 | 进行中（交付 2/4，退出 0/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
+| R3 | 已完成（交付 4/4，退出 1/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
 
 依赖顺序:
@@ -272,7 +272,7 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 目标: 在不改 AIDL、不改变 V1.0 单 JAR 行为的前提下，为显式入口增加“一个 program JAR + 有序编译期 classpath JAR”语义，并把同一冻结输入集合贯穿远端编译、本地回退、single-flight 与持久 cache。R3 优先交付一条真实可用的纵向路径，不把依赖解析、全故障排列或新设备矩阵设为退出门禁。
 
-状态: 进行中，交付项 3/4，退出条件 0/1。
+状态: 已完成，交付项 4/4，退出条件 1/1。
 
 ### R3.1 协议与传输
 
@@ -292,11 +292,15 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 - [x] provider 对 bundle framing、顺序、摘要及聚合预算 fail-closed，随后把 program 与 classpath 分别传给固定版本 D8；API 26+ 使用 builder classpath，API 24/25 保留 CLI `--classpath` 路径。输出继续由宿主二次验证、host-only 原子发布，插件不下载依赖、不请求网络权限、不执行生成的 DEX。
 - [x] 宿主以私有冻结 snapshots 构造 bundle；有序输入集合进入 request、single-flight 与独立版本的 semantic cache key。cache hit 仍发生在 FD claim 前，远端失败/adoption 失败/default-off 的本地 D8 使用同一冻结 program+classpath 且至多一次；有 classpath 时禁止掉入会丢语义的 dx fallback。
 
-当前证据: plugin commit `8ebd7ff` 已实现 V1.0/raw 与 V1.1/bundle 分流、固定私有路径、逐项/聚合预算及 ordered D8 classpath；正式 Gradle 为 13 suites / 72 tests 全通过，Debug APK SHA-256 `6f36eeb230643c8dfccfa40aca71310bfb0ebd4b6b7903b516d4ee12cbb13372`。host commit `4d2b7dfed` 提供 frozen input-set、canonical bundle、精确 V1.1 协商及 order-sensitive cache/single-flight identity；commit `a540e0f90` 又把同一 retained input-set 接入 AndroidClassLoader 的 D8-only 本地回退，覆盖 default-off、旧 provider、远端失败与 adoption 失败，取消后不发布或注册 loader，且不进入 dx。正式 Gradle 为 19 suites / 174 DEX tests 全通过，host universal Debug APK SHA-256 `0f85f8abb04ea017bda37675fada92888172559004afe19ce7717cdf3f60439b`、AndroidTest APK SHA-256 `d8a33bc233a1f95dc8914d716f300d4f3d437a76510c57c6036e33a44270d689`；版本文件未写回。该入口目前仍是 internal seam，JavaScript 显式入口与设备验收留在 R3.3。
+当前证据: plugin commit `8ebd7ff` 已实现 V1.0/raw 与 V1.1/bundle 分流、固定私有路径、逐项/聚合预算及 ordered D8 classpath；正式 Gradle 为 13 suites / 72 tests 全通过，Debug APK SHA-256 `6f36eeb230643c8dfccfa40aca71310bfb0ebd4b6b7903b516d4ee12cbb13372`。host commit `4d2b7dfed` 提供 frozen input-set、canonical bundle、精确 V1.1 协商及 order-sensitive cache/single-flight identity；commit `a540e0f90` 又把同一 retained input-set 接入 AndroidClassLoader 的 D8-only 本地回退，覆盖 default-off、旧 provider、远端失败与 adoption 失败，取消后不发布或注册 loader，且不进入 dx。正式 Gradle 为 19 suites / 174 DEX tests 全通过，host universal Debug APK SHA-256 `0f85f8abb04ea017bda37675fada92888172559004afe19ce7717cdf3f60439b`、AndroidTest APK SHA-256 `d8a33bc233a1f95dc8914d716f300d4f3d437a76510c57c6036e33a44270d689`；版本文件未写回。上述证据关闭 R3.2；JavaScript 显式入口与设备验收由 R3.3 单独记录。
 
 ### R3.3 显式入口与最小验收
 
-- [ ] 新增不改变旧 vararg 行为的显式 `runtime.loadJarWithClasspath(program, ...orderedClasspath)`；classpath 只参与编译，不进入输出，也不自动装载。运行时类型必须已由最终 program loader 的 parent 提供；旧 `runtime.loadJar()` 创建的是 sibling loader，不能被冒充为该 parent。定向 JVM/build 门禁通过后，只在一个获授权 API 34 目标上用 parent-visible fixture 验证真实 provider classpath 编译、最终 `DexClassLoader` 执行和一次 V1.0 回归，不重跑七设备矩阵。
+- [x] 新增不改变旧 vararg 行为的显式 `runtime.loadJarWithClasspath(program, ...orderedClasspath)`；classpath 只参与编译，不进入输出，也不自动装载。运行时类型必须已由最终 program loader 的 parent 提供；旧 `runtime.loadJar()` 创建的是 sibling loader，不能被冒充为该 parent。定向 JVM/build 门禁通过后，只在一个获授权 API 34 目标上用 parent-visible fixture 验证真实 provider classpath 编译、最终 `DexClassLoader` 执行和一次 V1.0 回归，不重跑七设备矩阵。
+
+当前证据: host commit `2e439a973` 增加显式 Rhino 入口并保持旧 `loadJar` overload 不变；正式 Gradle 为 20 suites / 176 DEX tests 全通过，Debug 与 AndroidTest APK 构建成功，版本文件未写回。唯一获授权的 `DEX_R1_API34_X64` API 34/x86_64 目标上，定向方法 `DexCompilerRealProviderAndroidTest#api34RhinoClasspathEntryUsesRealProviderAndRetainsLegacyLoadJar` 以真实 provider PASS：parent-visible fixture 经 V1.1 编译和最终 `DexClassLoader` 执行，compile-only stub 未进入输出，同时旧 `runtime.loadJar()` 的 V1.0 路径仍成功。host/test/plugin APK SHA-256 分别为 `f2c3819135e0d83f5903c7dc5b495d6f607f9d8b22e95723acda17467e0eb8dd`、`874c8678acec802f96f3a4281c633737a55097919bfe149fe5bf42a9de97b1b9`、`6f36eeb230643c8dfccfa40aca71310bfb0ebd4b6b7903b516d4ee12cbb13372`。
+
+代表性验收包位于 `D:\idea-projects\AutoJs6-DEX-R3-Evidence-20260811\classpath-entry-api34-fa6c21a7-7dda-4bee-9485-bf78906ed83c`。runner SHA-256 为 `0e5db5fe64656f2a3255b81beec590b87fb3d0e64f7568af5049e72af1e0ef88`，`report.json` SHA-256 为 `af55c196f90422bbafccc5ddd98cd064e6cd1763346363b08f1bcbc0c12cbc40`，`files.sha256.json` SHA-256 为 `b4759c7fde31bfca866fbd02d4ac719c1193498b06df7cb6fadb574534fadf5e`，instrumentation stdout SHA-256 为 `dfcdcdf1ac2e89dced922081a8f7c05cfc8830c287808a3c61c12c64c50feb18`。证据包共有 117 个 physical files；manifest 自排除后覆盖 116 entries，hash/path diff 均为 0。报告记录 55 commands / 45 条显式 serial ADB 命令 / timeout 0，3 次安装与 3 次卸载成功，instrumentation 精确结果为 `OK (1 test)`、terminal code `-1`，pre/post 各 8 个 package probes 均为空且 cleanup failure 为 0。该结果只是一条 API 34/x86_64 代表性纵向证据，不是新的 API/ABI 矩阵，也不把 R3.2 的 JVM/build fallback 覆盖提升为全故障设备证明。
 
 确定失败策略:
 
@@ -307,7 +311,7 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 #### R3 退出条件
 
-- [ ] 上述四项完成；canonical V1.1 开发者文档与简中用户文档准确说明 default-off、compile-only classpath、同语义单次回退及 V1.0 兼容边界，并保留一个可复核的代表性设备验收包。
+- [x] 上述四项完成；canonical V1.1 开发者文档与简中用户文档准确说明 default-off、compile-only classpath、同语义单次回退及 V1.0 兼容边界，并保留一个可复核的代表性设备验收包。
 
 ## R4: 编译器治理与能力分离
 
@@ -347,5 +351,5 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
 | R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 已完成（交付 4/4，退出 1/1） | plugin 65/65、host DEX 166/166、lint 0 error；API 34 canonical closeout 三类真实 provider 场景全部 PASS，52 commands / 61 hashed files，pre/post clean；run `dab3f857-650d-4107-a3b9-941a1f7e02c2` |
-| R3 | 2026-08-11 | host `c0b833a54`, `4d2b7dfed`; plugin `ab08f08`, `8ebd7ff` | 进行中（交付 2/4，退出 0/1） | contract/codec、provider bundle 与 dormant host input-set foundation 已通过正式 Gradle；同语义本地 fallback、显式入口和单设备验收仍开放；不建立新设备矩阵 |
+| R3 | 2026-08-11 | host `c0b833a54`, `4d2b7dfed`, `a540e0f90`, `2e439a973`; plugin `ab08f08`, `8ebd7ff`, `e0f9470` | 已完成（交付 4/4，退出 1/1） | V1.0/V1.1 contract、provider bundle、同语义 D8-only fallback 与显式 Rhino 入口已通过正式门禁；run `fa6c21a7-7dda-4bee-9485-bf78906ed83c` 在单 API 34/x86_64 真实 provider 场景 PASS，非设备矩阵 |
 | R4 | - | - | 待开始 | - |

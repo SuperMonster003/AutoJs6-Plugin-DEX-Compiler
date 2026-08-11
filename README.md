@@ -47,9 +47,9 @@ DEX Compiler 是 AutoJs6 的独立 DEX Compiler 协议 V1 provider. 它在应用
 
 ******
 
-- 接受 JAR 输入及 DEBUG 或 RELEASE 模式, 支持 minApi 24 至 36 和 multi-dex 输出.
+- V1.0 接受一个 raw program JAR; V1.1 接受一个 program JAR 与至少一个有序的 compile-only classpath JAR. 两者均支持 DEBUG 或 RELEASE 模式, minApi 24 至 36 和 multi-dex 输出.
 - 在编译前核验声明的大小和 SHA-256, ZIP framing, entry 名称, class magic, 重复项和解压边界.
-- 使用设备 runtime boot classpath 及其指纹编译, 不接受外部 classpath.
+- 使用设备 runtime boot classpath 及其指纹编译. V1.1 classpath 由宿主冻结并封装, 插件不接收调用方路径或任意 provider 文件系统 classpath.
 - 仅封装连续的 `classes.dex`, `classes2.dex` 等 DEX 文件, 并返回实际 ZIP 大小和 SHA-256.
 - Android API 26 及更高版本使用 D8Command, API 24 和 25 使用 D8 CLI fallback.
 
@@ -59,7 +59,7 @@ DEX Compiler 是 AutoJs6 的独立 DEX Compiler 协议 V1 provider. 它在应用
 
 ******
 
-版本 1 仅声明以下编译范围:
+协议 V1.0 通过输入描述符接收一个 raw program JAR; V1.1 通过同一个有界输入描述符接收一个 program JAR 与至少一个有序的 compile-only classpath JAR. 两者都只产生以下 D8 输出:
 
 ```text
 input: JAR with JVM class files
@@ -85,9 +85,9 @@ protocol: V1
 required host build: 5270
 ```
 
-插件声明 D8 8.13.17, JAR 输入, DEX ZIP 输出, DEBUG 和 RELEASE 模式, minApi 24 至 36 及 multi-dex. Runtime library model 为设备 boot classpath V1.
+插件声明 D8 8.13.17, 协议范围 V1.0 至 V1.1, JAR 输入, DEX ZIP 输出, DEBUG 和 RELEASE 模式, minApi 24 至 36 及 multi-dex. Runtime library model 为设备 boot classpath V1.
 
-需要宿主构建版本 5270 或更高版本. 插件不含 native library, 因而通过一个纯 JVM universal APK 支持所有设备 ABI.
+build 5270 是 legacy V1.0 的最低宿主要求; `runtime.loadJarWithClasspath` 还要求包含 R3.3 的配对宿主构建, 本轮代表性验收使用 build 5274. 插件不含 native library, 因而通过一个纯 JVM universal APK 支持所有设备 ABI.
 
 ******
 
@@ -95,19 +95,19 @@ required host build: 5270
 
 ******
 
-> raw runtime.loadJar 路由仍默认关闭, 且要求显式选择同签名 exact component. R1 已闭环: R1.1 为 7/7、R1.2 为 4/4、canonical 真实 provider 矩阵为 7/7. production Runtime single-flight 在认证并最终化 key 后使用有界持久语义 cache. 任一 waiter 中断都只分离该调用方且不作本地回退; 最后一个 waiter 离开时会通过 leader-owned one-shot handle 协作请求 producer 取消, 有其他 waiter 时不得取消. 安全熔断在当前进程生命周期内保持保守.
+> `runtime.loadJar` 与显式 `runtime.loadJarWithClasspath` 路由仍默认关闭, 且要求显式选择同签名 exact component. R1 的 canonical 真实 provider 矩阵保持 7/7; R3 的 V1.1 有序编译期 classpath 已由一个获授权 API 34/x86_64 真实 provider 场景代表性闭环, 不是新设备矩阵. production Runtime single-flight 在认证并最终化 key 后使用有界持久语义 cache. 任一 waiter 中断都只分离该调用方且不作本地回退; 最后一个 waiter 离开时会通过 leader-owned one-shot handle 协作请求 producer 取消, 有其他 waiter 时不得取消. 安全熔断在当前进程生命周期内保持保守.
 
 ******
 
-### R1 安装与使用指南
+### 安装与使用指南
 
 ******
 
-这是默认关闭的 R1 显式 opt-in 路径, 不是安装后自动生效的替代编译器. R1 验收现已包含 API 24/25/26/28/31/34/36 的真实 provider 执行, 覆盖 x86_64 模拟器与 arm64 真机. 这关闭的是固定 R1 门禁, 不会自动启用路由、把插件提升为默认编译器或扩大有界 V1 协议范围.
+这是默认关闭的显式 opt-in 路径, 不是安装后自动生效的替代编译器. R1 验收包含 API 24/25/26/28/31/34/36 的真实 provider 执行; R3 只增加一条 API 34/x86_64 的 V1.1 代表性纵向验收, 不重跑或扩大该矩阵. 这些闭环不会自动启用路由或把插件提升为默认编译器.
 
 #### 安装前提
 
-只从可信且成对发布的来源取得 AutoJs6 与插件. AutoJs6 必须为 build 5270 或更高, 且宿主与插件的完整当前签名证书集合必须相同; 自行构建时也必须保留下面的固定包名和服务组件. 升级前备份脚本与重要应用数据. 若 Android 报签名不匹配, 不要通过卸载宿主或清除数据来绕过.
+只从可信且成对发布的来源取得 AutoJs6 与插件. AutoJs6 build 5270 或更高可使用 legacy V1.0; `runtime.loadJarWithClasspath` 需要包含 R3.3 的配对宿主构建, 本轮代表性验收使用 build 5274. 宿主与插件的完整当前签名证书集合必须相同; 自行构建时也必须保留下面的固定包名和服务组件. 升级前备份脚本与重要应用数据. 若 Android 报签名不匹配, 不要通过卸载宿主或清除数据来绕过.
 
 ```text
 host package: org.autojs.autojs6
@@ -122,7 +122,7 @@ exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.
 
 #### 确认状态
 
-回到开发者选项确认摘要明确显示 raw runtime.loadJar JAR 优先使用下方 exact component. 如果只显示 Built-in D8/dx 或找不到候选项, 请先核对宿主 build、两个包名、插件启用状态与签名. 该摘要只证明当前选择与发现资格, 不等于某一次编译已走远端. R1 矩阵闭环也不会取消每次请求的身份复核、握手、验证或回退规则.
+回到开发者选项确认摘要明确显示 raw `runtime.loadJar` JAR 优先使用下方 exact component; 同一个选择也控制显式 `runtime.loadJarWithClasspath`. 如果只显示 Built-in D8/dx 或找不到候选项, 请先核对宿主 build、两个包名、插件启用状态与签名. 该摘要只证明当前选择与发现资格, 不等于某一次编译已走远端. 已有验收也不会取消每次请求的身份复核、握手、验证或回退规则.
 
 #### AutoJs6 示例
 
@@ -143,11 +143,20 @@ const Example = Packages.com.example.autojs6.DexPluginExample;
 console.log("DEX compiler example: " + Example.answer());
 ```
 
-此示例只覆盖 raw JAR. `.aar`、已编译 `.dex`、兼容辅助路径和动态 `defineClass()` 始终保留在宿主内置路径. 不可信字节码在编译后仍不安全, 只加载你信任的 JAR.
+上述示例覆盖 V1.0 raw JAR. 需要有序编译期 classpath 时可显式调用:
+
+```javascript
+runtime.loadJarWithClasspath(
+    files.path("./lib/program.jar"),
+    files.path("./lib/compile-api-stubs.jar"),
+);
+```
+
+该入口至少需要一个 classpath JAR, 保留声明顺序并把它纳入 cache identity. classpath 只供 D8 编译查找, 不进入输出也不自动装载; program 引用的运行时类型必须已由最终 program loader 的 parent 提供. 先用 `runtime.loadJar()` 加载依赖只会创建 sibling loader, 不能建立这种 parent 可见性. `.aar`、已编译 `.dex`、兼容辅助路径和动态 `defineClass()` 始终保留在宿主内置路径. 不可信字节码在编译后仍不安全, 只加载你信任的 JAR.
 
 #### 采集诊断
 
-报告问题时请记录 AutoJs6 build/版本、插件版本、开发者选项中的完整 exact component 摘要、设备型号/API/ABI、输入 JAR 的字节数与 SHA-256、发生时间、完整脚本异常及复现步骤. 如使用 ADB, 对每条命令显式填写唯一获授权设备的 `<serial>`, 截取故障时间附近的 AndroidClassLoader/AndroidRuntime 日志, 并在分享前删去私有路径、脚本内容和其他敏感数据.
+报告问题时请记录 AutoJs6 build/版本、插件版本、开发者选项中的完整 exact component 摘要、设备型号/API/ABI、program 与每个有序 classpath JAR 的字节数和 SHA-256、发生时间、完整脚本异常及复现步骤. 如使用 ADB, 对每条命令显式填写唯一获授权设备的 `<serial>`, 截取故障时间附近的 AndroidClassLoader/AndroidRuntime 日志, 并在分享前删去私有路径、脚本内容和其他敏感数据.
 
 ```powershell
 adb -s <serial> shell dumpsys package org.autojs.autojs6
@@ -161,7 +170,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### 理解 fallback
 
-路由关闭、provider 不可用或不兼容、绑定/远端失败、超时、输出无效或已验证产物加载失败时, 一次调用最多转入一次宿主内置 D8/dx; 已 dispatch 的 Binder 工作不会自动重试. 调用方取消或线程中断会直接传播且不会本地回退. AAR、loadDex 和 defineClass 本来就不经过插件. 因而脚本最终成功只能说明某条可用路径成功, 不能单独证明插件完成了编译.
+legacy `runtime.loadJar()` 固定使用 V1.0, 在允许回退的失败上仍至多转入一次宿主内置 D8/dx. 非空 classpath 的 `runtime.loadJarWithClasspath()` 请求 V1.1; 路由关闭、旧 provider、绑定/远端失败、超时、输出无效或 adoption 失败时, 宿主仅可用完全相同的冻结 program+ordered classpath 转入一次本地 D8, 不得忽略 classpath、静默降为 V1.0 或进入 dx. 已 dispatch 的 Binder 工作不会自动重试; 调用方取消或线程中断会直接传播且不回退. AAR、loadDex 和 defineClass 本来就不经过插件, 因而脚本最终成功不能单独证明插件完成了编译.
 
 #### 卸载与恢复
 
@@ -169,7 +178,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### 已知限制与验收边界
 
-V1 仅处理有界 raw JVM JAR 到 DEX ZIP 的转换, 不提供 R8 shrinking/obfuscation、外部 classpath、自定义 desugared library、网络编译或确定性字节输出. BUSY 可触发宿主回退. 最后一个 waiter 离开会协作请求取消, 终止后禁止发布并最终清理; 若 D8 已进入不可中断调用, CPU 工作仍可能在隔离进程中继续到当前编译返回. 性能晋级、默认启用及移除宿主编译器依赖不属于本轮闭环范围.
+V1 仅处理有界 JVM JAR 到 DEX ZIP 的转换. V1.1 的 bundled classpath 是 compile-only, 不是运行时依赖打包、combined loader 或任意外部 classpath; 也不提供 R8 shrinking/obfuscation、自定义 desugared library、Maven/Gradle 下载解析、网络编译或确定性字节输出. BUSY 可触发符合对应版本语义的宿主回退. 最后一个 waiter 离开会协作请求取消, 终止后禁止发布并最终清理; 若 D8 已进入不可中断调用, CPU 工作仍可能在隔离进程中继续到当前编译返回. 性能晋级、默认启用、全 API/ABI V1.1 矩阵及移除宿主编译器依赖不属于本轮闭环范围.
 
 ******
 
@@ -177,7 +186,7 @@ V1 仅处理有界 raw JVM JAR 到 DEX ZIP 的转换, 不提供 R8 shrinking/obf
 
 ******
 
-R1 已闭环: R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 真实设备矩阵 7/7, 三项退出条件全部勾选. R2 已部署有界故障摘要、最后 waiter 协作取消、统一 fail-closed 终态与 process-once 启动恢复, 并由一个获授权 API 34 x86_64 目标上的真实编译失败、调用方取消和 provider 进程中断代表性验收闭环. 这不是新的设备矩阵; 路由仍默认关闭, 失败至多回退一次, 调用方取消不回退, 结果终止也不代表 D8 CPU 已停止. 详细状态和可复核证据以 ROADMAP 为准.
+R1 与 R2 保持闭环. R3 已完成 V1.0/V1.1 并存 wire、provider canonical bundle、宿主同语义 D8-only fallback、多输入 cache/single-flight identity 和显式 Rhino 入口, 并在一个获授权 API 34/x86_64 目标上完成真实 provider classpath 编译、最终 DexClassLoader 执行和一次 V1.0 回归. 这是一条代表性纵向证据, 不是新的设备矩阵; 路由仍默认关闭, 调用方取消不回退, classpath 仍是 compile-only. 详细状态和可复核证据以 ROADMAP 为准.
 
 - [查看可勾选的 ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
@@ -196,6 +205,7 @@ R1 已闭环: R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 真实设�
 ******
 
 - 压缩 JAR 最大 64 MiB, 最多 20000 个 entry, 解压总量最大 256 MiB.
+- V1.1 最多接受 32 个 classpath JAR, 单个压缩 classpath JAR 最大 64 MiB, classpath 压缩总量最大 128 MiB, 整个 canonical bundle 最大 256 MiB.
 - class 数据总量最大 128 MiB, 单个 class 最大 8 MiB. Entry 和整体压缩比均受限制.
 - DEX ZIP 最大 16 MiB, 最多 64 个连续编号的 DEX entry. 请求可声明更低的输出上限.
 - 同一进程最多有一个活动编译会话. 忙碌请求会返回可重试的 BUSY 错误.
@@ -209,7 +219,7 @@ R1 已闭环: R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 真实设�
 
 - 取消或关闭会立即阻止结果发布, 关闭描述符并中断 worker, 但 D8 的 CPU 工作无法可靠中断.
 - 取消后的会话槽会一直保留到 D8 worker 实际退出并完成清理, 期间新请求仍会收到 BUSY.
-- 插件不声明确定性, 不接受外部 classpath 或自定义 desugared library 配置.
+- 插件不声明确定性. V1.1 只接受宿主冻结在 canonical bundle 中的 compile-only classpath, 不接收调用方路径、任意 provider 文件系统 classpath 或自定义 desugared library 配置.
 - 宿主仍会使用完整的 DexIndexedZipValidator 二次验证输出. 插件的输出封装检查不是宿主验证的替代品.
 - 设备 runtime boot classpath 可能因系统而异, 请求必须匹配 provider 报告的 runtime 指纹.
 
