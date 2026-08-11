@@ -20,7 +20,7 @@
 | R0 | 已完成 | 低内存 JAR 验证、对抗性测试语料和可重复本地门禁 | 本插件 |
 | R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
-| R3 | 待开始 | 协议 V2 的受控依赖输入、宿主规范化和多输入缓存扩展 | 协议 + AutoJs6 + 本插件 |
+| R3 | 进行中（交付 1/4，退出 0/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
 
 依赖顺序:
@@ -268,35 +268,44 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 - [x] 上述四项全部完成，当前源码测试/lint/build 通过；canonical 简中用户文档与 V1 开发者文档保持 default-off、单次回退及“结果终止与 CPU 停止不同”的准确边界。其他 README locale 的阶段状态翻译不作为 R2 退出门禁，可独立后续同步。
 
-## R3: 协议 V2、依赖输入与宿主缓存
+## R3: V1.1 有序编译期 classpath
 
-目标: 支持复杂第三方库，并把 R1.2 的单 program 语义 cache 扩展到 V2 多输入，同时继续坚持 FD-only、资源有界、调用方鉴权和宿主最终验证。
+目标: 在不改 AIDL、不改变 V1.0 单 JAR 行为的前提下，为显式入口增加“一个 program JAR + 有序编译期 classpath JAR”语义，并把同一冻结输入集合贯穿远端编译、本地回退、single-flight 与持久 cache。R3 优先交付一条真实可用的纵向路径，不把依赖解析、全故障排列或新设备矩阵设为退出门禁。
 
-### R3.0 协议设计
+状态: 进行中，交付项 1/4，退出条件 0/1。
 
-- [ ] V2 与 V1 可并存协商；旧宿主和旧 provider 失败方式明确且安全。
-- [ ] 多 JAR/program/classpath/desugared library 只通过有界文件描述符与摘要传递，不接受任意文件路径。
-- [ ] 每个输入及总输入都声明大小、SHA-256、角色、顺序和资源上限。
-- [ ] runtime 与外部 classpath 指纹进入请求和 cache key，顺序语义固定。
-- [ ] 定义 duplicate class、缺失依赖、冲突依赖和 unsupported bytecode 的确定失败策略。
+### R3.1 协议与传输
 
-### R3.1 职责边界
+- [x] 共享 contract/codec 已定义并构建 V1.1 与 V1.0 并存语义：V1.0 继续把既有 `programFd` 解释为 raw JAR；V1.1 定义同一有界 PFD 中的 canonical input bundle，声明恰好一个 program 与有序 classpath 的角色、ordinal、大小、SHA-256、集合指纹及单项/总量上限，不携带路径或名称，也不修改 AIDL transaction。provider 的实际 bundle 提取与 D8 接线仍属于 R3.2，不由本项冒充完成。
 
-- [ ] AAR 解包、资源处理、依赖解析和规范化由宿主/构建层负责；本插件仍只消费代码输入。
-- [ ] 将宿主语义 cache 扩展到 V2 多输入 key、请求合并、原子发布、淘汰和损坏恢复。
-- [ ] 插件不下载 Maven/Gradle 依赖，不请求网络权限，不执行生成的 DEX。
-- [ ] 自定义 desugared library 若被支持，必须有独立 capability、摘要和兼容性矩阵。
+当前证据: host commit `c0b833a54` 的协议模块 5 suites / 42 tests 全通过，V1.0 golden bytes 与 AIDL 保持不变；Release API AAR SHA-256 为 `4766af19ea414400177ba8541f753737c8bf40624cbfc866bb5442cc4b07fea5`。plugin commit `ab08f08` 已固定同一 AAR，并通过 12 suites / 68 tests 与 Debug APK 构建。该证据只关闭共享 contract/codec 和 provider D8 classpath seam，不代表远端 V1.1 已可用。
 
-### R3.2 验收
+兼容边界:
 
-- [ ] 覆盖多依赖、顺序变化、重复类、缺失类、不同 runtime fingerprint 和 desugared library 组合。
-- [ ] 覆盖所有单项/总量上限、FD ownership、调用方取消和输出二次验证。
-- [ ] V1 回归矩阵保持通过。
+- 本阶段的兼容承诺是跨 APK 的 Binder/wire 互操作；host 与 provider 各自打包同代 API AAR，不把新增 Kotlin/JVM 构造器误称为旧 AAR 的 binary drop-in replacement。
+- legacy `runtime.loadJar()` 固定协商 V1.0，不因 provider 支持 V1.1 而改变 wire bytes 或 cache identity。
+- 只有非空 classpath 的显式入口才请求 V1.1；旧 provider 或缺少 bundle capability 时不得忽略 classpath、不得远端降级到 V1.0，只能在未取消时执行一次同语义本地 D8 回退。
+- capability 扩展使用旧 reader 可跳过的 optional tags；不得把新枚举塞进 V1.0 `inputFormats` 使旧宿主拒绝整个 provider。
+
+### R3.2 宿主与 provider 纵向切片
+
+- [ ] provider 对 bundle framing、顺序、摘要及聚合预算 fail-closed，随后把 program 与 classpath 分别传给固定版本 D8；API 26+ 使用 builder classpath，API 24/25 保留 CLI `--classpath` 路径。输出继续由宿主二次验证、host-only 原子发布，插件不下载依赖、不请求网络权限、不执行生成的 DEX。
+- [ ] 宿主以私有冻结 snapshots 构造 bundle；有序输入集合进入 request、single-flight 与独立版本的 semantic cache key。cache hit 仍发生在 FD claim 前，远端失败/adoption 失败/default-off 的本地 D8 使用同一冻结 program+classpath 且至多一次；有 classpath 时禁止掉入会丢语义的 dx fallback。
+
+### R3.3 显式入口与最小验收
+
+- [ ] 新增不改变旧 vararg 行为的显式 `runtime.loadJarWithClasspath(program, ...orderedClasspath)`；classpath 只参与编译，不进入输出，也不自动装载。运行时类型必须已由最终 program loader 的 parent 提供；旧 `runtime.loadJar()` 创建的是 sibling loader，不能被冒充为该 parent。定向 JVM/build 门禁通过后，只在一个获授权 API 34 目标上用 parent-visible fixture 验证真实 provider classpath 编译、最终 `DexClassLoader` 执行和一次 V1.0 回归，不重跑七设备矩阵。
+
+确定失败策略:
+
+- bundle framing、摘要、顺序、数量或资源预算错误在 D8 前拒绝；输入之间同名的规范化 `.class` entry 可在验证阶段拒绝，但不把 entry 名比较冒充完整 classfile identity 分析。
+- 缺失依赖、冲突类型和 unsupported bytecode 不在 R3 自造完整 classfile 解析器；由固定 D8 版本给出有界 `COMPILATION_FAILED`/diagnostics，编译成功仍必须经过宿主 DEX 校验和实际加载。compiler/runtime/input identity 均进入 cache key，避免把不同语义结果合并。
+
+非门禁后续项: ordered multi-program 自动打包运行时依赖、显式 dependency parent/combined loader、AAR/资源处理、Maven/Gradle 解析或下载、自定义 desugared-library configuration、完整 duplicate/missing/conflict hostile permutations、全 API/ABI 矩阵及 R8。它们只有在形成独立稳定语义时再升级协议，不阻塞本轮 R3。
 
 #### R3 退出条件
 
-- [ ] 协议规范、实现、兼容性测试和安全审查完成。
-- [ ] 复杂依赖用例在真实设备上由最终 `DexClassLoader` 执行通过。
+- [ ] 上述四项完成；canonical V1.1 开发者文档与简中用户文档准确说明 default-off、compile-only classpath、同语义单次回退及 V1.0 兼容边界，并保留一个可复核的代表性设备验收包。
 
 ## R4: 编译器治理与能力分离
 
@@ -336,5 +345,5 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
 | R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 已完成（交付 4/4，退出 1/1） | plugin 65/65、host DEX 166/166、lint 0 error；API 34 canonical closeout 三类真实 provider 场景全部 PASS，52 commands / 61 hashed files，pre/post clean；run `dab3f857-650d-4107-a3b9-941a1f7e02c2` |
-| R3 | - | - | 待开始 | - |
+| R3 | 2026-08-11 | host `c0b833a54`; plugin `ab08f08` | 进行中（交付 1/4，退出 0/1） | V1.1 contract/codec、V1.0 golden compatibility 与 provider D8 classpath seam 已完成无设备门禁；远端 bundle 提取、宿主冻结输入和显式入口仍开放，不建立新设备矩阵 |
 | R4 | - | - | 待开始 | - |
