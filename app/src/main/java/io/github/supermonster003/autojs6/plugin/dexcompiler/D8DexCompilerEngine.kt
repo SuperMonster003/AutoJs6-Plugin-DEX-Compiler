@@ -19,20 +19,23 @@ internal class D8DexCompilerEngine(
     private val runtimeLibraries: RuntimeLibrarySet,
     private val sdkInt: () -> Int = { Build.VERSION.SDK_INT },
     private val commandRunner: D8CommandRunner = AndroidD8CommandRunner,
+    private val cliRunner: D8CliRunner = AndroidD8CliRunner,
 ) {
     fun compile(
         request: DexCompileRequest,
         programJar: File,
+        classpathJars: List<File> = emptyList(),
         outputDirectory: File,
         artifactZip: File,
         ensureActive: () -> Unit,
         beforePackaging: () -> Unit,
     ): DexArtifact {
         val diagnostics = D8DiagnosticCollector(request.diagnosticByteLimit)
+        val inputs = D8InputFiles(programJar, classpathJars.toList())
         ensureActive()
         try {
             if (sdkInt() >= Build.VERSION_CODES.O) {
-                commandRunner.run(request, programJar, outputDirectory, runtimeLibraries.files, diagnostics)
+                commandRunner.run(request, inputs, outputDirectory, runtimeLibraries.files, diagnostics)
             } else {
                 val arguments = mutableListOf(
                     "--output", outputDirectory.absolutePath,
@@ -43,8 +46,12 @@ internal class D8DexCompilerEngine(
                     arguments += "--lib"
                     arguments += it.absolutePath
                 }
-                arguments += programJar.absolutePath
-                D8.main(arguments.toTypedArray())
+                inputs.classpathJars.forEach {
+                    arguments += "--classpath"
+                    arguments += it.absolutePath
+                }
+                arguments += inputs.programJar.absolutePath
+                cliRunner.run(arguments.toTypedArray())
             }
         } catch (error: CompilationFailedException) {
             diagnostics.recordTerminalFailure()
@@ -88,36 +95,52 @@ internal class D8DexCompilerEngine(
     }
 }
 
+internal data class D8InputFiles(
+    val programJar: File,
+    val classpathJars: List<File>,
+)
+
 internal fun interface D8CommandRunner {
     fun run(
         request: DexCompileRequest,
-        programJar: File,
+        inputs: D8InputFiles,
         outputDirectory: File,
         runtimeLibraries: List<File>,
         diagnosticsHandler: DiagnosticsHandler,
     )
 }
 
+internal fun interface D8CliRunner {
+    fun run(arguments: Array<String>)
+}
+
 private object AndroidD8CommandRunner : D8CommandRunner {
     @TargetApi(Build.VERSION_CODES.O)
     override fun run(
         request: DexCompileRequest,
-        programJar: File,
+        inputs: D8InputFiles,
         outputDirectory: File,
         runtimeLibraries: List<File>,
         diagnosticsHandler: DiagnosticsHandler,
     ) {
         val builder = D8Command.builder(diagnosticsHandler)
-            .addProgramFiles(programJar.toPath())
+            .addProgramFiles(inputs.programJar.toPath())
             .setOutput(outputDirectory.toPath(), OutputMode.DexIndexed)
             .setMode(request.mode.toCompilationMode())
             .setMinApiLevel(request.minApi)
         runtimeLibraries.forEach { builder.addLibraryFiles(it.toPath()) }
+        inputs.classpathJars.forEach { builder.addClasspathFiles(it.toPath()) }
         D8.run(builder.build())
     }
 
     private fun DexCompilerMode.toCompilationMode(): CompilationMode = when (this) {
         DexCompilerMode.DEBUG -> CompilationMode.DEBUG
         DexCompilerMode.RELEASE -> CompilationMode.RELEASE
+    }
+}
+
+private object AndroidD8CliRunner : D8CliRunner {
+    override fun run(arguments: Array<String>) {
+        D8.main(arguments)
     }
 }
