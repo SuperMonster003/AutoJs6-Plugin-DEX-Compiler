@@ -20,7 +20,7 @@
 | R0 | 已完成 | 低内存 JAR 验证、对抗性测试语料和可重复本地门禁 | 本插件 |
 | R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
-| R3 | 进行中（交付 1/4，退出 0/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
+| R3 | 进行中（交付 2/4，退出 0/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
 
 依赖顺序:
@@ -272,7 +272,7 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 目标: 在不改 AIDL、不改变 V1.0 单 JAR 行为的前提下，为显式入口增加“一个 program JAR + 有序编译期 classpath JAR”语义，并把同一冻结输入集合贯穿远端编译、本地回退、single-flight 与持久 cache。R3 优先交付一条真实可用的纵向路径，不把依赖解析、全故障排列或新设备矩阵设为退出门禁。
 
-状态: 进行中，交付项 1/4，退出条件 0/1。
+状态: 进行中，交付项 2/4，退出条件 0/1。
 
 ### R3.1 协议与传输
 
@@ -289,10 +289,10 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 ### R3.2 宿主与 provider 纵向切片
 
-- [ ] provider 对 bundle framing、顺序、摘要及聚合预算 fail-closed，随后把 program 与 classpath 分别传给固定版本 D8；API 26+ 使用 builder classpath，API 24/25 保留 CLI `--classpath` 路径。输出继续由宿主二次验证、host-only 原子发布，插件不下载依赖、不请求网络权限、不执行生成的 DEX。
+- [x] provider 对 bundle framing、顺序、摘要及聚合预算 fail-closed，随后把 program 与 classpath 分别传给固定版本 D8；API 26+ 使用 builder classpath，API 24/25 保留 CLI `--classpath` 路径。输出继续由宿主二次验证、host-only 原子发布，插件不下载依赖、不请求网络权限、不执行生成的 DEX。
 - [ ] 宿主以私有冻结 snapshots 构造 bundle；有序输入集合进入 request、single-flight 与独立版本的 semantic cache key。cache hit 仍发生在 FD claim 前，远端失败/adoption 失败/default-off 的本地 D8 使用同一冻结 program+classpath 且至多一次；有 classpath 时禁止掉入会丢语义的 dx fallback。
 
-进行中证据: plugin commit `8ebd7ff` 已实现 V1.0/raw 与 V1.1/bundle 分流、固定私有路径、逐项/聚合预算及 ordered D8 classpath，独立 Kotlin 编译与 4 个 materializer 定向测试通过。host commit `4d2b7dfed` 已实现不可达的 internal frozen input-set、canonical bundle、精确 V1.1 协商与 order-sensitive cache/single-flight identity，独立编译与 91 个定向 JVM 测试通过；它尚未接 AndroidClassLoader/JS，也尚未实现同语义本地 D8 fallback。正式 Gradle 在等待其他 Codex 客户端约 9 分钟后仍被占用，故两项保持未勾，不把静态/独立编译提升为完整构建验收。
+当前证据: plugin commit `8ebd7ff` 已实现 V1.0/raw 与 V1.1/bundle 分流、固定私有路径、逐项/聚合预算及 ordered D8 classpath；正式 Gradle 为 13 suites / 72 tests 全通过，Debug APK SHA-256 `6f36eeb230643c8dfccfa40aca71310bfb0ebd4b6b7903b516d4ee12cbb13372`。host commit `4d2b7dfed` 的 dormant internal frozen input-set、canonical bundle、精确 V1.1 协商与 order-sensitive cache/single-flight identity也已通过正式 Gradle：17 suites / 169 DEX tests、Debug 与 AndroidTest APK 构建全通过；但它尚未接 AndroidClassLoader/JS，也尚未实现同语义本地 D8 fallback，因此宿主交付项保持未勾。
 
 ### R3.3 显式入口与最小验收
 
@@ -347,5 +347,5 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
 | R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 已完成（交付 4/4，退出 1/1） | plugin 65/65、host DEX 166/166、lint 0 error；API 34 canonical closeout 三类真实 provider 场景全部 PASS，52 commands / 61 hashed files，pre/post clean；run `dab3f857-650d-4107-a3b9-941a1f7e02c2` |
-| R3 | 2026-08-11 | host `c0b833a54`, `4d2b7dfed`; plugin `ab08f08`, `8ebd7ff` | 进行中（交付 1/4，退出 0/1） | contract/codec 已完成正式 Gradle；provider bundle 与 dormant host input-set foundation 已静态验收、待正式 Gradle，显式入口仍开放；不建立新设备矩阵 |
+| R3 | 2026-08-11 | host `c0b833a54`, `4d2b7dfed`; plugin `ab08f08`, `8ebd7ff` | 进行中（交付 2/4，退出 0/1） | contract/codec、provider bundle 与 dormant host input-set foundation 已通过正式 Gradle；同语义本地 fallback、显式入口和单设备验收仍开放；不建立新设备矩阵 |
 | R4 | - | - | 待开始 | - |
