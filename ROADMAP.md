@@ -19,7 +19,7 @@
 |---|---|---|---|
 | R0 | 已完成 | 低内存 JAR 验证、对抗性测试语料和可重复本地门禁 | 本插件 |
 | R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
-| R2 | 进行中（交付 2/4，退出 0/1） | 有界故障摘要、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
+| R2 | 进行中（交付 3/4，退出 0/1） | 有界故障摘要、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 待开始 | 协议 V2 的受控依赖输入、宿主规范化和多输入缓存扩展 | 协议 + AutoJs6 + 本插件 |
 | R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
 
@@ -210,7 +210,7 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 目标: 在不改变 R1 默认关闭、显式 provider 与单次回退语义的前提下，让失败可辨识、终止后绝不发布半成品，并允许后续请求从进程中断中恢复。
 
-状态: 交付项 2/4，退出条件 0/1。provider 启动恢复与有界故障摘要已具备 JVM、构建和代表性真实 provider 设备证据；统一终态及最小 R2 验收包尚待完成。
+状态: 交付项 3/4，退出条件 0/1。provider 启动恢复、有界故障摘要与统一终态已具备 JVM、构建和代表性真实 provider 设备证据；最小 R2 验收包尚待完成。
 
 ### R2.1 有界故障摘要
 
@@ -234,14 +234,22 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 ### R2.2 Fail-closed 终态与恢复
 
-- [ ] cancel、close、deadline、Binder/transport/callback 故障共享同一终态不变量：调用方只观察一个终态，终止后不得发布结果，不再需要的描述符被关闭，session gate 最终可再次接纳请求；single-flight 的最后一个 waiter 离开时协作请求 producer 取消，有其他 waiter 时不得取消且调用方取消仍不回退；deadline 使用单调时钟，已进入不可中断 D8 时只保证禁止发布与最终清理，不声称 CPU 已停止。
+- [x] cancel、close、deadline、Binder/transport/callback 故障共享同一终态不变量：调用方只观察一个终态，终止后不得发布结果，不再需要的描述符被关闭，session gate 最终可再次接纳请求；single-flight 的最后一个 waiter 离开时协作请求 producer 取消，有其他 waiter 时不得取消且调用方取消仍不回退；deadline 使用单调时钟，已进入不可中断 D8 时只保证禁止发布与最终清理，不声称 CPU 已停止。
 - [x] provider 进程重新启动时，在首次 Binder 暴露前以 strict-canonical、fail-closed 方式回收旧 session workspace，不删除进程内后续创建的活动 workspace；恢复后新的真实 D8/`DexClassLoader` 请求可成功且 workspace 保持干净。
 
 最小证据:
 
 - 终态项使用确定性的 JVM race/fault 测试覆盖最后 waiter 取消、有其他 waiter 时继续和 terminal/publication 竞态，再加一个真实 provider 的取消或超时 smoke；不要求四个内部阶段逐一设备注入。
-- 恢复项复用现有 6/6 workspace-recovery、API 31 force-stop/Binder-death/rebind 和正常 D8 后空 workspace 证据。force-stop 暴露的旧 UUID 在首次恢复前存在，恢复后仅保留空 root；当前插件总门禁已更新为 11 suites/53 tests、lint 0 error/27 warnings 与 Debug assemble 成功，Release assemble 保留恢复切片落地时的已有证据。
+- 恢复项复用现有 6/6 workspace-recovery、API 31 force-stop/Binder-death/rebind 和正常 D8 后空 workspace 证据。force-stop 暴露的旧 UUID 在首次恢复前存在，恢复后仅保留空 root；当前插件总门禁已更新为 12 suites/65 tests、lint 0 error/27 warnings 与 Debug assemble 成功，Release assemble 保留恢复切片落地时的已有证据。
 - 卡住 worker 继续采用 process-local safety circuit 的保守策略，不声称线程 interrupt 已经终止 D8 CPU 工作；该约束不单列 checkbox。
+
+本轮证据:
+
+- 宿主 commit `e65bef44d` 让最后一个 waiter 以 leader-owned one-shot handle 协作请求取消；有其他 waiter 时 producer 继续，取消调用方不回退。请求早于/晚于 Binder handle 建立、replacement flight、late publication、fallback 关闭和 VME/interrupt 传播均由确定性 JVM 测试覆盖。
+- 宿主 deadline 从 attempt 创建时以单调时钟计算，begin、dispatch 与 publication commit 在同一锁内让先登记的 cancel/Binder death 优先于后到 timeout；当前 DEX 门禁为 17 suites/166 tests，failure/error/skipped 均为 0，app Debug 与 androidTest APK 构建成功，版本文件无写回。
+- 插件 commit `6e716af` 统一 terminal/stop/cleanup 的 exactly-once ownership；编码、回调、worker rejection、callback death-link 或 stop 动作抛错时仍先完成无 worker cleanup 并释放 process gate，VME 保持主异常。插件门禁为 12 suites/65 tests，failure/error/skipped 均为 0，lint 为 0 error/27 warnings，Debug APK 构建成功。
+- API 34 x86_64 `DEX_R1_API34_X64` 上复用单一真实 provider lifecycle 方法，3.004 s 内完成 BUSY、调用方取消、描述符 EOF、单终态与下一 session gate 复用，`OK (1 test)` / instrumentation `-1`。host/test/plugin 安装前后均 absent，fake 保持 absent，相关进程为 0，AVD 与 5588/5589 端口已释放；本证据不扩张为新矩阵，也不声称硬中止已进入 D8 的 CPU 工作。
+- 本轮设备 APK SHA-256 为 host universal `236e3de0e4bc267b085cc2ed73463af3f957a17dc0dfe3a258a699cfa064ce11`、host androidTest `15b9ddbdc9fe34c1ccac4ade40c8df804623d8b9e03d9eab1ff80cc91e23a7ed`、plugin Debug `a4a0666a8847995abab02f935817b8b4f67367cd71a54f96c0e62a9ffad7e194`；三者 v2 signer certificate SHA-256 均为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`。
 
 ### R2.3 最小闭环验收
 
@@ -320,6 +328,6 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 |---|---|---|---|---|
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
-| R2 | 2026-08-11 | plugin `09e6f9d`; host `dc7d1ae53` | 进行中（交付 2/4，退出 0/1） | 启动恢复与有界故障摘要两项已勾选；最新门禁为 plugin 53/53、host DEX 152/152、lint 0 error，API 34 单方法真实 D8 失败→脱敏摘要→后续正常编译/加载在 3.213 s 内 PASS；统一终态、最小验收包与退出条件待完成 |
+| R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 进行中（交付 3/4，退出 0/1） | 启动恢复、有界故障摘要与统一终态三项已勾选；最新门禁为 plugin 65/65、host DEX 166/166、lint 0 error，API 34 真实 D8 失败 smoke 与取消/lifecycle smoke 均 PASS；最小验收包与退出条件待完成 |
 | R3 | - | - | 待开始 | - |
 | R4 | - | - | 待开始 | - |
