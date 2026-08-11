@@ -272,7 +272,7 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 目标: 在不改 AIDL、不改变 V1.0 单 JAR 行为的前提下，为显式入口增加“一个 program JAR + 有序编译期 classpath JAR”语义，并把同一冻结输入集合贯穿远端编译、本地回退、single-flight 与持久 cache。R3 优先交付一条真实可用的纵向路径，不把依赖解析、全故障排列或新设备矩阵设为退出门禁。
 
-状态: 进行中，交付项 2/4，退出条件 0/1。
+状态: 进行中，交付项 3/4，退出条件 0/1。
 
 ### R3.1 协议与传输
 
@@ -290,9 +290,9 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 ### R3.2 宿主与 provider 纵向切片
 
 - [x] provider 对 bundle framing、顺序、摘要及聚合预算 fail-closed，随后把 program 与 classpath 分别传给固定版本 D8；API 26+ 使用 builder classpath，API 24/25 保留 CLI `--classpath` 路径。输出继续由宿主二次验证、host-only 原子发布，插件不下载依赖、不请求网络权限、不执行生成的 DEX。
-- [ ] 宿主以私有冻结 snapshots 构造 bundle；有序输入集合进入 request、single-flight 与独立版本的 semantic cache key。cache hit 仍发生在 FD claim 前，远端失败/adoption 失败/default-off 的本地 D8 使用同一冻结 program+classpath 且至多一次；有 classpath 时禁止掉入会丢语义的 dx fallback。
+- [x] 宿主以私有冻结 snapshots 构造 bundle；有序输入集合进入 request、single-flight 与独立版本的 semantic cache key。cache hit 仍发生在 FD claim 前，远端失败/adoption 失败/default-off 的本地 D8 使用同一冻结 program+classpath 且至多一次；有 classpath 时禁止掉入会丢语义的 dx fallback。
 
-当前证据: plugin commit `8ebd7ff` 已实现 V1.0/raw 与 V1.1/bundle 分流、固定私有路径、逐项/聚合预算及 ordered D8 classpath；正式 Gradle 为 13 suites / 72 tests 全通过，Debug APK SHA-256 `6f36eeb230643c8dfccfa40aca71310bfb0ebd4b6b7903b516d4ee12cbb13372`。host commit `4d2b7dfed` 的 dormant internal frozen input-set、canonical bundle、精确 V1.1 协商与 order-sensitive cache/single-flight identity也已通过正式 Gradle：17 suites / 169 DEX tests、Debug 与 AndroidTest APK 构建全通过；但它尚未接 AndroidClassLoader/JS，也尚未实现同语义本地 D8 fallback，因此宿主交付项保持未勾。
+当前证据: plugin commit `8ebd7ff` 已实现 V1.0/raw 与 V1.1/bundle 分流、固定私有路径、逐项/聚合预算及 ordered D8 classpath；正式 Gradle 为 13 suites / 72 tests 全通过，Debug APK SHA-256 `6f36eeb230643c8dfccfa40aca71310bfb0ebd4b6b7903b516d4ee12cbb13372`。host commit `4d2b7dfed` 提供 frozen input-set、canonical bundle、精确 V1.1 协商及 order-sensitive cache/single-flight identity；commit `a540e0f90` 又把同一 retained input-set 接入 AndroidClassLoader 的 D8-only 本地回退，覆盖 default-off、旧 provider、远端失败与 adoption 失败，取消后不发布或注册 loader，且不进入 dx。正式 Gradle 为 19 suites / 174 DEX tests 全通过，host universal Debug APK SHA-256 `0f85f8abb04ea017bda37675fada92888172559004afe19ce7717cdf3f60439b`、AndroidTest APK SHA-256 `d8a33bc233a1f95dc8914d716f300d4f3d437a76510c57c6036e33a44270d689`；版本文件未写回。该入口目前仍是 internal seam，JavaScript 显式入口与设备验收留在 R3.3。
 
 ### R3.3 显式入口与最小验收
 
