@@ -22,9 +22,19 @@ internal class SerialCallbackLane : Closeable {
     fun dispatch(label: String, callback: () -> Unit, onFailure: (Throwable) -> Unit) {
         try {
             executor.execute {
-                runCatching(callback).onFailure { error ->
-                    Log.w(TAG, "DEX compiler callback failed: $label", error)
+                try {
+                    callback()
+                } catch (error: VirtualMachineError) {
+                    rethrowCallbackVirtualMachineError(error, onFailure)
+                } catch (error: Throwable) {
                     onFailure(error)
+                    try {
+                        Log.w(TAG, "DEX compiler callback failed: $label", error)
+                    } catch (logFailure: VirtualMachineError) {
+                        throw logFailure
+                    } catch (_: Throwable) {
+                        Unit
+                    }
                 }
             }
         } catch (error: RejectedExecutionException) {
@@ -40,4 +50,22 @@ internal class SerialCallbackLane : Closeable {
         const val TAG = "DexCompilerCallbackLane"
         const val MAX_PENDING_CALLBACKS = 64
     }
+}
+
+internal fun rethrowCallbackVirtualMachineError(
+    error: VirtualMachineError,
+    onFailure: (Throwable) -> Unit,
+): Nothing {
+    try {
+        onFailure(error)
+    } catch (failure: Throwable) {
+        if (failure !== error) {
+            try {
+                error.addSuppressed(failure)
+            } catch (_: Throwable) {
+                // The callback VM error remains primary even if suppression itself cannot allocate.
+            }
+        }
+    }
+    throw error
 }

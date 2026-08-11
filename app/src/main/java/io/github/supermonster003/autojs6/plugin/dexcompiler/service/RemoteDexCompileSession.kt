@@ -52,15 +52,23 @@ internal class RemoteDexCompileSession(
     private val callbackLane: SerialCallbackLane,
     private val onFinished: (RemoteDexCompileSession) -> Unit,
 ) : IDexCompilerSession.Stub() {
-    private val decodedRequest = runCatching { DexCompilerCodec.decodeRequest(requestMetadata) }
+    private val decodedRequest: Result<DexCompileRequest> = try {
+        Result.success(DexCompilerCodec.decodeRequest(requestMetadata))
+    } catch (error: VirtualMachineError) {
+        throw error
+    } catch (error: Throwable) {
+        Result.failure(error)
+    }
     private val requestIdHint = decodedRequest.getOrNull()?.requestId ?: ZERO_REQUEST_ID
     private val engine = D8DexCompilerEngine(runtimeLibraries)
-    private val terminal = AtomicBoolean(false)
-    private val cleaned = AtomicBoolean(false)
     private val outputClaimed = AtomicBoolean(false)
     private val callbackDeathLinked = AtomicBoolean(false)
     private val workScheduled = AtomicBoolean(false)
     private val workerThread = AtomicReference<Thread?>()
+    private val terminalController = RemoteSessionTerminalController(
+        stopWork = ::stopWork,
+        cleanup = ::cleanupResources,
+    )
     private val sequence = AtomicLong(0L)
     private val createdAtMillis = SystemClock.elapsedRealtime()
     private val callbackBinder = callback.asBinder()
@@ -80,7 +88,7 @@ internal class RemoteDexCompileSession(
     }
 
     fun start() {
-        if (!linkCallbackDeath()) {
+        if (!terminalController.runBeforeWorker(::linkCallbackDeath)) {
             cleanup()
             return
         }
@@ -88,25 +96,22 @@ internal class RemoteDexCompileSession(
     }
 
     fun rejectBusy() {
-        if (!linkCallbackDeath()) {
+        if (!terminalController.runBeforeWorker(::linkCallbackDeath)) {
             cleanup()
             return
         }
-        finishError(
-            requestId = requestIdHint,
-            code = DexCompilerErrorCode.BUSY,
-            phase = DexCompilerFailurePhase.QUEUE,
-            message = "DEX compiler already has an active session",
-        )
-        cleanup()
+        terminalController.finishWithoutWorker {
+            finishError(
+                requestId = requestIdHint,
+                code = DexCompilerErrorCode.BUSY,
+                phase = DexCompilerFailurePhase.QUEUE,
+                message = "DEX compiler already has an active session",
+            )
+        }
     }
 
     fun serviceDestroyed() {
-        if (terminal.compareAndSet(false, true)) {
-            descriptors.close()
-            workerThread.get()?.interrupt()
-        }
-        if (!workScheduled.get()) cleanup()
+        abortAndCleanupIfNoWorker()
     }
 
     private fun submitWorker() {
@@ -123,13 +128,22 @@ internal class RemoteDexCompileSession(
             }
         } catch (error: RejectedExecutionException) {
             workScheduled.set(false)
-            finishError(
-                requestIdHint,
-                DexCompilerErrorCode.INTERNAL,
-                DexCompilerFailurePhase.QUEUE,
-                "DEX compiler worker is unavailable",
-            )
-            cleanup()
+            terminalController.finishWithoutWorker {
+                finishError(
+                    requestIdHint,
+                    DexCompilerErrorCode.INTERNAL,
+                    DexCompilerFailurePhase.QUEUE,
+                    "DEX compiler worker is unavailable",
+                )
+            }
+        } catch (error: Throwable) {
+            workScheduled.set(false)
+            try {
+                terminalController.abort()
+            } finally {
+                cleanup()
+            }
+            throw error
         }
     }
 
@@ -145,6 +159,8 @@ internal class RemoteDexCompileSession(
         } catch (error: DexCompilerContractException) {
             finishContractError(error)
             return
+        } catch (error: VirtualMachineError) {
+            throw error
         } catch (error: Throwable) {
             finishError(
                 requestIdHint,
@@ -205,7 +221,7 @@ internal class RemoteDexCompileSession(
                 error.diagnostics,
             )
         } catch (error: IOException) {
-            if (!terminal.get()) {
+            if (!terminalController.isTerminal) {
                 finishError(
                     request.requestId,
                     DexCompilerErrorCode.STORAGE_EXHAUSTED,
@@ -213,8 +229,10 @@ internal class RemoteDexCompileSession(
                     error.message ?: "DEX compiler storage operation failed",
                 )
             }
+        } catch (error: VirtualMachineError) {
+            throw error
         } catch (error: Throwable) {
-            if (!terminal.get()) {
+            if (!terminalController.isTerminal) {
                 finishError(
                     request.requestId,
                     DexCompilerErrorCode.INTERNAL,
@@ -294,23 +312,28 @@ internal class RemoteDexCompileSession(
     }
 
     private fun finishCompleted(request: DexCompileRequest, artifact: DexArtifact) {
-        if (!terminal.compareAndSet(false, true)) return
-        val payload = DexCompilerCodec.encodeResult(
-            DexCompileResult(
-                requestId = request.requestId,
-                compilerFamily = DexCompilerFamily.D8,
-                compilerVersion = DexCompilerRuntime.COMPILER_VERSION,
-                mode = request.mode,
-                minApi = request.minApi,
-                outputFormat = request.outputFormat,
-                runtimeLibraryFingerprint = capabilities.runtimeLibraryFingerprint,
-                outputSizeBytes = artifact.outputSizeBytes,
-                outputSha256 = artifact.outputSha256,
-                dexEntryCount = artifact.dexEntryCount,
-                elapsedMillis = elapsedMillis(),
-            ),
+        terminalController.dispatchTerminal(
+            encode = {
+                DexCompilerCodec.encodeResult(
+                    DexCompileResult(
+                        requestId = request.requestId,
+                        compilerFamily = DexCompilerFamily.D8,
+                        compilerVersion = DexCompilerRuntime.COMPILER_VERSION,
+                        mode = request.mode,
+                        minApi = request.minApi,
+                        outputFormat = request.outputFormat,
+                        runtimeLibraryFingerprint = capabilities.runtimeLibraryFingerprint,
+                        outputSizeBytes = artifact.outputSizeBytes,
+                        outputSha256 = artifact.outputSha256,
+                        dexEntryCount = artifact.dexEntryCount,
+                        elapsedMillis = elapsedMillis(),
+                    ),
+                )
+            },
+            dispatch = { payload ->
+                dispatchCallback("completed") { callback.onCompleted(payload) }
+            },
         )
-        dispatchCallback("completed") { callback.onCompleted(payload) }
     }
 
     private fun finishContractError(error: DexCompilerContractException) {
@@ -331,33 +354,42 @@ internal class RemoteDexCompileSession(
         message: String,
         diagnostics: Collection<DexCompilerDiagnostic> = emptyList(),
     ) {
-        if (!terminal.compareAndSet(false, true)) return
-        val payload = DexCompilerCodec.encodeError(
-            DexCompileError(
-                requestId = requestId,
-                code = code,
-                phase = phase,
-                message = boundedErrorMessage(message),
-                retryable = code == DexCompilerErrorCode.BUSY,
-                diagnostics = diagnostics,
-            ),
+        terminalController.dispatchTerminal(
+            encode = {
+                DexCompilerCodec.encodeError(
+                    DexCompileError(
+                        requestId = requestId,
+                        code = code,
+                        phase = phase,
+                        message = boundedErrorMessage(message),
+                        retryable = code == DexCompilerErrorCode.BUSY,
+                        diagnostics = diagnostics,
+                    ),
+                )
+            },
+            dispatch = { payload ->
+                dispatchCallback("failed") { callback.onFailed(payload) }
+            },
         )
-        dispatchCallback("failed") { callback.onFailed(payload) }
     }
 
     private fun finishCancellation(reason: DexCompilerCancellationReason) {
-        if (!terminal.compareAndSet(false, true)) return
-        val payload = DexCompilerCodec.encodeCancellation(
-            DexCompileCancellation(
-                requestId = requestIdHint,
-                reason = reason,
-                phase = DexCompilerFailurePhase.CLEANUP,
-                elapsedMillis = elapsedMillis(),
-            ),
+        terminalController.dispatchTerminal(
+            stopWorkAfterDispatch = true,
+            encode = {
+                DexCompilerCodec.encodeCancellation(
+                    DexCompileCancellation(
+                        requestId = requestIdHint,
+                        reason = reason,
+                        phase = DexCompilerFailurePhase.CLEANUP,
+                        elapsedMillis = elapsedMillis(),
+                    ),
+                )
+            },
+            dispatch = { payload ->
+                dispatchCallback("cancelled") { callback.onCancelled(payload) }
+            },
         )
-        dispatchCallback("cancelled") { callback.onCancelled(payload) }
-        descriptors.close()
-        workerThread.get()?.interrupt()
     }
 
     private fun dispatchCallback(label: String, block: () -> Unit) {
@@ -365,21 +397,15 @@ internal class RemoteDexCompileSession(
     }
 
     private fun callbackFailed(@Suppress("UNUSED_PARAMETER") error: Throwable) {
-        if (terminal.compareAndSet(false, true)) {
-            descriptors.close()
-            workerThread.get()?.interrupt()
-        }
+        abortAndCleanupIfNoWorker()
     }
 
     private fun callbackDied() {
-        if (terminal.compareAndSet(false, true)) {
-            descriptors.close()
-            workerThread.get()?.interrupt()
-        }
+        abortAndCleanupIfNoWorker()
     }
 
     private fun linkCallbackDeath(): Boolean {
-        if (!callbackDeathLinked.compareAndSet(false, true)) return !terminal.get()
+        if (!callbackDeathLinked.compareAndSet(false, true)) return !terminalController.isTerminal
         try {
             callbackBinder.linkToDeath(callbackDeathRecipient, 0)
         } catch (_: RemoteException) {
@@ -396,20 +422,54 @@ internal class RemoteDexCompileSession(
 
     private fun unlinkCallbackDeath() {
         if (!callbackDeathLinked.compareAndSet(true, false)) return
-        runCatching { callbackBinder.unlinkToDeath(callbackDeathRecipient, 0) }
+        try {
+            callbackBinder.unlinkToDeath(callbackDeathRecipient, 0)
+        } catch (error: VirtualMachineError) {
+            throw error
+        } catch (_: Throwable) {
+            Unit
+        }
     }
 
     private fun cleanup() {
-        if (!cleaned.compareAndSet(false, true)) return
-        descriptors.close()
-        workspace?.close()
-        workspace = null
-        unlinkCallbackDeath()
-        onFinished(this)
+        terminalController.cleanupOnce()
+    }
+
+    private fun abortAndCleanupIfNoWorker() {
+        if (workScheduled.get()) {
+            terminalController.abort()
+        } else {
+            terminalController.abortWithoutWorker()
+        }
+    }
+
+    private fun cleanupResources() {
+        try {
+            descriptors.close()
+        } finally {
+            try {
+                workspace?.close()
+            } finally {
+                workspace = null
+                try {
+                    unlinkCallbackDeath()
+                } finally {
+                    onFinished(this)
+                }
+            }
+        }
+    }
+
+    private fun stopWork() {
+        try {
+            descriptors.close()
+        } finally {
+            workerThread.get()?.interrupt()
+        }
     }
 
     private fun ensureActive() {
-        if (terminal.get() || Thread.currentThread().isInterrupted) throw SessionStopped()
+        if (terminalController.isTerminal || Thread.currentThread().isInterrupted) throw SessionStopped()
     }
 
     private fun elapsedMillis(): Long = (SystemClock.elapsedRealtime() - createdAtMillis).coerceAtLeast(0L)
