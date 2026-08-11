@@ -95,7 +95,7 @@ required host build: 5270
 
 ******
 
-> raw runtime.loadJar 路由仍默认关闭, 且要求显式选择同签名 exact component. R1 已闭环: R1.1 为 7/7、R1.2 为 4/4、canonical 真实 provider 矩阵为 7/7. production Runtime single-flight 在认证并最终化 key 后使用有界持久语义 cache. 任一 waiter（包括最后一个）中断都只分离该调用方且不作本地回退; producer 可在后台完成并写入 cache. last-waiter 协作取消留到 R2, 安全熔断在当前进程生命周期内保持保守.
+> raw runtime.loadJar 路由仍默认关闭, 且要求显式选择同签名 exact component. R1 已闭环: R1.1 为 7/7、R1.2 为 4/4、canonical 真实 provider 矩阵为 7/7. production Runtime single-flight 在认证并最终化 key 后使用有界持久语义 cache. 任一 waiter 中断都只分离该调用方且不作本地回退; 最后一个 waiter 离开时会通过 leader-owned one-shot handle 协作请求 producer 取消, 有其他 waiter 时不得取消. 安全熔断在当前进程生命周期内保持保守.
 
 ******
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### 已知限制与验收边界
 
-V1 仅处理有界 raw JVM JAR 到 DEX ZIP 的转换, 不提供 R8 shrinking/obfuscation、外部 classpath、自定义 desugared library、网络编译或确定性字节输出. BUSY 可触发宿主回退, 取消后 D8 CPU 工作可能在隔离进程中继续到清理完成. 最后 waiter 离开后的协作取消仍属于 R2; 性能晋级、默认启用及移除宿主编译器依赖均不在已完成的 R1 范围内.
+V1 仅处理有界 raw JVM JAR 到 DEX ZIP 的转换, 不提供 R8 shrinking/obfuscation、外部 classpath、自定义 desugared library、网络编译或确定性字节输出. BUSY 可触发宿主回退. 最后一个 waiter 离开会协作请求取消, 终止后禁止发布并最终清理; 若 D8 已进入不可中断调用, CPU 工作仍可能在隔离进程中继续到当前编译返回. 性能晋级、默认启用及移除宿主编译器依赖不属于本轮闭环范围.
 
 ******
 
@@ -177,7 +177,7 @@ V1 仅处理有界 raw JVM JAR 到 DEX ZIP 的转换, 不提供 R8 shrinking/obf
 
 ******
 
-R1 已闭环: R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 真实设备矩阵 7/7, 三项退出条件全部勾选. API 34 production routing 8/8, 宿主 DEX 16 suites/149 tests、wire 4/24、fake-provider 5/25 及插件 48 tests 全通过, lint 为 0 error. Canonical campaign f3c2b1af-be93-41e7-b541-f167f90e5cc1 的七个真实 provider 单元全部 PASS: API 24/25 使用 CLI, API 26/28/34/36 在 x86_64 上使用 D8Command, API 31 使用 QV arm64 多用户真机. journal head 为 a5abaf62, runner SHA-256 为 ca89ac16; 较早失败或主动终止的 campaign 继续原样保留. 路由仍默认关闭, last-waiter 协作取消与更广泛恢复工作仍属于未勾选的 R2.
+R1 已闭环: R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 真实设备矩阵 7/7, 三项退出条件全部勾选. R2 已部署有界故障摘要、最后 waiter 协作取消、统一 fail-closed 终态与 process-once 启动恢复, 并由一个获授权 API 34 x86_64 目标上的真实编译失败、调用方取消和 provider 进程中断代表性验收闭环. 这不是新的设备矩阵; 路由仍默认关闭, 失败至多回退一次, 调用方取消不回退, 结果终止也不代表 D8 CPU 已停止. 详细状态和可复核证据以 ROADMAP 为准.
 
 - [查看可勾选的 ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 

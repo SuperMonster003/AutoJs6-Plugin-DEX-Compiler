@@ -19,7 +19,7 @@
 |---|---|---|---|
 | R0 | 已完成 | 低内存 JAR 验证、对抗性测试语料和可重复本地门禁 | 本插件 |
 | R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
-| R2 | 进行中（交付 3/4，退出 0/1） | 有界故障摘要、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
+| R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 待开始 | 协议 V2 的受控依赖输入、宿主规范化和多输入缓存扩展 | 协议 + AutoJs6 + 本插件 |
 | R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
 
@@ -157,7 +157,7 @@ R1.2 的四项精确定义均已有可复核的 JVM、编译与 API 31 arm64 真
 - 宿主持久语义 cache 使用 generation artifact 与带校验和的 manifest；严格执行文件与目录 fsync 及原子 manifest commit，并提供启动恢复、LRU、单项 16 MiB、总量 128 MiB、最多 32 项和损坏 generation 精确淘汰。
 - cache lookup 仅在同签名 exact component 完成认证握手且最终化 semantic key 后进行，并位于输入/输出 FD claim 与 `openSession` 之前；命中仍重跑当前 `DexIndexedZipValidator`，不会继承历史验证结论。
 - lookup 先打开 descriptor，再对同一 inode 复验大小及 SHA-256；成功 classloader 接管保留 cache，非中断接管失败只淘汰当次 exact generation。
-- production Runtime 已在认证握手并最终化 semantic attempt key 后接入进程级 single-flight：相同 key 共享一个 producer，成功结果为每个调用方取得独立 capability。任一 waiter（包括最后一个）中断时只分离该调用方并返回取消，不触发本地编译器回退；producer 可在后台完成并填充持久 cache。最后 waiter 离开时协作取消 producer 留到 R2。
+- production Runtime 已在认证握手并最终化 semantic attempt key 后接入进程级 single-flight：相同 key 共享一个 producer，成功结果为每个调用方取得独立 capability。R1 验收时任一 waiter 中断只分离该调用方且不触发本地回退；R2 已进一步补齐最后 waiter 离开时对 producer 的协作取消，有其他 waiter 时 producer 继续。
 - 针对不安全 executor 拒绝或疑似 Binder 阻塞设置的熔断保持保守：一旦触发，在当前宿主进程生命周期内持续打开且不自动探测恢复；它不会被表述为已经强制终止远端或阻塞中的 Binder 工作。
 - Android instrumentation 新增并逐项执行：2 个 production concurrency 方法、2 个真实插件 lifecycle 方法和 3 个真实 D8 corpus 方法。并发断言统计的是宿主越过提交点的 committed remote dispatch，而不是直接统计 provider `openSession` 调用；重型 multi-dex 语料运行时生成 7,300 个 class、合计 65,700 个方法，并作为独立长时门禁执行。
 
@@ -200,7 +200,7 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 - R1.3 canonical Gate: campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 `gate-report.json` 为 `passed=true`、canonical receipt 7/7、attempt marker 7/7，journal head `a5abaf62803c6277aa015563cf16f2771eb0ffa9f9a226a20e7ac835ed54581b`，runner SHA-256 `ca89ac1637e5c690ced9e2e2d0b3d35aecf5c32584c6816883a21c363f040057`，campaign identity `6b859228a4943d74ab67707fa6c9a785f77248768ec1a4807e5e214034383665`；报告位于 `D:\idea-projects\AutoJs6-DEX-R1-Evidence-20260810\runs\f3c2b1af-be93-41e7-b541-f167f90e5cc1\gate-report.json`。
 - Canonical identity: clean host commit `e39023758e3a66a24f0ce90466b5bc77a503515d`、plugin commit `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448`；host/test/plugin APK SHA-256 分别为 `505bc077ad3586b802ba41eec5b093a01b3e7be011e0de7bf0b83dbf0aa1b878`、`4199d54d2f0fa8bd96d3c67d3c7073bf20a0c6f51f8248d2727e2dd75a75da24`、`65e432a7b4866cfb3db0392b87ac60e3dbab9161acc232b42b57a66abf08bd88`，完整 signer certificate SHA-256 均为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`。
 - 失败证据保留: campaign `74dc8c24-62fc-4dd6-ad55-e33af3d0787e` 在 API 26 因空 WCHAN 的清理解析失败而没有 receipt；campaign `4ee685d9-4631-4fd0-878f-fd87efd0c17b` 在 API 26/24/25 PASS 后因 process grammar 仍不够 fail-closed 而主动终止；campaign `e7e6c30e-9d8f-4c65-b808-4e8c676af899` 达到 6/7 后，因单用户 runner 无法安全处理 QV 的 user 10 而主动终止。三者均原样保留，没有被最终 PASS 覆盖或改写。
-- 并发与熔断边界: 中断任一 caller（包括最后 waiter）只 detach 并返回取消，绝不切换到本地编译器；producer 可继续在后台完成并写入 cache。last-waiter cooperative cancel 留到 R2。安全熔断一旦触发即在当前进程生命周期内保守保持打开，不声称能硬中止已阻塞工作。
+- 并发与熔断边界: 中断任一 caller 都返回取消且绝不切换到本地编译器；R2 已补齐最后 waiter 离开时的 leader-owned cooperative cancel，有其他 waiter 时 producer 继续。安全熔断一旦触发即在当前进程生命周期内保守保持打开，不声称能硬中止已阻塞工作。
 - 文档门禁: 宿主 10 个 changelog JSON 与 10 locale 资源、本插件 10 个 README locale JSON 均纳入解析检查；两仓生成器连续运行两次并要求第二次无变化，最终结果见本轮交付报告。
 - 证据层级: JVM、Android 编译/APK、API 34 production routing、API 31 Binder lifecycle/concurrency/corpus 与 canonical 7-cell 真实 provider Gate 分层记录；没有把静态、fake 或单设备结果提升为矩阵验收。
 - 执行边界: 每条设备命令均绑定显式 serial；canonical 单元完成宿主/插件/test/fake provider 的前后状态、精确安装/卸载、进程与 workspace 清理复核。QV 多用户拓扑与同名前缀邻近包保持不变。
@@ -210,7 +210,7 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 目标: 在不改变 R1 默认关闭、显式 provider 与单次回退语义的前提下，让失败可辨识、终止后绝不发布半成品，并允许后续请求从进程中断中恢复。
 
-状态: 交付项 3/4，退出条件 0/1。provider 启动恢复、有界故障摘要与统一终态已具备 JVM、构建和代表性真实 provider 设备证据；最小 R2 验收包尚待完成。
+状态: 已完成，交付项 4/4，退出条件 1/1。provider 启动恢复、有界故障摘要、协作取消与统一终态均具备 JVM、构建及一个获授权 API 34 x86_64 目标上的代表性真实 provider 闭环证据。
 
 ### R2.1 有界故障摘要
 
@@ -253,13 +253,20 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 ### R2.3 最小闭环验收
 
-- [ ] 一个可复核的 R2 验收包覆盖三类代表性场景：一次真实编译失败、一次调用方终止（取消或超时）、一次远端/进程中断；每项记录终态、是否发布、FD/临时目录清理及下一 session 可用性。完整 hostile permutations 可由 JVM/fake provider 承担，真实 provider 只需一个获授权 API/ABI 的代表性验收，不建立新的设备矩阵。
+- [x] 一个可复核的 R2 验收包覆盖三类代表性场景：一次真实编译失败、一次调用方终止（取消或超时）、一次远端/进程中断；每项记录终态、是否发布、FD/临时目录清理及下一 session 可用性。完整 hostile permutations 可由 JVM/fake provider 承担，真实 provider 只需一个获授权 API/ABI 的代表性验收，不建立新的设备矩阵。
+
+本轮闭环证据:
+
+- Canonical run `dab3f857-650d-4107-a3b9-941a1f7e02c2` 在 API 34 x86_64 `DEX_R1_API34_X64` 上为 `PASS`。真实 D8 失败观察到有界 `UseLocal(REMOTE_ATTEMPT_FAILED)` 且失败事务未发布，随后正常 JAR 经同一 production coordinator 发布、由 `DexClassLoader` 执行并返回 42；该方法没有伪造数值 FD baseline，使用 production ownership、transient 清理、空 provider workspace 与紧随其后的成功 session 共同限定 FD/清理证据。
+- 调用方取消得到 exactly-one `Cancelled(REQUESTED/CLEANUP)`，BUSY contender 也仅有一个终态；没有 `Completed`，输出达到 EOF，caller/provider PFD ownership 与空 workspace 均通过，process gate 随后接纳 successor session。provider 进程中断得到一次 Binder-death transport observation、零 provider callback terminal、零 `Completed` 与输出 EOF；workspace 为空，随后 exact rebind、身份复核及认证握手成功。
+- 稳定报告为 `D:\idea-projects\AutoJs6-DEX-R2-Evidence-20260811\closeout-api34-dab3f857-650d-4107-a3b9-941a1f7e02c2\report.json`，SHA-256 `5d1549b9d5207e5dcd1c62a3c2caf863a748f49b8f9f2582f66bb2898be98eba`；61-file manifest SHA-256 `927ee1abebe83a0901e7f767a56b377a2afd84a137d16b8d5d3784fcd54e639e`；runner SHA-256 `61437b2b2d7a02e35d43176a1c381a9fcd4b7fa540b5876ed9347661962c5f9e`。runner 共记录 52 条显式 serial 命令，preflight/postflight 均 clean，host/test/plugin/fake 最终 absent，相关进程、AVD 及 5588/5589 端口均已释放。
+- 首轮 run `f9c772a9-0bbb-4cee-9b1d-6cbeeae31ebf` 原样保留为 `FAIL`：runner 在任何安装或场景命令前因 PowerShell Hashtable JSON 序列化错误终止，`scenarioCount=0`；它是 preflight/runner 缺陷记录，不是三类设备场景的失败，也没有被最终 PASS 覆盖或改写。
 
 非门禁韧性附录保留全阶段取消、callback backpressure/抛错、宿主进程 kill、磁盘耗尽、cache 清理失败及卡住 worker 的扩展组合；这些项目用于持续加固，不阻塞 R2 退出。
 
 #### R2 退出条件
 
-- [ ] 上述四项全部完成，当前源码测试/lint/build 通过，用户与开发者文档保持 default-off、单次回退及“结果终止与 CPU 停止不同”的准确边界。
+- [x] 上述四项全部完成，当前源码测试/lint/build 通过；canonical 简中用户文档与 V1 开发者文档保持 default-off、单次回退及“结果终止与 CPU 停止不同”的准确边界。其他 README locale 的阶段状态翻译不作为 R2 退出门禁，可独立后续同步。
 
 ## R3: 协议 V2、依赖输入与宿主缓存
 
@@ -328,6 +335,6 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 |---|---|---|---|---|
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
-| R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 进行中（交付 3/4，退出 0/1） | 启动恢复、有界故障摘要与统一终态三项已勾选；最新门禁为 plugin 65/65、host DEX 166/166、lint 0 error，API 34 真实 D8 失败 smoke 与取消/lifecycle smoke 均 PASS；最小验收包与退出条件待完成 |
+| R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 已完成（交付 4/4，退出 1/1） | plugin 65/65、host DEX 166/166、lint 0 error；API 34 canonical closeout 三类真实 provider 场景全部 PASS，52 commands / 61 hashed files，pre/post clean；run `dab3f857-650d-4107-a3b9-941a1f7e02c2` |
 | R3 | - | - | 待开始 | - |
 | R4 | - | - | 待开始 | - |
