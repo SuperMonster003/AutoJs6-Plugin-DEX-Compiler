@@ -19,7 +19,7 @@
 |---|---|---|---|
 | R0 | 已完成 | 低内存 JAR 验证、对抗性测试语料和可重复本地门禁 | 本插件 |
 | R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
-| R2 | 进行中（交付 1/4，退出 0/1） | 有界故障摘要、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
+| R2 | 进行中（交付 2/4，退出 0/1） | 有界故障摘要、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 待开始 | 协议 V2 的受控依赖输入、宿主规范化和多输入缓存扩展 | 协议 + AutoJs6 + 本插件 |
 | R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
 
@@ -210,11 +210,11 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 目标: 在不改变 R1 默认关闭、显式 provider 与单次回退语义的前提下，让失败可辨识、终止后绝不发布半成品，并允许后续请求从进程中断中恢复。
 
-状态: 交付项 1/4，退出条件 0/1。provider 启动恢复已具备 JVM、构建和 API 31 真实设备证据；有界故障摘要、统一终态及最小 R2 验收包尚待完成。
+状态: 交付项 2/4，退出条件 0/1。provider 启动恢复与有界故障摘要已具备 JVM、构建和代表性真实 provider 设备证据；统一终态及最小 R2 验收包尚待完成。
 
 ### R2.1 有界故障摘要
 
-- [ ] provider 将实际编译失败映射为现有 V1 的有界 `severity/code/message` 及稳定 failure phase/error code；宿主显示经过截断和脱敏的摘要，未知信息保持缺失，不伪造 origin、位置或进度。
+- [x] provider 将实际编译失败映射为现有 V1 的有界 `severity/code/message` 及稳定 failure phase/error code；宿主显示经过截断和脱敏的摘要，未知信息保持缺失，不伪造 origin、位置或进度。
 
 最小证据: 协议/API 与 plugin/host JVM 测试，加一个获授权 Android 目标上的真实 D8 失败用例。无需重新运行多 API/ABI 矩阵。
 
@@ -226,6 +226,12 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 - progress 只有在 `current/total` 可真实测量时才报告数值，否则只报告阶段；该规则保留为非门禁实现约束。
 - 完整 D8 info/warning 采集是后续增强，不阻塞 R2 的有界失败摘要。
 
+本轮证据:
+
+- 插件定向门禁为 11 suites / 53 tests，failure/error/skipped 均为 0；新增 `D8DiagnosticCollectorTest` 5/5，lint 为 0 error / 27 warning，Debug APK 构建成功。
+- 宿主 DEX 定向门禁为 17 suites / 152 tests，failure/error/skipped 均为 0；新增 `DexCompilerRuntimeDiagnosticsTest` 3/3，app Debug 与 androidTest APK 均构建成功，构建期间禁止版本号与时间自动写回。
+- API 34 x86_64 `DEX_R1_API34_X64` 上的单一真实 provider 方法在 3.213 s 内通过：先证明损坏 class 的真实 D8 失败被有界分类、脱敏且未发布，再证明后续正常 JAR 可编译、被 `DexClassLoader` 加载并执行。运行前后 host/test/provider/fake 包与相关进程均为空，AVD 及 5588/5589 端口已释放；本证据不外推为新的 API/ABI 矩阵。
+
 ### R2.2 Fail-closed 终态与恢复
 
 - [ ] cancel、close、deadline、Binder/transport/callback 故障共享同一终态不变量：调用方只观察一个终态，终止后不得发布结果，不再需要的描述符被关闭，session gate 最终可再次接纳请求；single-flight 的最后一个 waiter 离开时协作请求 producer 取消，有其他 waiter 时不得取消且调用方取消仍不回退；deadline 使用单调时钟，已进入不可中断 D8 时只保证禁止发布与最终清理，不声称 CPU 已停止。
@@ -234,7 +240,7 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 最小证据:
 
 - 终态项使用确定性的 JVM race/fault 测试覆盖最后 waiter 取消、有其他 waiter 时继续和 terminal/publication 竞态，再加一个真实 provider 的取消或超时 smoke；不要求四个内部阶段逐一设备注入。
-- 恢复项复用现有 6/6 workspace-recovery、API 31 force-stop/Binder-death/rebind 和正常 D8 后空 workspace 证据。force-stop 暴露的旧 UUID 在首次恢复前存在，恢复后仅保留空 root；当前插件门禁为 10 suites/48 tests、lint 0 error/27 warnings，Debug/Release assemble 成功。
+- 恢复项复用现有 6/6 workspace-recovery、API 31 force-stop/Binder-death/rebind 和正常 D8 后空 workspace 证据。force-stop 暴露的旧 UUID 在首次恢复前存在，恢复后仅保留空 root；当前插件总门禁已更新为 11 suites/53 tests、lint 0 error/27 warnings 与 Debug assemble 成功，Release assemble 保留恢复切片落地时的已有证据。
 - 卡住 worker 继续采用 process-local safety circuit 的保守策略，不声称线程 interrupt 已经终止 D8 CPU 工作；该约束不单列 checkbox。
 
 ### R2.3 最小闭环验收
@@ -314,6 +320,6 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 |---|---|---|---|---|
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
-| R2 | 2026-08-11 | 未提交 | 进行中（交付 1/4，退出 0/1） | 启动恢复核心 gate 已勾选：process-once strict-canonical workspace janitor 通过 48/48 插件 JVM、6/6 recovery、lint 与 Debug/Release build；API 31 旧 UUID 经首次 bind/kill/recovery 后清空，正常 D8 后保持空 root；其余 3 个交付项与退出条件待完成 |
+| R2 | 2026-08-11 | plugin `09e6f9d`; host `dc7d1ae53` | 进行中（交付 2/4，退出 0/1） | 启动恢复与有界故障摘要两项已勾选；最新门禁为 plugin 53/53、host DEX 152/152、lint 0 error，API 34 单方法真实 D8 失败→脱敏摘要→后续正常编译/加载在 3.213 s 内 PASS；统一终态、最小验收包与退出条件待完成 |
 | R3 | - | - | 待开始 | - |
 | R4 | - | - | 待开始 | - |
