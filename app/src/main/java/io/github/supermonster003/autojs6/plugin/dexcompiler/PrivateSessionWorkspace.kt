@@ -1,6 +1,7 @@
 package io.github.supermonster003.autojs6.plugin.dexcompiler
 
 import android.content.Context
+import org.autojs.plugin.dexcompiler.api.DexCompilerContract
 import java.io.Closeable
 import java.io.File
 import java.io.IOException
@@ -10,14 +11,22 @@ internal class PrivateSessionWorkspace private constructor(
     private val root: File,
 ) : Closeable {
     val programJar = File(root, "program.jar")
+    private val classpathDirectory = File(root, "classpath")
     val d8OutputDirectory = File(root, "d8-output")
     val artifactZip = File(root, "artifact.zip")
 
     init {
-        if (!d8OutputDirectory.mkdir()) {
+        if (!classpathDirectory.mkdir() || !d8OutputDirectory.mkdir()) {
             close()
-            throw IOException("Failed to create the private D8 output directory")
+            throw IOException("Failed to create the private compiler workspace directories")
         }
+    }
+
+    fun classpathJar(ordinal: Int): File {
+        require(ordinal in 0 until DexCompilerContract.MAX_CLASSPATH_JARS) {
+            "Classpath ordinal is outside the protocol limit"
+        }
+        return File(classpathDirectory, "classpath-${ordinal.toString().padStart(2, '0')}.jar")
     }
 
     override fun close() {

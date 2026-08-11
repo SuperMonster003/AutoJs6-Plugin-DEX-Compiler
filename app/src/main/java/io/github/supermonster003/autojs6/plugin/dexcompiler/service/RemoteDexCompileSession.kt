@@ -5,10 +5,10 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.RemoteException
 import android.os.SystemClock
-import io.github.supermonster003.autojs6.plugin.dexcompiler.BoundedJarValidator
 import io.github.supermonster003.autojs6.plugin.dexcompiler.D8DexCompilerEngine
 import io.github.supermonster003.autojs6.plugin.dexcompiler.DexArtifact
 import io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompileFailure
+import io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerInputMaterializer
 import io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerRuntime
 import io.github.supermonster003.autojs6.plugin.dexcompiler.PrivateSessionWorkspace
 import io.github.supermonster003.autojs6.plugin.dexcompiler.RuntimeLibrarySet
@@ -150,10 +150,16 @@ internal class RemoteDexCompileSession(
     private fun runCompilation() {
         val request = try {
             decodedRequest.getOrThrow().also { value ->
+                if (!DexCompilerRuntime.supportsProtocolVersion(value.protocolVersion)) {
+                    throw DexCompilerContractException(
+                        DexCompilerContractViolation.PROTOCOL_INCOMPATIBLE,
+                        "Compile request protocol version is not supported by this provider",
+                    )
+                }
                 DexCompilerValidation.validateRequestAgainst(
                     value,
                     capabilities,
-                    DexCompilerRuntime.protocolVersion,
+                    value.protocolVersion,
                 )
             }
         } catch (error: DexCompilerContractException) {
@@ -180,14 +186,16 @@ internal class RemoteDexCompileSession(
 
             val privateWorkspace = PrivateSessionWorkspace.create(context).also { workspace = it }
             val input = ParcelFileDescriptor.AutoCloseInputStream(descriptors.program)
-            try {
-                BoundedJarValidator.copyAndValidate(
+            val materializedInputs = try {
+                val inputs = DexCompilerInputMaterializer.materialize(
                     request = request,
                     input = input,
-                    destination = privateWorkspace.programJar,
-                    limits = capabilities.limits,
+                    workspace = privateWorkspace,
+                    capabilities = capabilities,
+                    ensureActive = ::ensureActive,
                 )
                 descriptors.program.checkError()
+                inputs
             } finally {
                 input.close()
             }
@@ -197,7 +205,8 @@ internal class RemoteDexCompileSession(
             ensureActive()
             val artifact = engine.compile(
                 request = request,
-                programJar = privateWorkspace.programJar,
+                programJar = materializedInputs.programJar,
+                classpathJars = materializedInputs.classpathJars,
                 outputDirectory = privateWorkspace.d8OutputDirectory,
                 artifactZip = privateWorkspace.artifactZip,
                 ensureActive = ::ensureActive,

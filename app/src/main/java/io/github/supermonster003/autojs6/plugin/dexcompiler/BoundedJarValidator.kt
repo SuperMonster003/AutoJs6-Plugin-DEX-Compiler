@@ -26,18 +26,38 @@ internal object BoundedJarValidator {
         input: InputStream,
         destination: File,
         limits: DexCompilerResourceLimits,
+    ): ValidatedJar = copyAndValidateInput(
+        input = input,
+        destination = destination,
+        expectedSizeBytes = request.programSizeBytes,
+        expectedSha256 = request.programSha256,
+        maximumCompressedBytes = limits.maxCompressedProgramBytes,
+        limits = limits,
+        requireClassEntries = true,
+        inputLabel = "Program",
+    )
+
+    fun copyAndValidateInput(
+        input: InputStream,
+        destination: File,
+        expectedSizeBytes: Long,
+        expectedSha256: DexSha256,
+        maximumCompressedBytes: Long,
+        limits: DexCompilerResourceLimits,
+        requireClassEntries: Boolean,
+        inputLabel: String,
     ): ValidatedJar {
-        val copied = copyBounded(input, destination, limits.maxCompressedProgramBytes)
-        if (copied.sizeBytes != request.programSizeBytes) {
+        val copied = copyBounded(input, destination, maximumCompressedBytes)
+        if (copied.sizeBytes != expectedSizeBytes) {
             fail(
                 DexCompilerErrorCode.INVALID_REQUEST,
-                "Program size mismatch: expected ${request.programSizeBytes}, received ${copied.sizeBytes}",
+                "$inputLabel size mismatch: expected $expectedSizeBytes, received ${copied.sizeBytes}",
             )
         }
-        if (copied.sha256 != request.programSha256) {
-            fail(DexCompilerErrorCode.INVALID_REQUEST, "Program SHA-256 mismatch")
+        if (copied.sha256 != expectedSha256) {
+            fail(DexCompilerErrorCode.INVALID_REQUEST, "$inputLabel SHA-256 mismatch")
         }
-        return validateArchive(destination, limits)
+        return validateArchive(destination, limits, requireClassEntries)
     }
 
     private fun copyBounded(input: InputStream, destination: File, maximumBytes: Long): CopiedProgram {
@@ -69,7 +89,11 @@ internal object BoundedJarValidator {
         return CopiedProgram(total, DexSha256.fromBytes(digest.digest()))
     }
 
-    private fun validateArchive(file: File, limits: DexCompilerResourceLimits): ValidatedJar {
+    private fun validateArchive(
+        file: File,
+        limits: DexCompilerResourceLimits,
+        requireClassEntries: Boolean,
+    ): ValidatedJar {
         val archiveSize = file.length()
         val framedEntryCount = try {
             if (!hasZipSignature(file)) {
@@ -159,7 +183,7 @@ internal object BoundedJarValidator {
         if (entryCount != framedEntryCount) {
             fail(DexCompilerErrorCode.INVALID_ARCHIVE, "Program JAR local and central entry counts disagree")
         }
-        if (classCount == 0) {
+        if (requireClassEntries && classCount == 0) {
             fail(DexCompilerErrorCode.NO_PROGRAM_CLASSES, "Program JAR contains no class files")
         }
         if (file.length() != archiveSize) {

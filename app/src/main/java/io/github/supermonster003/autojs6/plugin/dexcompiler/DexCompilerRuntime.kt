@@ -4,11 +4,14 @@ import android.content.Context
 import android.os.Build
 import org.autojs.plugin.dexcompiler.api.DexCompilerAbiMode
 import org.autojs.plugin.dexcompiler.api.DexCompilerCapabilities
+import org.autojs.plugin.dexcompiler.api.DexCompilerClasspathBundleCapability
+import org.autojs.plugin.dexcompiler.api.DexCompilerClasspathBundleLimits
 import org.autojs.plugin.dexcompiler.api.DexCompilerContract
 import org.autojs.plugin.dexcompiler.api.DexCompilerDeterminismClaim
 import org.autojs.plugin.dexcompiler.api.DexCompilerFamily
 import org.autojs.plugin.dexcompiler.api.DexCompilerInfo
 import org.autojs.plugin.dexcompiler.api.DexCompilerInputFormat
+import org.autojs.plugin.dexcompiler.api.DexCompilerInputLayout
 import org.autojs.plugin.dexcompiler.api.DexCompilerMode
 import org.autojs.plugin.dexcompiler.api.DexCompilerOutputFormat
 import org.autojs.plugin.dexcompiler.api.DexCompilerResourceLimits
@@ -24,10 +27,13 @@ internal object DexCompilerRuntime {
     const val COMPILER_VERSION = "8.13.17"
     const val REQUIRED_HOST_VERSION = 5_270L
 
-    val protocolVersion = DexProtocolVersion(
-        DexCompilerContract.PROTOCOL_MAJOR,
-        DexCompilerContract.PROTOCOL_MINOR,
-    )
+    /** The raw-program version remains the default for existing callers and fixtures. */
+    val protocolVersion = DexCompilerContract.PROTOCOL_V1_0
+    val protocolMinVersion = DexCompilerContract.PROTOCOL_V1_0
+    val protocolMaxVersion = DexCompilerContract.PROTOCOL_V1_1
+
+    fun supportsProtocolVersion(version: DexProtocolVersion): Boolean =
+        version in protocolMinVersion..protocolMaxVersion
 
     private val limits = DexCompilerResourceLimits(
         maxCompressedProgramBytes = 64L * 1024L * 1024L,
@@ -41,6 +47,19 @@ internal object DexCompilerRuntime {
         maxConcurrentSessions = DexCompilerContract.MAX_CONCURRENT_SESSIONS,
     )
 
+    private val classpathBundleCapability = DexCompilerClasspathBundleCapability(
+        inputLayout = DexCompilerInputLayout.PROGRAM_AND_ORDERED_CLASSPATH_BUNDLE_V1,
+        limits = DexCompilerClasspathBundleLimits(
+            maxClasspathJarCount = DexCompilerContract.MAX_CLASSPATH_JARS,
+            maxCompressedClasspathJarBytes = DexCompilerContract.MAX_COMPRESSED_CLASSPATH_JAR_BYTES,
+            maxTotalCompressedClasspathBytes = DexCompilerContract.MAX_TOTAL_COMPRESSED_CLASSPATH_BYTES,
+            maxInputBundleBytes = DexCompilerContract.MAX_COMPRESSED_INPUT_BUNDLE_BYTES,
+            maxTotalInputArchiveEntries = DexCompilerContract.MAX_TOTAL_INPUT_ARCHIVE_ENTRIES,
+            maxTotalUncompressedInputBytes = DexCompilerContract.MAX_TOTAL_UNCOMPRESSED_INPUT_BYTES,
+            maxTotalInputClassBytes = DexCompilerContract.MAX_TOTAL_INPUT_CLASS_BYTES,
+        ),
+    )
+
     fun info(context: Context): DexCompilerInfo {
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
         val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -50,8 +69,8 @@ internal object DexCompilerRuntime {
             packageInfo.versionCode.toLong()
         }
         return DexCompilerInfo(
-            protocolMin = protocolVersion,
-            protocolMax = protocolVersion,
+            protocolMin = protocolMinVersion,
+            protocolMax = protocolMaxVersion,
             providerId = PROVIDER_ID,
             providerVersionName = packageInfo.versionName.orEmpty(),
             providerVersionCode = versionCode,
@@ -76,5 +95,6 @@ internal object DexCompilerRuntime {
         limits = limits,
         runtimeLibraryIdentities = runtimeLibraries.identities,
         runtimeLibraryFingerprint = runtimeLibraries.fingerprint,
+        classpathBundle = classpathBundleCapability,
     )
 }
