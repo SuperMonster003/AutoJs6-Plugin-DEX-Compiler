@@ -292,6 +292,8 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 - [ ] provider 对 bundle framing、顺序、摘要及聚合预算 fail-closed，随后把 program 与 classpath 分别传给固定版本 D8；API 26+ 使用 builder classpath，API 24/25 保留 CLI `--classpath` 路径。输出继续由宿主二次验证、host-only 原子发布，插件不下载依赖、不请求网络权限、不执行生成的 DEX。
 - [ ] 宿主以私有冻结 snapshots 构造 bundle；有序输入集合进入 request、single-flight 与独立版本的 semantic cache key。cache hit 仍发生在 FD claim 前，远端失败/adoption 失败/default-off 的本地 D8 使用同一冻结 program+classpath 且至多一次；有 classpath 时禁止掉入会丢语义的 dx fallback。
 
+进行中证据: plugin commit `8ebd7ff` 已实现 V1.0/raw 与 V1.1/bundle 分流、固定私有路径、逐项/聚合预算及 ordered D8 classpath，独立 Kotlin 编译与 4 个 materializer 定向测试通过。host commit `4d2b7dfed` 已实现不可达的 internal frozen input-set、canonical bundle、精确 V1.1 协商与 order-sensitive cache/single-flight identity，独立编译与 91 个定向 JVM 测试通过；它尚未接 AndroidClassLoader/JS，也尚未实现同语义本地 D8 fallback。正式 Gradle 在等待其他 Codex 客户端约 9 分钟后仍被占用，故两项保持未勾，不把静态/独立编译提升为完整构建验收。
+
 ### R3.3 显式入口与最小验收
 
 - [ ] 新增不改变旧 vararg 行为的显式 `runtime.loadJarWithClasspath(program, ...orderedClasspath)`；classpath 只参与编译，不进入输出，也不自动装载。运行时类型必须已由最终 program loader 的 parent 提供；旧 `runtime.loadJar()` 创建的是 sibling loader，不能被冒充为该 parent。定向 JVM/build 门禁通过后，只在一个获授权 API 34 目标上用 parent-visible fixture 验证真实 provider classpath 编译、最终 `DexClassLoader` 执行和一次 V1.0 回归，不重跑七设备矩阵。
@@ -345,5 +347,5 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
 | R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 已完成（交付 4/4，退出 1/1） | plugin 65/65、host DEX 166/166、lint 0 error；API 34 canonical closeout 三类真实 provider 场景全部 PASS，52 commands / 61 hashed files，pre/post clean；run `dab3f857-650d-4107-a3b9-941a1f7e02c2` |
-| R3 | 2026-08-11 | host `c0b833a54`; plugin `ab08f08` | 进行中（交付 1/4，退出 0/1） | V1.1 contract/codec、V1.0 golden compatibility 与 provider D8 classpath seam 已完成无设备门禁；远端 bundle 提取、宿主冻结输入和显式入口仍开放，不建立新设备矩阵 |
+| R3 | 2026-08-11 | host `c0b833a54`, `4d2b7dfed`; plugin `ab08f08`, `8ebd7ff` | 进行中（交付 1/4，退出 0/1） | contract/codec 已完成正式 Gradle；provider bundle 与 dormant host input-set foundation 已静态验收、待正式 Gradle，显式入口仍开放；不建立新设备矩阵 |
 | R4 | - | - | 待开始 | - |
