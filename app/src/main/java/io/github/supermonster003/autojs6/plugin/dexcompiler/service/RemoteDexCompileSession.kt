@@ -24,6 +24,7 @@ import org.autojs.plugin.dexcompiler.api.DexCompilerCodec
 import org.autojs.plugin.dexcompiler.api.DexCompilerContractException
 import org.autojs.plugin.dexcompiler.api.DexCompilerContractViolation
 import org.autojs.plugin.dexcompiler.api.DexCompilerErrorCode
+import org.autojs.plugin.dexcompiler.api.DexCompilerDiagnostic
 import org.autojs.plugin.dexcompiler.api.DexCompilerFailurePhase
 import org.autojs.plugin.dexcompiler.api.DexCompilerFamily
 import org.autojs.plugin.dexcompiler.api.DexCompilerProgressStage
@@ -196,7 +197,13 @@ internal class RemoteDexCompileSession(
         } catch (_: SessionStopped) {
             Unit
         } catch (error: DexCompileFailure) {
-            finishError(request.requestId, error.code, error.phase, error.message ?: "DEX compilation failed")
+            finishError(
+                request.requestId,
+                error.code,
+                error.phase,
+                error.message ?: "DEX compilation failed",
+                error.diagnostics,
+            )
         } catch (error: IOException) {
             if (!terminal.get()) {
                 finishError(
@@ -322,6 +329,7 @@ internal class RemoteDexCompileSession(
         code: DexCompilerErrorCode,
         phase: DexCompilerFailurePhase,
         message: String,
+        diagnostics: Collection<DexCompilerDiagnostic> = emptyList(),
     ) {
         if (!terminal.compareAndSet(false, true)) return
         val payload = DexCompilerCodec.encodeError(
@@ -331,6 +339,7 @@ internal class RemoteDexCompileSession(
                 phase = phase,
                 message = boundedErrorMessage(message),
                 retryable = code == DexCompilerErrorCode.BUSY,
+                diagnostics = diagnostics,
             ),
         )
         dispatchCallback("failed") { callback.onFailed(payload) }

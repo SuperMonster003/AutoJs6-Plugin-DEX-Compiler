@@ -19,7 +19,7 @@
 |---|---|---|---|
 | R0 | 已完成 | 低内存 JAR 验证、对抗性测试语料和可重复本地门禁 | 本插件 |
 | R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
-| R2 | 已启动（仅恢复切片） | 结构化诊断、取消/超时语义和进程恢复 | AutoJs6 + 本插件 |
+| R2 | 进行中（交付 1/4，退出 0/1） | 有界故障摘要、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 待开始 | 协议 V2 的受控依赖输入、宿主规范化和多输入缓存扩展 | 协议 + AutoJs6 + 本插件 |
 | R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
 
@@ -208,38 +208,44 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 ## R2: 诊断、取消与恢复
 
-目标: 让失败原因可理解，让 session 在取消、超时、宿主死亡和 provider 进程死亡后具有可验证的终态。
+目标: 在不改变 R1 默认关闭、显式 provider 与单次回退语义的前提下，让失败可辨识、终止后绝不发布半成品，并允许后续请求从进程中断中恢复。
 
-状态: 已启动，恢复切片进行中。force-stop 真实暴露了旧 UUID workspace（0-byte `program.jar` 与空 `d8-output`）在进程死亡后残留；插件已新增 process-once strict canonical janitor，在首次 Service Binder 暴露前回收严格锚定于私有 cache 根的旧 session，拒绝越界或符号链接遍历。插件修正版门禁为 10 suites/48 tests 全通过，其中 workspace recovery 6/6；lint 0 error/27 warnings，Debug/Release assemble 均成功，Debug APK SHA-256 `5B6AC53B…640C4B`。设备更新前确认旧 UUID 仍存在；首次 bind/kill/recovery 后 workspace 只剩空 root，随后正常 D8/`DexClassLoader` 0.832 s PASS 且仍为空。该证据只完成 janitor 恢复切片；R2.2 的宿主死亡、callback 异常、全阶段取消/超时等定义仍未满足，所有 checkbox 保持未勾。
+状态: 交付项 1/4，退出条件 0/1。provider 启动恢复已具备 JVM、构建和 API 31 真实设备证据；有界故障摘要、统一终态及最小 R2 验收包尚待完成。
 
-### R2.1 结构化诊断
+### R2.1 有界故障摘要
 
-- [ ] 接入 D8 diagnostics handler，区分 info、warning、error 和内部失败。
-- [ ] 诊断保留 phase、origin/entry、位置及稳定分类；不存在可靠信息时不伪造字段。
-- [ ] 保持总字节、单条文本和队列上限，明确截断标志与丢弃计数。
-- [ ] 宿主展示结构化摘要，并允许用户区分输入错误、缺失依赖、desugaring、输出和 provider 故障。
-- [ ] progress 只有在 `current/total` 可真实测量时才报告数值，否则只报告阶段。
+- [ ] provider 将实际编译失败映射为现有 V1 的有界 `severity/code/message` 及稳定 failure phase/error code；宿主显示经过截断和脱敏的摘要，未知信息保持缺失，不伪造 origin、位置或进度。
 
-### R2.2 取消、超时和终态
+最小证据: 协议/API 与 plugin/host JVM 测试，加一个获授权 Android 目标上的真实 D8 失败用例。无需重新运行多 API/ABI 矩阵。
 
-- [ ] 明确宿主 deadline 与 provider 清理 deadline 的 ownership，使用单调时钟。
-- [ ] cancel/close/timeout/Binder death 后立即禁止发布结果并关闭不再需要的描述符。
-- [ ] 明确记录 D8 CPU 工作可能无法可靠中断，不能把线程 interrupt 误报为工作已经停止。
-- [ ] terminal callback 至多一次，且不会被晚到的 progress/diagnostic 越过。
-- [ ] provider 进程死亡、宿主死亡和 callback 异常后 session gate 与私有临时目录最终可回收。
-- [ ] 为卡住 worker 定义保守的进程级恢复策略，并验证不会发布不完整输出。
+范围边界:
 
-### R2.3 韧性矩阵
+- API 26+ 由 `D8Command` diagnostics handler 收集真实 error；API 24/25 保持已验收的 `D8.main` CLI 路径，仅在失败终态合成有界分类，不声称采集完整 D8 输出。
+- 宿主的最近失败摘要仅存于当前进程，只显示稳定枚举、分类和计数；provider 原始 message、路径、digest 与 requestId 不持久化、不进入设置摘要或默认日志。
+- origin/entry/位置等需要扩展 wire schema 的诊断元数据移至 R3/V2。
+- progress 只有在 `current/total` 可真实测量时才报告数值，否则只报告阶段；该规则保留为非门禁实现约束。
+- 完整 D8 info/warning 采集是后续增强，不阻塞 R2 的有界失败摘要。
 
-- [ ] 覆盖取消发生在 VALIDATING、COMPILING、PACKAGING 和 WRITING 各阶段。
-- [ ] 覆盖自然超时、并发 BUSY、callback backpressure、callback 抛错和 Binder death。
-- [ ] 覆盖 provider 进程被杀、宿主进程被杀、磁盘空间不足及 cache 清理失败。
-- [ ] 记录 session 终态、描述符关闭、临时目录清理和新 session 可用性。
+### R2.2 Fail-closed 终态与恢复
+
+- [ ] cancel、close、deadline、Binder/transport/callback 故障共享同一终态不变量：调用方只观察一个终态，终止后不得发布结果，不再需要的描述符被关闭，session gate 最终可再次接纳请求；single-flight 的最后一个 waiter 离开时协作请求 producer 取消，有其他 waiter 时不得取消且调用方取消仍不回退；deadline 使用单调时钟，已进入不可中断 D8 时只保证禁止发布与最终清理，不声称 CPU 已停止。
+- [x] provider 进程重新启动时，在首次 Binder 暴露前以 strict-canonical、fail-closed 方式回收旧 session workspace，不删除进程内后续创建的活动 workspace；恢复后新的真实 D8/`DexClassLoader` 请求可成功且 workspace 保持干净。
+
+最小证据:
+
+- 终态项使用确定性的 JVM race/fault 测试覆盖最后 waiter 取消、有其他 waiter 时继续和 terminal/publication 竞态，再加一个真实 provider 的取消或超时 smoke；不要求四个内部阶段逐一设备注入。
+- 恢复项复用现有 6/6 workspace-recovery、API 31 force-stop/Binder-death/rebind 和正常 D8 后空 workspace 证据。force-stop 暴露的旧 UUID 在首次恢复前存在，恢复后仅保留空 root；当前插件门禁为 10 suites/48 tests、lint 0 error/27 warnings，Debug/Release assemble 成功。
+- 卡住 worker 继续采用 process-local safety circuit 的保守策略，不声称线程 interrupt 已经终止 D8 CPU 工作；该约束不单列 checkbox。
+
+### R2.3 最小闭环验收
+
+- [ ] 一个可复核的 R2 验收包覆盖三类代表性场景：一次真实编译失败、一次调用方终止（取消或超时）、一次远端/进程中断；每项记录终态、是否发布、FD/临时目录清理及下一 session 可用性。完整 hostile permutations 可由 JVM/fake provider 承担，真实 provider 只需一个获授权 API/ABI 的代表性验收，不建立新的设备矩阵。
+
+非门禁韧性附录保留全阶段取消、callback backpressure/抛错、宿主进程 kill、磁盘耗尽、cache 清理失败及卡住 worker 的扩展组合；这些项目用于持续加固，不阻塞 R2 退出。
 
 #### R2 退出条件
 
-- [ ] 诊断预算、终态、取消和崩溃恢复都有自动化与真实设备证据。
-- [ ] 文档准确区分“结果已禁止发布”和“D8 CPU 已经停止”。
+- [ ] 上述四项全部完成，当前源码测试/lint/build 通过，用户与开发者文档保持 default-off、单次回退及“结果终止与 CPU 停止不同”的准确边界。
 
 ## R3: 协议 V2、依赖输入与宿主缓存
 
@@ -308,6 +314,6 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 |---|---|---|---|---|
 | R0 | 2026-08-10 | 未提交 | 已完成 | 强制重跑 43 tests / 10 suites 全通过；large evidence 为 sourceBytes=66,595,045、providerLimit=67,108,864、maxHeap=62,914,560；同轮 lint 与 Debug/Release 构建均通过；仅属 JVM/本地验收 |
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
-| R2 | 2026-08-10 | 未提交 | 已启动/恢复切片进行中 | process-once strict canonical workspace janitor 已通过 48/48 插件 JVM、6/6 recovery、lint 与 Debug/Release build；API 31 旧 UUID 经首次 bind/kill/recovery 后清空，正常 D8 后保持空 root；R2 checkbox 全未勾 |
+| R2 | 2026-08-11 | 未提交 | 进行中（交付 1/4，退出 0/1） | 启动恢复核心 gate 已勾选：process-once strict-canonical workspace janitor 通过 48/48 插件 JVM、6/6 recovery、lint 与 Debug/Release build；API 31 旧 UUID 经首次 bind/kill/recovery 后清空，正常 D8 后保持空 root；其余 3 个交付项与退出条件待完成 |
 | R3 | - | - | 待开始 | - |
 | R4 | - | - | 待开始 | - |
