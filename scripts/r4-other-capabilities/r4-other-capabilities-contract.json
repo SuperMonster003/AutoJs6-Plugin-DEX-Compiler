@@ -1,0 +1,144 @@
+{
+  "schemaVersion": "autojs6.dex.r4.other-capabilities-contract/v1",
+  "contractId": "r4.3-source-and-packaging-responsibility-boundary",
+  "evidenceBoundary": "STATIC_PRODUCTION_CAPABILITY_AND_BUILD_LAYER_SEPARATION",
+  "inputs": {
+    "productionSourceRoot": "app/src/main/java",
+    "manifest": "app/src/main/AndroidManifest.xml",
+    "runtime": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/DexCompilerRuntime.kt",
+    "materializer": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/DexCompilerInputMaterializer.kt",
+    "validator": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/BoundedJarValidator.kt",
+    "engine": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/D8DexCompilerEngine.kt",
+    "appBuild": "app/build.gradle.kts",
+    "apiAar": "libs/dex-compiler-api.aar"
+  },
+  "runtimeSurface": {
+    "expectedSourceFileCount": 20,
+    "allowedSourceExtensions": [
+      ".kt"
+    ],
+    "requiredSourceEvidence": [
+      {
+        "pathKey": "runtime",
+        "literal": "inputFormats = listOf(DexCompilerInputFormat.JAR)"
+      },
+      {
+        "pathKey": "runtime",
+        "literal": "outputFormats = listOf(DexCompilerOutputFormat.DEX_ZIP)"
+      },
+      {
+        "pathKey": "materializer",
+        "literal": "DexCompilerInputRole.PROGRAM -> workspace.programJar"
+      },
+      {
+        "pathKey": "materializer",
+        "literal": "DexCompilerInputRole.CLASSPATH -> workspace.classpathJar(identity.ordinal)"
+      },
+      {
+        "pathKey": "materializer",
+        "literal": "requireClassEntries = identity.role == DexCompilerInputRole.PROGRAM"
+      },
+      {
+        "pathKey": "validator",
+        "literal": "StrictJarZipFraming.validate(file, limits.maxArchiveEntries)"
+      },
+      {
+        "pathKey": "validator",
+        "literal": "Program JAR contains no class files"
+      },
+      {
+        "pathKey": "engine",
+        "literal": ".addProgramFiles(inputs.programJar.toPath())"
+      },
+      {
+        "pathKey": "engine",
+        "literal": ".setOutput(outputDirectory.toPath(), OutputMode.DexIndexed)"
+      }
+    ],
+    "forbiddenPatterns": [
+      {
+        "id": "java-compiler-api",
+        "regex": "(?i)\\b(?:javax\\.tools|JavaCompiler|ToolProvider)\\b"
+      },
+      {
+        "id": "kotlin-source-compiler-api",
+        "regex": "(?i)\\b(?:K2JVMCompiler|KotlinCoreEnvironment|org\\.jetbrains\\.kotlin\\.(?:cli|compiler))\\b"
+      },
+      {
+        "id": "source-compiler-process",
+        "regex": "(?i)\\b(?:javac|kotlinc)(?:\\.exe)?\\b"
+      },
+      {
+        "id": "external-process-launch",
+        "regex": "(?i)\\b(?:ProcessBuilder|Runtime\\s*\\.\\s*getRuntime\\s*\\(\\s*\\)\\s*\\.\\s*exec)\\b"
+      },
+      {
+        "id": "android-resource-or-apk-tool",
+        "regex": "(?i)\\b(?:aapt2?|bundletool|apksigner|zipalign|ResourceMerger|ApkCreator|SignedJarBuilder)\\b"
+      },
+      {
+        "id": "aar-runtime-pipeline",
+        "regex": "(?i)\\bAar(?:Resource(?:Merger|Processor)?|Archive|Extractor|Merger|Processor|Packager)\\b"
+      },
+      {
+        "id": "apk-signing-material",
+        "regex": "(?i)\\b(?:java\\.security\\.)?KeyStore\\b|\\bcom\\.android\\.apksig\\b|\\bSignerConfig\\b"
+      },
+      {
+        "id": "package-installation-api",
+        "regex": "(?i)\\b(?:android\\.content\\.pm\\.)?PackageInstaller\\b|\\b(?:ACTION_INSTALL_PACKAGE|REQUEST_INSTALL_PACKAGES|INSTALL_PACKAGES|DELETE_PACKAGES)\\b"
+      },
+      {
+        "id": "adb-or-ddmlib",
+        "regex": "(?i)\\b(?:adb|com\\.android\\.ddmlib)\\b"
+      }
+    ]
+  },
+  "manifestBoundary": {
+    "permissions": [
+      "org.autojs.permission.PLUGIN"
+    ],
+    "actions": [
+      "org.autojs.plugin.DEX_COMPILER",
+      "org.autojs.plugin.INFO",
+      "org.autojs.plugin.action.WAKE"
+    ],
+    "serviceCount": 2
+  },
+  "buildLayer": {
+    "requiredMarkers": [
+      "id(\"com.android.application\")",
+      "signingConfigs {",
+      "packaging {",
+      "dependsOn(\"assembleRelease\")",
+      "register<Copy>(\"appendDigestToReleasedFiles\")"
+    ],
+    "forbiddenRuntimeDependencyPatterns": [
+      "(?i)(?:implementation|api|runtimeOnly)\\s*\\(.*kotlin-compiler",
+      "(?i)(?:implementation|api|runtimeOnly)\\s*\\(.*(?:bundletool|apksig|ddmlib|aapt2)"
+    ]
+  },
+  "apiAar": {
+    "byteLength": 154988,
+    "sha256": "4766af19ea414400177ba8541f753737c8bf40624cbfc866bb5442cc4b07fea5",
+    "inputFormats": [
+      "JAR"
+    ],
+    "inputRoles": [
+      "PROGRAM",
+      "CLASSPATH"
+    ],
+    "outputFormats": [
+      "DEX_ZIP"
+    ]
+  },
+  "claims": {
+    "sourceCompilationImplementedInPlugin": false,
+    "validatedJarRequiredBeforeDex": true,
+    "aarResourceMergeImplementedInPlugin": false,
+    "apkPackagingImplementedInPlugin": false,
+    "apkSigningImplementedInPlugin": false,
+    "apkInstallationImplementedInPlugin": false,
+    "buildLayerOwnsPluginPackagingAndSigning": true
+  }
+}

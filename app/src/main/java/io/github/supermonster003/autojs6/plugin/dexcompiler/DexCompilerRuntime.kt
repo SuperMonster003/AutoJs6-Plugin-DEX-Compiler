@@ -24,7 +24,7 @@ internal object DexCompilerRuntime {
     const val PLUGIN_ID = "dex-compiler"
     const val PLUGIN_VARIANT = "d8"
     const val PROVIDER_ID = "autojs6-d8"
-    const val COMPILER_VERSION = "8.13.17"
+    val COMPILER_VERSION: String = BuildConfig.D8_COMPILER_VERSION
     const val REQUIRED_HOST_VERSION = 5_270L
 
     /** The raw-program version remains the default for existing callers and fixtures. */

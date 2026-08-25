@@ -1,6 +1,6 @@
 # Compilateur DEX AutoJs6
 
-Ce plug-in compile une archive JAR normalisée avec D8 8.13.17 et renvoie un ZIP borné contenant des entrées `classes*.dex` contiguës.
+Ce plug-in compile une archive JAR normalisée avec D8 8.13.22 et renvoie un ZIP borné contenant des entrées `classes*.dex` contiguës.
 
 Le plug-in exige la version 5270 ou ultérieure de l'hôte et Android API 24 ou ultérieure.
 

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "autojs6.dex.r4.d8-promotion-contract/v1",
+  "evidenceBoundary": "LOCAL_DEFAULT_PIN_PROMOTION_AND_ROLLBACK",
+  "compiler": {
+    "coordinate": "com.android.tools:r8",
+    "promotedVersion": "8.13.22",
+    "rollbackVersion": "8.13.17",
+    "catalogPath": "gradle/libs.versions.toml",
+    "candidateVersionProperty": "d8CandidateVersion",
+    "rollbackEvaluationProperty": "d8RollbackEvaluation"
+  },
+  "platformPlugin": {
+    "coordinate": "org.autojs.build:autojs6-gradle-platform-versions:1.4.1",
+    "version": "1.4.1",
+    "byteLength": 82427,
+    "sha256": "028ee9e96386e642313abb4d1904455959b87236f26a7ecaf8cd3bba35f2d9e8",
+    "sourceCommit": "dcf5d9a6b0de56fef34fcf6929478d86b1693fd0"
+  },
+  "stages": [
+    {
+      "id": "PROMOTED_DEFAULT",
+      "ordinal": 1,
+      "compilerVersion": "8.13.22",
+      "gateEvaluationKind": "PINNED_DEFAULT"
+    },
+    {
+      "id": "OLD_PIN_ROLLBACK",
+      "ordinal": 2,
+      "compilerVersion": "8.13.17",
+      "gateEvaluationKind": "OLD_PIN_ROLLBACK"
+    },
+    {
+      "id": "FINAL_PROMOTED_DEFAULT",
+      "ordinal": 3,
+      "compilerVersion": "8.13.22",
+      "gateEvaluationKind": "PINNED_DEFAULT"
+    }
+  ]
+}

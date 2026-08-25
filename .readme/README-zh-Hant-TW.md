@@ -64,7 +64,7 @@ DEX Compiler 是 AutoJs6 的獨立 DEX Compiler 協定 V1 provider. 它在應用
 ```text
 input: JAR with JVM class files
 output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.17
+compiler: D8 8.13.22
 ```
 
 ******
@@ -85,7 +85,7 @@ protocol: V1
 required host build: 5270
 ```
 
-外掛宣告 D8 8.13.17, JAR 輸入, DEX ZIP 輸出, DEBUG 和 RELEASE 模式, minApi 24 至 36 及 multi-dex. Runtime library model 為裝置 boot classpath V1.
+外掛宣告 D8 8.13.22, JAR 輸入, DEX ZIP 輸出, DEBUG 和 RELEASE 模式, minApi 24 至 36 及 multi-dex. Runtime library model 為裝置 boot classpath V1.
 
 需要主程式建置版本 5270 或更高版本. 外掛不含 native library, 因而透過一個純 JVM universal APK 支援所有裝置 ABI.
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### 已知限制與驗收邊界
 
-V1 只進行有界 raw JVM JAR 到 DEX ZIP 轉換, 不提供 R8 shrinking/obfuscation、外部 classpath、自訂 desugared library、網路編譯或確定性位元組輸出. BUSY 可觸發主程式 fallback, 取消後 D8 CPU 工作可能在隔離程序繼續至清理完成. 最後 waiter 離開後的協同取消仍屬 R2; 效能晉級、預設啟用及移除主程式編譯器相依性均不在已完成的 R1 範圍內.
+V1 只進行有界 raw JVM JAR 到 DEX ZIP 轉換, 不提供 R8 shrinking/obfuscation、外部 classpath、自訂 desugared library、網路編譯或確定性位元組輸出. `DexCompilerMode.RELEASE` 只會選取 D8 的 release compilation mode; 它不會啟用 R8, 也不承諾 shrinking、optimization、obfuscation 或 mapping. BUSY 可觸發主程式 fallback, 取消後 D8 CPU 工作可能在隔離程序繼續至清理完成. 最後 waiter 離開後的協同取消仍屬 R2; 效能晉級、預設啟用及移除主程式編譯器相依性均不在已完成的 R1 範圍內.
 
 ******
 
@@ -261,7 +261,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-編譯器透過 Maven 使用 D8 8.13.17. 本機 AAR 只提供穩定協定邊界, 產生的外掛是無 native library 的 universal APK.
+編譯器透過 Maven 使用 D8 8.13.22. 本機 AAR 只提供穩定協定邊界, 產生的外掛是無 native library 的 universal APK.
 
 ******
 

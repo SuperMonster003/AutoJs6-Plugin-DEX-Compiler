@@ -15,7 +15,7 @@
   "required_host_build": "5270",
   "input_format": "JAR with JVM class files",
   "output_format": "DEX ZIP with contiguous classes*.dex entries",
-  "compiler_dependency": "D8 8.13.17",
+  "compiler_dependency": "D8 8.13.22",
   "supported_abis": "all device ABIs through one pure JVM universal APK",
   "local_aars": "common-plugin-api.aar\nprotocol-wire-api.aar\ndex-compiler-api.aar"
 }

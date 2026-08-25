@@ -1,6 +1,6 @@
 # DEX Compiler Roadmap
 
-更新日期: 2026-08-11
+更新日期: 2026-08-25
 
 本路线图把后续工作拆成可独立验收的 R0-R4。每个复选框只表示对应条目已经有可复核证据，不能用较低层级的测试替代较高层级的验收。例如，JVM 单元测试通过不等于跨 APK Binder 或真实设备加载已经通过。
 
@@ -21,7 +21,7 @@
 | R1 | 已完成 | AutoJs6 显式 opt-in 接入、生产加载链路与真实 provider 7-cell 设备矩阵 | AutoJs6 + 本插件 |
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 已完成（交付 4/4，退出 1/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
-| R4 | 待开始 | D8 升级治理，以及与 R8/源码编译能力的清晰分离 | 本插件 + 独立 provider |
+| R4 | 已完成（R4.1 4/4；R4.2 5/5；R4.3 2/2；退出 2/2） | D8 已完成默认晋升、旧 pin 回滚与再晋升；独立 R8 provider 已完成宿主显式选择、跨 APK Binder/PFD、设备/ART/JNI/Retrace、append-only 本地发布及 Private prerelease；源码编译与 AAR/APK 职责继续隔离 | 本插件 + AutoJs6 + 独立 R8 provider |
 
 依赖顺序:
 
@@ -319,28 +319,120 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 
 ### R4.1 D8 升级与确定性
 
-- [ ] 建立涵盖 Java/Kotlin 版本、desugaring、multi-dex、API 24-36 和已知失败语料的 D8 升级矩阵。
-- [ ] 每次升级记录 D8 版本、输入摘要、runtime fingerprint、输出摘要和行为差异。
-- [ ] 在没有重复构建证据前不声明 deterministic；若无法保证，则 cache key 必须包含 compiler identity/version。
-- [ ] 为旧 D8 保留可回滚版本和兼容性说明。
+- [x] 建立涵盖 Java/Kotlin 版本、desugaring、multi-dex、编译参数 minApi 24-36 和已知失败语料的 D8 升级矩阵。
+- [x] 每次升级记录 D8 版本、输入摘要、runtime fingerprint、输出摘要和行为差异。
+- [x] 在没有重复构建证据前不声明 deterministic；若无法保证，则 cache key 必须包含 compiler identity/version。
+- [x] 为旧 D8 保留可回滚版本和兼容性说明。
+
+R4.1 本轮实现与证据（2026-08-13）:
+
+- 版本治理: 默认 D8 仍由 version catalog 固定为 `8.13.17`；catalog pin、matrix pin、构建生成的 `BuildConfig.D8_COMPILER_VERSION`、provider capability 与 `com.android.tools.r8.Version` 形成交叉核对。候选只能通过显式 `d8CandidateVersion` 属性覆盖，并由 Gate 记录 `CANDIDATE_OVERRIDE`；撤掉属性只表示撤销候选评估并恢复 `PINNED_BASELINE`，不需要改源码或发布声明，也不冒充默认 pin 的 promotion/rollback。当前宿主 `DexCompilerSemanticCacheKey` 继续把 compiler family/version 与 runtime fingerprint 编入 canonical key，既有定向测试覆盖任一版本变化都会改变 key；本轮只读复核该源码与测试，未改宿主。
+- 本地矩阵: `r4.1-g1-d8-upgrade` 共 60 个 JVM/compiler-only cell。Java 8 覆盖 minApi 24-36 的 DEBUG/RELEASE，Java 11/17/21、当前 Kotlin 2.3.20/JVM 21、标准 desugaring、生成式 multi-dex、缺失运行时依赖引用、畸形/超前 classfile 与重复定义按代表性边界展开。`minApi` 是 D8 编译参数，不是设备 API 矩阵；缺失依赖 cell 只证明 D8 保留外部类型引用并成功编译，不冒充 ART 运行时解析。
+- 报告与门禁: 每次专用 `r4D8UpgradeMatrixTest` producer 都使用新的规范 UUID 与独立 invocation 目录；v2 cell report 和 v2 Gate 绑定该 UUID，固定 gate 在 task graph/producer 启动前先原子失效，因此无关 `--tests` 过滤、producer/JVM 失败或旧 60-cell 目录都不能留下或重新消费旧 PASS。每个 cell 记录 compiler version、输入 SHA-256、同一 `android-36/android.jar` runtime fingerprint、编译结果、输出摘要和连续 `classes*.dex` manifest；成功 cell 精确运行两次，失败 cell 保留一次真实拒绝。consumer 固定 11-case/60-cell 形状，并拒绝缺/重复 cell、跨 invocation 混入、版本漂移、摘要缺失、非法 deterministic 声明、重复次数不符、DEX 乱序/缺号和候选 DEX 拓扑变化。Gate/比较器绑定 producer UUID、matrix/schema/report-set SHA-256；无模块 bootstrap 在 gate module 导入前建立安全输出，所以模块缺失/损坏或 expected UUID 缺失/畸形也会原子替换旧 PASS。输出不得经直接、祖先 symlink/junction 或 hardlink 别名覆盖输入，错误结果不持久化本机绝对路径。当前治理脚本固定自测为 29/29 PASS；历史稳定包中的 22/22 属旧 v1 治理快照，不冒充当前 v2 证据。
+- 固定基线: 当前组合源码的 `:app:verifyR4D8UpgradeMatrix --rerun-tasks` 为 60/60 PASS；去掉 `--rerun-tasks` 后再次运行时，专用矩阵 `Test` 与 Gate 仍实际执行而非 `UP-TO-DATE`/`FROM-CACHE`，且两次 producer UUID 不同。最终 Gate invocation 为 `bd2c21e1-7061-4206-8464-cb12c48dae7c`，SHA-256 为 `fe52f9b3571f5b08ce298449d7ae6d01e638f758b222ad18dc2851fce51683b1`。54 个成功 cell 均双跑且在本机摘要一致，6 个已知失败 cell 由真实 D8 拒绝；4 个 multi-dex cell 均产生 `classes.dex` 与 `classes2.dex`。所有报告仍固定 `determinismClaim=NOT_CLAIMED`。历史稳定包的 14 suites / 76 tests、v1 baseline/candidate 与 lint/APK 继续作为 2026-08-13 快照保留，不覆盖本轮 v2 fresh-invocation 证据。
+- 候选演练: 使用 PowerShell 原生参数数组显式评估 `8.13.22`，候选 60/60 PASS；相同输入摘要、runtime fingerprint、compiler outcome 和 DEX entry-name 结构下，全部 54 个成功 cell 的输出字节摘要相对 `8.13.17` 改变。比较器原样记录差异而不声明确定性或字节等价；默认固定版本没有升级。
+- Android 构建层: 回到默认 `8.13.17` 后，`:app:lintDebug :app:assembleDebug` 成功；lint 为 0 error / 27 warning，Debug APK SHA-256 为 `dcc5b97c0f4deb06d29fcc8c08cb7bb3c85dd01655d0809b65c117948320534b`。报告位于 `app/build/reports/d8-upgrade-matrix/`、`app/build/reports/tests/testDebugUnitTest/` 与 `app/build/reports/lint-results-debug.html`。
+- 稳定证据包: `D:\idea-projects\AutoJs6-DEX-R4-Evidence-20260813\r4.1-g1-local-matrix-42ebd253-8097-418e-b2a8-3ccaaeeb62ae`；`report.json` SHA-256 为 `30afdb13c53297d0675680e4d51a71db971431ebc216e467465c9ac1c7d8ad14`。该包保留两套 cell/gate、绑定比较、无 `--rerun-tasks` 仍实际执行矩阵的 console transcript、治理自测、14 份 JVM XML、lint/APK 结果、源码快照、失败候选命令和自排除 SHA-256 manifest；共 185 个 physical files，manifest 覆盖 184 entries 且 hash/path diff 为 0。包内报告只声明 `JVM_COMPILER_ONLY_AND_ANDROID_BUILD`。
+- 证据边界: 本轮没有运行 ADB、`connected*`、安装、Binder/PFD、跨 APK、真实 `DexClassLoader` 或设备任务，也没有触碰 `QV710AF65F`。因此 R4.1 只关闭本地升级治理，不能替代任一 API/ABI 设备验收；R4.2/R4.3 与 R4 总退出条件保持未完成。
+
+R4.1-G2 默认晋升、旧 pin 回滚与再晋升收口（2026-08-25）:
+
+- 构建身份先迁移到 Maven Local 的 `org.autojs.build:autojs6-gradle-platform-versions:1.4.1`；发布 JAR 为 82,427 bytes、SHA-256 `028ee9e96386e642313abb4d1904455959b87236f26a7ecaf8cd3bba35f2d9e8`，与 sibling source commit `dcf5d9a6b0de56fef34fcf6929478d86b1693fd0` 的 fresh `test jar --rerun-tasks` 输出逐字节一致。DEX 在 `--offline` 下解析 Gradle 9.5、Kotlin 2.3.20、AGP 9.2.1 与 AGP bundled R8 8.13.19；该 bundled R8 仍只属于 Android 打包工具链。
+- 矩阵 contract 升级为 invocation-bound v2、Gate v3；新增与 candidate override 互斥的 `d8RollbackEvaluation`，它只验证当前 catalog 是否精确回到旧 pin，不能选择依赖。治理/启动失败回归为 31/31，模块缺失、语法损坏、import-time 异常、无关 `--tests` 和 UUID 漂移均会在 producer 前后原子覆盖旧 PASS。promotion closeout 自测另为 10/10。
+- campaign `5640aa27-6f53-408c-8d2d-b256c66a7d84` 在同一 normalized source/build identity `b04db0e68556bb4ba6033f0d580c6b7994e4f47e687d214ae96794f71883517e` 与 runtime fingerprint `d9eb9da824d9e247a352f570f01e1169e725b2954bca9e283a71786c59b59f9a` 下依次实际执行三套独立 60-cell producer：`PROMOTED_DEFAULT` 使用 catalog `8.13.22`，Gate SHA-256 `09b03c7141d431364c9f59c9a6ec4549395bb153c702b66666d74368ac69335d`；`OLD_PIN_ROLLBACK` 使用 catalog `8.13.17`，Gate SHA-256 `b34f759123f2ff097c862957dcd5ead26fd3912b82a751320c3d4058aafef15c`；`FINAL_PROMOTED_DEFAULT` 再回到 catalog `8.13.22`，Gate SHA-256 `566fa6c05f9b6f252ed5c46ee4a67898e4f3534b0cbfed17102ca7fd85fbf2d8`。三套均为 60/60、54 个真实成功与 6 个预期失败，producer UUID、Gate 与 report-set 均不同，且没有 candidate override。
+- promotion closeout Gate 位于 `D:\idea-projects\AutoJs6-DEX-R4-Evidence-20260825\r4.1-g2-default-promotion-5640aa27-6f53-408c-8d2d-b256c66a7d84\promotion-gate.json`，SHA-256 `e65b2be5aabb5bb3d293621ea68ff481984d7ef700a9938cc33b77731c1eac45`。最终默认 pin 现为 `8.13.22`，仍固定 `determinismClaim=NOT_CLAIMED`；本 campaign 没有设备、签名、安装或远端操作。后续 R4.3 门禁/文档只增加治理面且不改变 D8 生产 engine；最终组合树又以 producer `f36d293f-fd50-4508-8a35-b15669ec292b` 强制重跑默认 60/60，Gate SHA-256 `e98e0373450dcc276aa7957e612c8f68beb0205569354586f33b20144fa34007`。
+
+DEX 本地历史与隐私治理（2026-08-25）:
+
+- `master` 原有 21/21 commits 的 author/committer 已统一为 `SuperMonster003 <30370009+SuperMonster003@users.noreply.github.com>`；逐提交核对 tree、message、author/committer name、日期和父拓扑保持不变，改写完成时 HEAD 为 `840a52cbf636767128a256b81ee134908ad1cf39`。仓库本地 `user.name`/`user.email` 同步为该身份，后续本地提交继续使用 noreply。
+- 改写前恢复 bundle 为 `D:\idea-projects\.private-git-backups\AutoJs6-Plugin-DEX-Compiler\pre-noreply-20260825T142912.bundle`，740,881 bytes、SHA-256 `d2689f819dada88fd179b28aeec464ceae52f8136c49bafd8a6b3825b6c7ee6b`；改写后已过期 reflog 并 GC 旧对象。该 bundle 仅位于本机外部私有备份目录。
+- 本 DEX 仓库继续仅本地部署：未创建 GitHub 仓库、未配置或推送业务远端、未创建 remote release。R8 sibling 的 Private 发布不能被解释为 DEX 的远端发布授权。
 
 ### R4.2 独立 R8 provider
 
-- [ ] `RELEASE` 继续只代表 D8 compilation mode，不静默等同于 shrinking、optimization 或 obfuscation。
-- [ ] R8 使用独立 provider identity、capability、协议语义和发布历史。
-- [ ] keep rules、consumer rules、mapping、seeds/usage 及 retrace 产物采用显式、有界接口。
-- [ ] 反射、动态类名、JNI、序列化和 AutoJs6 脚本访问建立专门兼容性语料。
-- [ ] 用户必须显式选择 R8；失败时不得悄悄退化为含不同语义的 D8 产物。
+- [x] `RELEASE` 继续只代表 D8 compilation mode，不静默等同于 shrinking、optimization 或 obfuscation。
+- [x] R8 使用独立 provider identity、capability、协议语义、append-only 本地签名发布历史及 Private prerelease；未来 Public 转换仍是独立 Gate，不冒充已完成。
+- [x] keep rules、consumer rules、mapping、seeds/usage 及 retrace 产物采用显式、有界接口。
+- [x] 反射、动态类名、JNI、序列化和 AutoJs6 脚本访问建立专门兼容性语料。
+- [x] 用户必须显式选择 R8；失败时不得悄悄退化为含不同语义的 D8 产物。
+
+R4.2-G1 独立合同层（2026-08-14）:
+
+- [x] 在独立 sibling `D:\idea-projects\AutoJs6-Plugin-R8-Compiler` 的初始提交 `2a1fb3b70cfe6f4678bd0118a87c905a3fe52bbd` 冻结 `r8-compiler-api` 0.1.0：独立 namespace、Action、engine/cache domain、协议 1.0、15 个 R8 schema、3 个 AIDL descriptor，以及仅允许 `R8_EXPLICIT` / `fallbackPolicy=NONE` / `FULL_RELEASE` 的 typed contract。
+- [x] 冻结 path-free canonical input/artifact bundle、有界 program/classpath/keep/consumer rules、精确五产物 `DEX_ZIP/MAPPING/SEEDS/USAGE/RETRACE_METADATA`、runtime/capability/input/output SHA-256 绑定与 mapping provenance；`RETRACE_METADATA` 不是 retrace RPC 或执行证据。
+- [x] 建立合同 hostile/JVM 门禁：13 suites / 126 tests（protocol-wire 14、R8 contract 112）全通过，含 TaggedWire、golden wire/bundle、provider 较小预算、dangerous directive corpus、摘要/产物交叉绑定、有界 adversarial collection/InputStream 语义和 4×256=1,024 个 fixed-seed mutation variants；两个 lint task 均为 0 error（R8 API 0 warning，protocol-wire 仅 1 条 wrapper-version advisory）。
+- [x] 生成 append-only 本地 `0.1.0` 合同分发：严格 classfile golden 覆盖 97 个 class entries、87 个 Java-visible classes、774 个 visible members、10 个 AIDL method descriptors、3 个 Binder `DESCRIPTOR` 与 10 个 transaction constants，ABI golden SHA-256 为 `b628e1e2edccf0510b7acd31157fb9184947f1d8ccfe61826d0076e7350c96bf`。distribution mutation self-test 31/31、source-boundary self-test 43/43、真实 source gate 16/16；清单先 `CREATED` 再以同字节 `IDENTICAL` 复验。manifest SHA-256 为 `40c307e1280fa011064f4e7f06215ec17364bfe88cc74bfff5ae0a5d2827b16a`，protocol-wire/R8 API AAR SHA-256 分别为 `1d97a5b44b2c20e85aa12b263fca604a32d6d89275d47a19076861cd20c29a36` / `e9df49b7e49992615a15bc0af2372a4525f02b4a2a915a560ddab3128bb2f066`；共同记录的 source fingerprint 为 `a85d40e9e8eebbc347703588fef20adb0ee93a2d992425baca076635d79a3dc8`，verifier SHA-256 为 `3b12ecdd28187c577bcb3a80fd3d2c1e79988ad33dc5ddee1d93a674c0e3bf33`，本地 report SHA-256 为 `28425adc67ced736b434524c1708f35267d1fe2a9feeff9be8cb2f9e616815fd`。detached Java consumer 使用空 sourcepath 与仅 Android 36 及两个 AAR 解出的 `classes.jar` 编译成功；清单只共同记录 source snapshot 与独立扫描 artifact，不冒充 reproducible source-to-binary derivation。
+- [x] 严格保留 `CONTRACT_AAR_ONLY` 边界：新仓库没有 `:app`、applicationId 实装、Manifest/service/provider、R8 engine dependency/调用、宿主接线、APK 或设备操作；报告固定 `published=false`、`pluginConsumed=false`，且 provider/manifest/host/Binder/R8/retrace/device claims 全为 false。
+
+上述五项只关闭 G1 的 contract/AAR 子门；它们在冻结时没有可安装 provider、真实 rules/R8 执行、多产物生产者/消费者、宿主选择链或独立发布历史。后续 G2 已补上本地 provider/真实 JVM R8/五产物 producer，G3 v3 补上宿主 canonical 输入与五产物 consumer，G3 v4 又补上默认关闭的用户 exact-component 选择、`runtime.loadJarWithR8` 公开入口与只读 DEX 加载，G4 v1 再以 Java/Kotlin × `minApi` 24-36 的 26-cell 真实 R8 语料覆盖反射、动态类名、JNI、序列化和脚本公开面，G5 v1 建立同签名、append-only 的本地 APK/API 历史与双隔离构建复现证据。G6/G7/G8 随后分别关闭跨 APK Binder/PFD 设备验收、ART/JNI/Retrace 与隐私归一化 Private prerelease；历史报告各自保持原边界，不把后续证据倒灌进 G1-G5。
+
+R4.2-G2 本地 provider 纵向切片（2026-08-24）:
+
+- 独立实现: sibling 当前工作树新增独立 `:app`，application ID 为 `io.github.supermonster003.autojs6.plugin.r8compiler`；Manifest 只导出一个受 `org.autojs.permission.PLUGIN` 保护的 `.R8CompilerService`，固定 discovery Action `org.autojs.plugin.R8_COMPILER` 并运行于专用 `:r8` 进程。provider 直接消费 G1 冻结的两个 0.1.0 AAR 字节，不以 project dependency 回落到合同源码；同签名 exact AutoJs6 caller、provider ID `autojs6-r8`、engine/cache/protocol 域保持独立，生产源码静态拒绝 D8/dx 路由。
+- 输入与执行: provider 在私有、启动可恢复的 session workspace 中完整读取 canonical input bundle，复验单项/集合摘要、ZIP EOCD/central/local 视图、规范 entry 名、class magic、压缩比及单项/聚合资源预算，并在 bundle 完整 EOF/digest 成功后才把显式 keep/consumer rules 交给固定 R8 `8.13.17`。API 26+ 使用 `R8Command`、`CompilationMode.RELEASE`、tree-shaking/minification enabled 与 cancellation checker；API 24/25 CLI seam 固定 `--release` 和 provider 自有 report destinations；两条路径均无 D8/dx fallback。
+- 五产物事务: R8 输出先在私有目录验证连续 `classes*.dex`、DEX header/signature/checksum，再生成并规范化 `DEX_ZIP/MAPPING_TEXT/SEEDS_TEXT/USAGE_TEXT/RETRACE_METADATA`；mapping provenance 绑定 compiler/capability/runtime/input/minApi/profile。五份产物先写成一个本地 canonical artifact bundle 并复验大小/摘要，成功后才单次 claim/write caller output FD；任一失败、取消或超时保持 R8 terminal，不能发布半成品或切换语义。
+- session 安全实现: service 启动清理 canonical stale workspaces，进程级 gate 只允许一个 active session；输入必须只读、输出必须只写且 `fstat` 不可 alias，API 24-29 的 access flags 从有界 `/proc/self/fdinfo/<fd>` fail-closed 读取。callback 串行且有界，UID owner/caller 每次复核，Binder death、取消、close、deadline、service destroy 与清理均由 exactly-once terminal controller 收口；R8 的 cooperative checker/线程中断只阻止后续发布，不把“请求停止”冒充已经强杀编译器。
+- 本地门禁: `verifyG2Provider` 固定先原子失效旧 Gate，再依赖 provider JVM、lint、Debug/Release APK。v2 最终 invocation `d7a5116d-8fe4-4140-baf7-4d5a594402f7` 带动 98/98 tasks 实际执行；6 suites / 41 tests 全绿，其中原有 15 项继续覆盖动态 javac JAR 的真实 JVM R8、冻结 contract 对五产物反向消费、聚合输出预算拒绝、API 24 CLI 边界、恶意规则/输入、workspace/gate/terminal、identity/Manifest/AAR 字节检查，新增 26 项属于后续 G4 Java/Kotlin 兼容语料，纳入全量 prerequisite 不会扩张 G2 的 Binder/设备证据边界。lint 为 0 error / 2 个版本边界 warning，Debug 与 unsigned Release APK 均成功构建。最终 Gate SHA-256 为 `fa2c9650f1673b16f7e067e6a9ea3cd758f435741e34aa7a2e0e80b451d699f8`，自记录 verifier SHA-256 为 `0526ca1ab259166e8051faa8c97ac42c190f403d4b202f51ebde2cf47d4035ac`；Debug/unsigned Release APK SHA-256 仍分别为 `c1abf688fb421297b3a5850bb995f66aa3ab42cd1498e398268abc1119182b5b` / `abf64169280592153909f6175702648f05e89201d1baa675d9689f729e56c5d9`。无关 `--tests` producer 故意失败后固定 v2 Gate 保持 `passed=false`（SHA-256 `04e613f76bb6ac94d877560cca93a689d08265161d319f3a8d0bf00469ffb1d1`），随后才恢复正向 PASS；报告无工作区绝对路径。当前 mutable identity 已进入后续 G3/G4 状态，G2 report 因而显式记录 `laterHostIntegrationPresent=true`、`extendsThisG2EvidenceBoundary=false`，自身 `hostIntegrated` claim 仍为 false。冻结 G1 合同另行重跑为 13 suites / 126 tests 全绿。
+- 证据边界: 当前 Gate 固定声明 `LOCAL_PROVIDER_JVM_AND_ANDROID_BUILD`。本轮未运行 ADB、安装、`connected*`、真实 Binder/PFD、进程死亡或设备任务，未触碰 `QV710AF65F`；Release APK 未签名、未发布，provider 也没有独立远端发布历史。因此该 Gate 只关闭 sibling G2 的前两项；G2 第三项仍未完成，后续 G3 宿主事务证据单独记录如下，不能倒灌为 G2 Binder/设备证据。
+
+R4.2-G3 宿主显式集成切片（2026-08-24）:
+
+- 冻结消费边界: sibling `AutoJs6` 的最终 Gate 基于 commit `afca7b14c4ba3971b60a9ce3587e2f10bfd0ab1e` 当前工作树，新增本地 AAR wrapper 并实际消费 G1 冻结的 `r8-compiler-api-0.1.0.aar`，SHA-256 仍为 `e9df49b7e49992615a15bc0af2372a4525f02b4a2a915a560ddab3128bb2f066`，没有 composite/source-project dependency。宿主显式依赖的 protocol-wire `TaggedWire.kt` 与 G1 source snapshot 同字节，SHA-256 为 `5d5c672ef0c7907b1a0cf6fd041ff85dc7c864aa07628316db5b9a9abb9e87c8`。
+- 默认关闭与精确选择: R8 使用独立 Developer options preference 与偏好键并默认关闭；用户必须在专用选择器中选择一个 eligible exact component。选择器只查询 `org.autojs.plugin.R8_COMPILER`，要求 exact component、exported/enabled、`org.autojs.permission.PLUGIN` 和 host same-signature；选择阶段固定 component、UID、version、lastUpdateTime 与完整 signer digest 集合。Android 适配器只以显式 `ComponentName` 绑定，连接后再次检查 exact package identity，再固定 provider ID `autojs6-r8`、protocol 1.0、`R8/FULL_RELEASE/NONE`、runtime/policy fingerprint 与精确五产物 capability；callback UID 必须等于固定 package UID。
+- 公开入口与加载终点: 新增且只新增 `runtime.loadJarWithR8(...)` 三个有效 overload；最短形状也必须传非空 keep-rule 路径，完整形状显式传 ordered classpath、consumer-rule 路径及平行 classpath owner ordinal。Rhino 已实测脚本数组到 `String[]/int[]` 的转换，现有 `runtime.loadJar()` 与 `runtime.loadJarWithClasspath()` 语义不变且不会隐式选择 R8。五产物全部验证后仅 `DEX_ZIP` 可进入 class loader；加载器再次核对 size/SHA-256，原子采用只读 `r8_verified_` 副本，该 seam 不调用本地 D8/dx compiler。
+- 宿主事务与 D8/R8 隔离: 专用阻塞 dispatcher 在显式选择后完整快照有界 program/classpath/keep/consumer rules，生成 path-free canonical input bundle 与仅允许 protocol 1.0、`R8_EXPLICIT/FULL_RELEASE/NONE`、精确五产物的请求；宿主持有独立只读/只写 descriptor、callback/timeout/cancel/Binder-death gate、输出 staging 与清理。completed 结果必须重新验证 result/bundle、五产物大小与 SHA-256、文本/retrace 约束以及连续 `classes*.dex` 的 header/signature/checksum，才可进入 R8-only cache。生产 R8 源码不 import DEX host transport、`dex-compiler-api` 或 D8/dx 路由。
+- 原子 cache 与失败防火墙: R8 semantic key 使用 domain `autojs6:r8-compiler:v1` 与目录 `r8-compiler-cache-v1`，绑定 provider/signer/version、protocol、compiler/capability/runtime fingerprint、input-set、minApi 及输出预算。验证产物先复制到 `partial-<uuid>`，只以同目录 rename 暴露 `entry-<semantic-sha>-<uuid>`；cache hit 重绑当次 request ID、复验 bundle/产物并在每次打开 descriptor 前再次计算 SHA-256。损坏 generation 被淘汰并只重试同一显式 R8 provider；远端失败、取消、超时、Binder death 注入、畸形/重复 callback、损坏 bundle/DEX、descriptor/session cleanup 与 cache lookup/publication 失败均保持 R8 failure，`semanticFallbackAllowed=false`。
+- invocation-bound v4 门禁: sibling R8 仓库的 `verifyG3HostControlPlane` 先原子覆盖固定报告为 `passed=false`，再以 `--no-daemon --rerun-tasks` 强制执行宿主专用 Test。最终 verifier 字节传入不存在的宿主根目录时，阴性 invocation `7af8ecdf-3cb8-41bb-a954-7db98fc081d6` 退出 1 并留下 `passed=false`；紧随其后的正向 invocation `df92acbe-6c63-4f75-91dd-0a6a6522407b` 实际执行 537/537 tasks，以 11 suites / 49 tests 全绿。最终 Gate SHA-256 为 `8f3fa7ce908547ebd3647c3073d4803addb4982582f1c0c4af28046124478eab`，self-recorded verifier SHA-256 为 `579cc569791205e89ad7acba3d30bdcee5a1e9bce45aa7e6bd56bc7f34158d79`；报告固定 25 个 production、13 个 test sources 与 15 个外部 integration/resource files 的摘要，且不含两个工作区绝对路径。
+- 宿主打包补充检查: `:app:assembleAppDebug` 成功，当前 mixed-workspace universal APK 为 43,991,748 bytes，SHA-256 `3fb6642c88e62a99411bd7c266d537f793c54d3339896792b6b22fbb1fee9dc6`；`apkanalyzer dex packages --defined-only` 检出宿主 R8 package、冻结 R8 API package 及精确的 2/3/5 参数 `loadJarWithR8` signatures。该 APK 未安装、未发布，也不是固定 G3 Gate artifact。宿主日志中的 bundled R8 `8.13.19` 是 AGP 的 APK/D8 打包工具链，不是 provider compiler identity；provider 仍固定 R8 `8.13.17`。
+- 文档与声明: 在线文档 125 modules 重新生成并通过 normalize/generator `--check`，不增版本地同步 Offline Docs 的 `runtime.html` 与 search index；TypeScript Declarations 与 Ace bundled declaration 的完整文件 SHA-256 均为 `f571ed5a13f5fad9416a134c3ca29fcf327f90ceded1c6c3efa70f362fcb986e`，`tsc --noEmit` 通过。它们只证明本地公开面同步，不是发布证据。
+- 证据边界: v4 Gate 固定声明 `HOST_R8_EXPLICIT_SCRIPT_INTEGRATION_JVM_AND_ANDROID_COMPILE`，准确设置 `hostIntegrated=true`、`publicOrScriptEntry=true`、`runtimeDispatchImplemented=true`、`postDispatchRunnerVerified=true`、artifact adoption/persistent R8 cache 为 true，同时保持 `binderVerified=false`、`deviceVerified=false`、`published=false`。因此 sibling G3 三项本地实现门均关闭，并关闭 R4.2 的显式有界 rules/artifacts 与用户显式选择/no-fallback aggregates；后续 G4 已另行补齐本地兼容语料，但跨 APK Binder/PFD、设备、安装、发布及 R4 总退出仍未完成。本切片未运行 ADB、`connected*`、安装或设备任务，未触碰 `QV710AF65F`。
+
+R4.2-G4 本地兼容性语料（2026-08-24）:
+
+- 26-cell 真实编译矩阵: sibling R8 仓库新增 Java/Kotlin 两种输入 × R8 编译参数 `minApi` 24-36 的完整 2×13 矩阵。Java 程序由 `javac --release 8` 动态生成，Kotlin 程序取项目实际编译 class 并显式提供有界 Kotlin runtime/annotation classpath；每个 cell 都经过生产 `R8InputMaterializer`、固定 R8 `8.13.17`、`R8ArtifactPackager` 与 canonical artifact codec，输出精确的 `DEX_ZIP/MAPPING/SEEDS/USAGE/RETRACE_METADATA` 五产物。这里的 `minApi` 只是 R8 编译参数，不冒充 API 24-36 设备矩阵。
+- 五类兼容观察: 每种语言程序同时携带常量反射目标、由运行期参数拼接的动态类名、JNI native 方法、带 `serialVersionUID/writeObject/readObject/readResolve` 的序列化状态，以及供 AutoJs6 脚本后续访问的 public constructor/instance/static API。原始 JAR 先在隔离 JVM loader 中执行反射、动态类名、序列化 round-trip 和 public API control，JNI 只反射检查 native modifier，不调用 native。R8 后解析真实 indexed DEX 的 header/string/type/field/method/class tables 与 encoded class-data，核对类定义、成员、native flag；同时检查 mapping、seeds、usage 和连续 DEX topology。未 keep 的 `RemovedDecoy` 必须从 DEX 消失并出现在 usage，防止通过全局关闭 shrinking 伪造兼容。宿主另行强制复跑 8/8 Rhino/runtime route 测试。
+- invocation-bound v1 门禁: G4 verifier 在任何 child Gradle 前原子失效固定报告并清空旧 receipts。不存在的 provider test filter 阴性 invocation `cf14a5e4-0d3a-4e69-90a3-c19bdeba70e9` 在 Test producer 退出 1，旧 receipt 数为 0，固定报告保持 `passed=false`，SHA-256 `29029766d7fec9b08c10e54f59cd35a310793e471aa5b3c2468267de9b5dce28`。随后正向 invocation `dd2ddb3d-3b24-4580-9d55-34a5c3e13f07` 通过 provider 26/26 与 host 8/8，宿主 child 实际执行 537/537 tasks；26 份 path-free receipt 共 50,037 bytes，逐份绑定 program/rules/input/output/five-artifact 摘要且固定 `determinismClaim=NOT_CLAIMED`。
+- 最终证据与边界: G4 Gate SHA-256 为 `ba2dc55bc592bca0d5247438be7cfdea919f33ea841a6fbaa1a34a1c70326ca0`，self-recorded verifier SHA-256 为 `ea92853a859982dfc2d528585088a1f6452a578a1602f2453e1df3b2d6bf2640`；它绑定当前 G2 report `fa2c9650f1673b16f7e067e6a9ea3cd758f435741e34aa7a2e0e80b451d699f8`、不变的 G3 report `8f3fa7ce908547ebd3647c3073d4803addb4982582f1c0c4af28046124478eab`、4 个 corpus files、2 个 host route files、design、verifier 与 26 receipts，独立重哈希 34 records 为 0 mismatch，报告/receipts 均无仓库绝对路径。Gate 固定声明 `R8_COMPATIBILITY_CORPUS_JVM_ARTIFACT_AND_SCRIPT_ROUTE`，只关闭 R4.2 的兼容语料项；`postR8DexRuntimeExecuted=false`、`jniLinked=false`、`binderVerified=false`、`deviceVerified=false`、`published=false`。未运行 ADB、安装、`connected*` 或设备任务，未触碰 `QV710AF65F`。
+
+R4.2-G5 append-only 本地签名发布（2026-08-25）:
+
+- 双隔离构建与签名: sibling R8 仓库的固定 `publishG5LocalRelease` 入口把当前 staged/untracked 非忽略工作树复制到两个不同临时目录，各以 `--offline --no-daemon --no-build-cache --no-configuration-cache --rerun-tasks :app:assembleRelease` 实际执行 46/46 tasks。两份 unsigned APK 均为 7,518,691 bytes、SHA-256 `79c53c72066d9f319b22957e790d9d5f4685c6fddbd1078bdb3ef30d9d35d2b1`；使用获授权 AutoJs6 主项目签名材料各自独立签名后，两份 APK 均为 7,526,791 bytes、SHA-256 `bf2401cc585aaee1f39485c086ccdbb21eb70aca0d83f5e20fd67e1f46b41e0b`。`apksigner` 在 API 24-36 验证唯一证书 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`，v2/v3 为 true，v1/v3.1/v3.2/v4 为 false；post-sign manifest 的 package/version/SDK/permission/service/`:r8`/action 均精确匹配。这只证明同一离线机器/工具链下两个干净目录的字节复现，不声称跨环境 hermetic reproducibility。
+- 本地历史与失败关闭: authoritative `releases/provider/0.1.0-provider-dev/local.2/` 恰好包含 signed APK、两个 G1 冻结 AAR 和 manifest；manifest SHA-256 为 `4e95ea6c214016a7fd598419c34628ba20d4ff94b22264349085fe9d6c2d07e1`，绑定 48 个 release inputs/source fingerprint `111f25080513c934b9e6b52d9ea2be77ea47356e70324a262ec5c8dfb81fc0fc`。bootstrap `local.1` 因 Gradle 子 PowerShell 暴露 `Get-FileHash` module-autoload 依赖而由 module-independent .NET SHA-256 的 `local.2` 取代，但其 4 个字节冻结文件保持不变。`local.2` 创建后，错误 source fingerprint invocation `e958afa2-3fb0-44e9-b7e0-93b264804d25` 在构建/签名前退出 1 并覆盖 Gate 为 `passed=false`，SHA-256 `7e2371343d91f29926be1934661d8e140adb8ae3186d9700fdefcef2bdbaa1a0`，两代共 8 个文件逐哈希未变；最终 invocation `51112028-ae46-4174-b58e-18da96750d15` 再跑两套 46-task build 后只返回 `IDENTICAL`。最终 Gate SHA-256 `68a9220fcb16f50c60c6812faea56d1a25faf6674bd29e758e5ed64afbb41d94`，publisher SHA-256 `c12879b5c7f37d7d490ba124bb3ecee22c538fb044b899121ead7d55c7b4658b`。
+- 秘密与边界: 密码只经子进程环境变量传入并在 `finally` 清空；manifest/Gate 无密码、实际 alias、外部绝对路径、keystore/properties 文件名，发布目录无 partial，系统临时目录无 G5 残留。报告固定 `localPublished=true`、`remotePublished=false`、`gitPushPerformed=false`、`remoteReleaseCreated=false`、`remoteMavenPublished=false`、`adbInvoked=false`、`installed=false`、`binderVerified=false`、`deviceVerified=false`。这关闭 R4.2 第五个本地 aggregate，但不替代获授权跨 APK Binder/设备验收，也不关闭 R4 总退出条件。
+
+R4.2-G6/G7/G8 设备、运行时与 Private 发布收口（2026-08-25）:
+
+- G6 在一台 Sony G8441 API 28 arm64 物理设备、API 28 x86_64 AVD 与 API 25 x86 AVD 上执行 9/9 tests 和 9/9 structured receipts。最终 Gate invocation `1d978a79-4d08-41d8-a443-0115fb91cb59`、SHA-256 `24fc3e2b09182859e4405ab1d125efd2fefdced843f0f89bc106c70e60e32970`，关闭同签名跨 APK Binder、canonical PFD、真实 R8、五产物、verified cache、ART load、hostile input、busy/cancel、进程死亡/EOF、身份复验与 authenticated rebind；其历史边界保持 `jniLinked=false`、`remotePublished=false`。
+- G7 append-only `local.5` Gate invocation `2efce169-b337-47e5-8814-b2aa152232a4`、SHA-256 `fe3df1fdce2b6ff675b41cad8d2da4720a6554da86230f11d1440f1d5f66953d`。随后 Sony API 28、API 25 x86 AVD 与 API 37 x86_64 16 KiB AVD 的 3/3 focused tests 和 3/3 Retrace executions 全通过，实际覆盖反射、运行期动态类名、Java serialization、脚本公开入口、shrinking、JNI 及 pinned R8 Retrace；runtime Gate invocation `36e7e2ff-b734-4034-96ab-cce5a0a037f5`、SHA-256 `263a80a840b93d73de31e727ce9a76a824e44f326f3ae99b22a6f64850a466ff`。
+- R8 仓库的 4 个 reachable commits、注解标签 tagger 及本地 Git 身份均为 ID-based noreply。Private repository `SuperMonster003/AutoJs6-Plugin-R8-Compiler` 当前 `origin/master`/HEAD 为 `277ce8a05faa9566abcf474fcb0d3e6f928737ff`；注解标签对象 `fdce4dc42e6b1f65dae8677099d0f4b77fafec4a` 指向 `29abdf6a2742e3f327b17eb6ca1f50684bd5f72b`。G8 Private prerelease Gate invocation `ab010b7d-800f-43d9-acc9-27efb087efa2`、SHA-256 `ead4d551ae7eb13e319bc5ffed3639edc1ab96c6a85b9088ed7ca070f0a3e000`，冻结 5/5 assets 的长度与 SHA-256，并明确 `remoteVisibility=PRIVATE`、`publicPublished=false`。
+- 本仓库新增只读 `scripts/r4-r8-closeout/`：12/12 mutation/self-close tests 全绿；真实 Gate invocation `eb04ee80-d25b-4d1d-85dc-b461abcba4f0`、SHA-256 `4edc797ceaa0aaee08d429f657320864c467fd23429ab9736a26a076f711d803`。它逐字节绑定 G2-G8 八份 Gate、G6/G7 prerequisite chain、R8 clean HEAD/origin、全部 reachable commit 身份、注解标签、5 个 local.5/remote asset、AutoJs6 integration commit `4a9718d63923834c9a99fd70e0cd58c898e138f6` 及 57 个未漂移宿主文件。`gh api` 仅只读复核 Private 仓库/branch/tag/release/digest；没有 fetch、push、release/visibility mutation、资产下载、签名材料读取、ADB 或设备任务。
+
+R4.2-G0 本轮实现与证据（2026-08-13）:
+
+- 生产语义: V1 的 `DexCompilerMode.DEBUG/RELEASE` 现在通过唯一、穷尽式 `toD8ExecutionMode()` 同时驱动 API 26+ 的 `D8Command` 与 API 24/25 的 D8 CLI；`RELEASE` 精确映射为 `CompilationMode.RELEASE` / `--release`，没有 `else` 或 R8 分支。PluginInfo 的 family 由 `DexCompilerFamily.D8` 派生，避免与 capability 漂移。Maven 坐标 `com.android.tools:r8`、Android `release` build type 与协议中的 `RELEASE` 是三个不同边界；前两者不构成 R8 provider 语义或执行证据。
+- JVM 契约: `D8ProviderBoundaryTest` 现为 5 项，锁定 application/plugin/variant/provider/engine/action、family enum 仍仅 D8、协议 enum 仅 `JAR`/`PROGRAM|CLASSPATH`/`DEX_ZIP`、DEBUG/RELEASE、minApi 24-36、multi-dex、无外部 classpath/调用方 desugared 配置及 `NOT_CLAIMED`。最终 `:app:verifyR4R8Boundary --rerun-tasks` 带动当前组合源码 15 suites / 81 tests 全部通过；同一 114-task 总复核另重建默认 D8 8.13.22 矩阵 60/60（54 个真实成功、6 个预期失败）。历史 G0 报告继续只表示当时的 D8/R8 separation，后续 R8 证据不倒改其 false claims。
+- 静态门禁: `scripts/r4-r8-boundary/` 固定 contract/schema 与 15 项仓库检查，绑定 Manifest 两个 service 的 exact allowlist、实际 Android applicationId、runtime/PluginInfo/engine/session dispatch、六个生产输入完整 SHA-256、DEX API AAR SHA-256、Kotlin/Java 生产 runner 与用户文档。mutation self-test 22/22 PASS，覆盖语义/身份/runner/dispatch/AAR/docs 漂移、损坏 contract/schema/module 的旧 PASS 原子替换，以及 direct、junction/symlink、hardlink、现存或未来生产源码的 OutputPath 覆盖拒绝。Gradle task graph 与显式 prepare task 都会在 JVM prerequisite 前把旧静态 Gate 原子改为 `passed=false`，所以 JVM/filter 失败不会保留旧阳性；最终组合源码再次带动 15 suites / 81 tests 全绿并通过 15/15 静态检查；生成多语言文档后的最终 Gate SHA-256 为 `c4015ef317857b6a7cad43944321241bfc06747f19f14bd5b47aa099f0332f03`，且报告不持久化 workspace/temp 绝对路径。
+- Android 构建层: 完整组合复核先以 `--offline --no-daemon --rerun-tasks` 实际执行 114/114 tasks；随后生成多语言文档并再次执行 109/109 tasks，`:app:verifyR4R8Boundary :app:lintDebug :app:assembleDebug :app:assembleRelease` 全部成功。最终 lint 为 0 error / 8 warnings，当前 Debug APK 为 9,514,377 bytes、SHA-256 `9ba6e2c0cdf8716b1a344180cea43274ba74f21c77cd5c880a1631ce2d9f97ab`，Release APK 为 3,505,817 bytes、SHA-256 `bf545505ced0e55df2fa8ac8c832e56474ea12068fe3b038707fce99d496d810`。稳定 G0 证据包仍保留其冻结构建的 Debug/Release SHA-256 `30ad3b741c1c4ee28b3a0b8ff78479e0c03cec3559154bd390eb5fb35909a66d` / `e40c0375e4e6a5349ff0a0c244fab959c0bbd95ef2fc288992feb70b3d09673e`，不把 later workspace APK 冒充包内实物。Release APK 的 AGP/R8 minification 只属于本 D8 APK 的打包过程，不是 `R8Command`、规则、多产物或跨 APK R8 provider 验收。
+- 稳定证据包: `D:\idea-projects\AutoJs6-DEX-R4-Evidence-20260813\r4.2-g0-d8-release-boundary-5a3921ea-d950-486b-9668-cffb231e4b36`；`report.json` SHA-256 为 `e497e8c0766355a2fed88a18288dd97e5c50399ea5ee644b62604cfe7748ba6f`。该包保留三条成功命令 transcript、R8 static gate、当前 D8 baseline gate 与 60 个 cell、15 份 JUnit XML、lint、Debug/Release APK、源码/脚本快照与 Git 状态；最终共 119 个 physical files，self-excluding manifest 覆盖 118 entries，path/hash/byteLength/unlisted diff 均为 0。
+- 独立边界与证据级别: G0 盘点时未发现可复用的独立 R8 provider；既有 `dex-compiler-api` V1/V1.1 family 与校验均为 D8-only，不能通过扩 enum、复用 Action/AIDL 或把 `RELEASE` 改名来偷渡 R8。G1 随后新建 sibling 并只冻结 contract/AAR；G2 已按该要求落地独立 applicationId/component、R8 engine 与生产 envelope；G3 v3 补上默认关闭的 exact selection/protocol、宿主持有的真实 transaction/adoption runner 与隔离 cache，G3 v4 再接入 Developer options 用户选择、公开脚本入口及只读 R8 DEX load seam。G0 静态报告自身继续严格声明 `SOURCE_STATIC_ONLY`，并保持 `r8ProviderImplemented=false`、`jvmVerified=false`、`binderVerified=false`、`r8Executed=false`、`deviceVerified=false`；后来的 G1/G2/G3 证据不能倒改该历史报告。
+- 设备边界: 本轮没有运行 ADB、`connected*`、安装、Binder/PFD、跨 APK、设备 R8 编译或设备任务，也没有触碰 `QV710AF65F`。G5 已关闭 append-only 本地签名发布历史，因此 R4.2 五个本地 aggregate 全部关闭；远端发布仍按所有者要求保持 false。设备/Binder 验收仍是 R4 总退出的独立缺口。
 
 ### R4.3 其他编译能力
 
-- [ ] Java/Kotlin 源码编译保持为独立插件或构建层，先输出经过验证的 JAR，再交给 DEX provider。
-- [ ] AAR 资源合并、APK 打包、签名和安装继续位于宿主构建/发布链，不进入本插件。
+- [x] Java/Kotlin 源码编译保持为独立插件或构建层，先输出经过验证的 JAR，再交给 DEX provider。
+- [x] AAR 资源合并、APK 打包、签名和安装继续位于宿主构建/发布链，不进入本插件。
+
+R4.3 本轮实现与证据（2026-08-25）:
+
+- `scripts/r4-other-capabilities/` 固定 `STATIC_PRODUCTION_CAPABILITY_AND_BUILD_LAYER_SEPARATION` contract；生产面必须恰好是当前 20 个 Kotlin files，逐文件扫描 Java/Kotlin source compiler API/CLI、外部进程、AAPT/bundletool/apksigner/zipalign、AAR resource pipeline、keystore/apksig、PackageInstaller 与 ADB/ddmlib 九组禁用能力。当前 20/20 文件、9 组 pattern 均为零命中。
+- 冻结 `dex-compiler-api.aar` 仍为 154,988 bytes、SHA-256 `4766af19ea414400177ba8541f753737c8bf40624cbfc866bb5442cc4b07fea5`；协议 enum 与新增 JVM 测试共同锁定唯一输入 `JAR`、输入角色 `PROGRAM/CLASSPATH`、唯一输出 `DEX_ZIP`。生产 materializer 必须将输入落成 `.jar`、执行 strict ZIP/JAR framing、SHA-256 与 class-entry 验证后，D8 才能接收 program/classpath；因此 `.java`/`.kt` source 必须先在独立插件或构建层产出经过验证的 JAR。
+- Manifest 继续只有 `org.autojs.permission.PLUGIN`、三个既有 actions 与两个 services，不含安装权限/action。Gradle `com.android.application`、`signingConfigs`、`packaging`、`assembleRelease` 与 release copy marker 被明确分类为插件自身的构建/发布层；生产 runtime 不拥有 AAR resource merge、APK package/sign/install 能力，也没有对应 runtime dependency。
+- mutation regression 13/13 PASS，覆盖新增/Java 生产源码、Java/Kotlin compiler、ProcessBuilder、AAR merger、PackageInstaller、JAR validation、manifest install permission、build signing marker、runtime compiler dependency、API AAR 篡改及损坏 contract 的旧 PASS 原子覆盖。最终 114-task 总复核中的 `:app:verifyR4OtherCapabilities` 带动 15 suites / 81 JVM tests 全绿；Gate invocation `8c4c911f-4482-4611-9e9f-76a35a2cca4a`、SHA-256 `b7dbe9717df7e7e98d3853ac24baad2d93e02248e8213726e478ab19934df9ec`。该 Gate 没有执行 source compilation、打包、签名、ADB 或安装。
 
 #### R4 退出条件
 
-- [ ] D8 升级流程可重复且可回滚。
-- [ ] R8/源码编译若落地，均拥有独立身份、安全模型、验收矩阵和发布证据。
+- [x] 已将候选 D8 实际晋升为默认 pin，并在同一 source/build identity 下完成一次旧 pin rollback；单纯 candidate override 与撤销不计为 promotion/rollback。
+- [x] R8/源码编译若落地，均拥有独立身份、安全模型、验收矩阵和发布证据；当前源码编译没有进入 DEX 插件，因此以 fail-closed absence/validated-JAR boundary 关闭本项，不虚构尚不存在的 source provider 发布。
 
 ## 阶段证据记录
 
@@ -352,4 +444,4 @@ Canonical campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` 的 Gate 为 7/7 PASS�
 | R1 | 2026-08-11 | host `e39023758e3a66a24f0ce90466b5bc77a503515d`; plugin `1f50d5333ab3a58c4c0f00fe06a20a5692aa3448` | 已完成 | R1.1 生产加载链路 7/7、R1.2 自动化 4/4、R1.3 canonical 真实 provider Gate 7/7、退出条件 3/3；campaign `f3c2b1af-be93-41e7-b541-f167f90e5cc1` |
 | R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 已完成（交付 4/4，退出 1/1） | plugin 65/65、host DEX 166/166、lint 0 error；API 34 canonical closeout 三类真实 provider 场景全部 PASS，52 commands / 61 hashed files，pre/post clean；run `dab3f857-650d-4107-a3b9-941a1f7e02c2` |
 | R3 | 2026-08-11 | host `c0b833a54`, `4d2b7dfed`, `a540e0f90`, `2e439a973`; plugin `ab08f08`, `8ebd7ff`, `e0f9470` | 已完成（交付 4/4，退出 1/1） | V1.0/V1.1 contract、provider bundle、同语义 D8-only fallback 与显式 Rhino 入口已通过正式门禁；run `fa6c21a7-7dda-4bee-9485-bf78906ed83c` 在单 API 34/x86_64 真实 provider 场景 PASS，非设备矩阵 |
-| R4 | - | - | 待开始 | - |
+| R4 | 2026-08-25 | DEX 本地收口提交；host integration `4a9718d63923834c9a99fd70e0cd58c898e138f6`；R8 `277ce8a05faa9566abcf474fcb0d3e6f928737ff` | 已完成（R4.1 4/4，R4.2 5/5，R4.3 2/2，退出 2/2） | D8 v2/v3 promotion→rollback→re-promotion 三套 60/60；R8 G2-G8 独立 identity/contract/host/Binder-PFD/device/ART-JNI-Retrace/local.5/Private prerelease 完整闭环；R4.3 20-source static Gate、13/13 mutation、15 suites / 81 JVM tests 全绿；DEX 仅本地提交且不推送 |

@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "autojs6.dex.r4.r8-boundary-contract/v1",
+  "contractId": "r4.2-g0-d8-r8-separation",
+  "evidenceBoundary": "SOURCE_STATIC_ONLY",
+  "inputs": {
+    "manifest": "app/src/main/AndroidManifest.xml",
+    "runtime": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/DexCompilerRuntime.kt",
+    "pluginInfo": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/DexCompilerPluginInfoService.kt",
+    "engine": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/D8DexCompilerEngine.kt",
+    "session": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/service/RemoteDexCompileSession.kt",
+    "appBuild": "app/build.gradle.kts",
+    "apiAar": "libs/dex-compiler-api.aar",
+    "readme": "README.md"
+  },
+  "dexProvider": {
+    "applicationId": "io.github.supermonster003.autojs6.plugin.dexcompiler",
+    "pluginId": "dex-compiler",
+    "engineIdExpression": "DexCompilerContract.ENGINE_ID",
+    "variant": "d8",
+    "providerId": "autojs6-d8",
+    "infoServiceName": ".DexCompilerPluginInfoService",
+    "infoServiceAction": "org.autojs.plugin.INFO",
+    "serviceName": ".DexCompilerService",
+    "serviceAction": "org.autojs.plugin.DEX_COMPILER",
+    "serviceCategory": "dex-compiler",
+    "serviceProcess": ":compiler",
+    "servicePermission": "org.autojs.permission.PLUGIN",
+    "compilerFamily": "D8",
+    "inputFormats": [
+      "JAR"
+    ],
+    "outputFormats": [
+      "DEX_ZIP"
+    ],
+    "modes": [
+      "DEBUG",
+      "RELEASE"
+    ],
+    "determinismClaim": "NOT_CLAIMED"
+  },
+  "productionInputSha256": {
+    "manifest": "43ac6c06250edaa578a38f5d8e5acbba8d487295660c626a81acf0ce9831aeba",
+    "runtime": "63db14b558a6fe193a15416a4e20f3c96488a4e2499b3df9d03514ca4780a70f",
+    "pluginInfo": "f0828a3d989816bbbc7ba5c84ad465fc4d41b74c426d94238ba98a84e7b69543",
+    "engine": "b28c5ba182760a09afef2c06b7e54454721b10737ca755dd68497517975cafa1",
+    "session": "e04f703d0e89dba115c2fa37e964ed73e177e35c40b05ba8a47fb2823cea4c28",
+    "appBuild": "693bd7e8e16a95a82de2d2bbb1a14f34c6fe1b5d8139e98da908eddcfccab808"
+  },
+  "enginePolicy": {
+    "policyFunction": "toD8ExecutionMode",
+    "mappings": [
+      {
+        "wireMode": "DEBUG",
+        "compilationMode": "DEBUG",
+        "cliFlag": "--debug"
+      },
+      {
+        "wireMode": "RELEASE",
+        "compilationMode": "RELEASE",
+        "cliFlag": "--release"
+      }
+    ],
+    "requiredRunners": [
+      "D8",
+      "D8Command"
+    ],
+    "forbiddenRunners": [
+      "R8",
+      "R8Command"
+    ]
+  },
+  "apiAarSha256": "4766af19ea414400177ba8541f753737c8bf40624cbfc866bb5442cc4b07fea5",
+  "readmeBoundaryKeywords": [
+    "DexCompilerMode.RELEASE",
+    "D8",
+    "release compilation mode",
+    "R8",
+    "shrinking",
+    "optimization",
+    "obfuscation",
+    "mapping"
+  ],
+  "claims": {
+    "r8ProviderImplemented": false,
+    "jvmVerified": false,
+    "binderVerified": false,
+    "r8Executed": false,
+    "deviceVerified": false
+  }
+}

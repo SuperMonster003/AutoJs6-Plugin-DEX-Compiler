@@ -64,7 +64,7 @@ DEX Compiler は AutoJs6 DEX Compiler プロトコル V1 の独立 provider で�
 ```text
 input: JAR with JVM class files
 output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.17
+compiler: D8 8.13.22
 ```
 
 ******
@@ -85,7 +85,7 @@ protocol: V1
 required host build: 5270
 ```
 
-プラグインは D8 8.13.17, JAR 入力, DEX ZIP 出力, DEBUG と RELEASE モード, minApi 24 から 36, multi-dex を宣言します. Runtime library model は端末 boot classpath V1 です.
+プラグインは D8 8.13.22, JAR 入力, DEX ZIP 出力, DEBUG と RELEASE モード, minApi 24 から 36, multi-dex を宣言します. Runtime library model は端末 boot classpath V1 です.
 
 ホスト build 5270 以降が必要です. Native library を含まないため, 1 個の純 JVM universal APK がすべての端末 ABI に対応します.
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### 既知の制限と受け入れ境界
 
-V1 は bounded raw JVM JAR から DEX ZIP への変換だけを行います. R8 shrinking/obfuscation、外部 classpath、custom desugared library、network compile、deterministic byte output は提供しません. BUSY はホスト fallback につながる場合があり, cancel 後も D8 CPU 処理は cleanup 完了まで isolated process で続くことがあります. 最後の waiter 離脱後の協調キャンセルは R2 のままで, 性能昇格、既定化、ホストコンパイラ依存削除は完了済み R1 の範囲外です.
+V1 は bounded raw JVM JAR から DEX ZIP への変換だけを行います. R8 shrinking/obfuscation、外部 classpath、custom desugared library、network compile、deterministic byte output は提供しません. `DexCompilerMode.RELEASE` は D8 の release compilation mode だけを選択し、R8 を有効化せず、shrinking、optimization、obfuscation、mapping を保証しません. BUSY はホスト fallback につながる場合があり, cancel 後も D8 CPU 処理は cleanup 完了まで isolated process で続くことがあります. 最後の waiter 離脱後の協調キャンセルは R2 のままで, 性能昇格、既定化、ホストコンパイラ依存削除は完了済み R1 の範囲外です.
 
 ******
 
@@ -261,7 +261,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-コンパイラは Maven の D8 8.13.17 を使用します. ローカル AAR は安定したプロトコル境界だけを提供し, 成果物は native library のない universal APK です.
+コンパイラは Maven の D8 8.13.22 を使用します. ローカル AAR は安定したプロトコル境界だけを提供し, 成果物は native library のない universal APK です.
 
 ******
 

@@ -1,0 +1,349 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://autojs6.com/schemas/dex-compiler/r4-d8-upgrade-report-v2.json",
+  "title": "AutoJs6 DEX Compiler R4.1-G1 matrix cell report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "matrixId",
+    "reportId",
+    "producerInvocationId",
+    "observationSequence",
+    "recordedAtUtc",
+    "cellId",
+    "acceptanceKey",
+    "caseId",
+    "minApi",
+    "mode",
+    "evidenceBoundary",
+    "compiler",
+    "input",
+    "runtimeFingerprint",
+    "observedCompilerOutcome",
+    "output",
+    "outcome",
+    "behaviorDelta",
+    "repeatObservation",
+    "determinismClaim",
+    "summary"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "autojs6.dex.r4.d8-upgrade-report/v2"
+    },
+    "matrixId": {
+      "const": "r4.1-g1-d8-upgrade"
+    },
+    "reportId": {
+      "$ref": "#/definitions/uuid"
+    },
+    "producerInvocationId": {
+      "$ref": "#/definitions/uuid"
+    },
+    "observationSequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "recordedAtUtc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cellId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,63}--api(?:2[4-9]|3[0-6])--(?:debug|release)$"
+    },
+    "acceptanceKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "caseId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"
+    },
+    "minApi": {
+      "type": "integer",
+      "minimum": 24,
+      "maximum": 36
+    },
+    "mode": {
+      "enum": ["DEBUG", "RELEASE"]
+    },
+    "evidenceBoundary": {
+      "const": "JVM_COMPILER_ONLY"
+    },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinate",
+        "version",
+        "candidateVersionProperty"
+      ],
+      "properties": {
+        "coordinate": {
+          "const": "com.android.tools:r8"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9][0-9A-Za-z.+_-]{0,63}$"
+        },
+        "candidateVersionProperty": {
+          "const": "d8CandidateVersion"
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "summary"],
+      "properties": {
+        "sha256": {
+          "$ref": "#/definitions/sha256"
+        },
+        "summary": {
+          "$ref": "#/definitions/summary"
+        }
+      }
+    },
+    "runtimeFingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "summary"],
+      "properties": {
+        "sha256": {
+          "$ref": "#/definitions/sha256"
+        },
+        "summary": {
+          "$ref": "#/definitions/summary"
+        }
+      }
+    },
+    "observedCompilerOutcome": {
+      "enum": ["COMPILE_SUCCESS", "COMPILE_FAILURE"]
+    },
+    "output": {
+      "$ref": "#/definitions/output"
+    },
+    "outcome": {
+      "enum": ["PASS", "FAIL"]
+    },
+    "behaviorDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["classification", "summary"],
+      "properties": {
+        "classification": {
+          "enum": ["NONE", "EXPECTED", "UNEXPECTED"]
+        },
+        "summary": {
+          "$ref": "#/definitions/summary"
+        }
+      }
+    },
+    "repeatObservation": {
+      "$ref": "#/definitions/repeatObservation"
+    },
+    "determinismClaim": {
+      "const": "NOT_CLAIMED"
+    },
+    "summary": {
+      "$ref": "#/definitions/summary"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "observedCompilerOutcome": {
+            "const": "COMPILE_SUCCESS"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "output": {
+            "$ref": "#/definitions/producedOutput"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "output": {
+            "$ref": "#/definitions/notProducedOutput"
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "\\S"
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "dexEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entryName",
+        "sha256",
+        "byteLength"
+      ],
+      "properties": {
+        "entryName": {
+          "type": "string",
+          "pattern": "^classes(?:[2-9]|[1-9][0-9]+)?\\.dex$"
+        },
+        "sha256": {
+          "$ref": "#/definitions/sha256"
+        },
+        "byteLength": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "sha256",
+        "dexManifest",
+        "summary"
+      ],
+      "properties": {
+        "status": {
+          "enum": ["PRODUCED", "NOT_PRODUCED"]
+        },
+        "sha256": {
+          "type": ["string", "null"]
+        },
+        "dexManifest": {
+          "type": "array"
+        },
+        "summary": {
+          "$ref": "#/definitions/summary"
+        }
+      }
+    },
+    "producedOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "sha256",
+        "dexManifest",
+        "summary"
+      ],
+      "properties": {
+        "status": {
+          "const": "PRODUCED"
+        },
+        "sha256": {
+          "$ref": "#/definitions/sha256"
+        },
+        "dexManifest": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/definitions/dexEntry"
+          }
+        },
+        "summary": {
+          "$ref": "#/definitions/summary"
+        }
+      }
+    },
+    "notProducedOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "sha256",
+        "dexManifest",
+        "summary"
+      ],
+      "properties": {
+        "status": {
+          "const": "NOT_PRODUCED"
+        },
+        "sha256": {
+          "type": "null"
+        },
+        "dexManifest": {
+          "type": "array",
+          "maxItems": 0
+        },
+        "summary": {
+          "$ref": "#/definitions/summary"
+        }
+      }
+    },
+    "repeatObservation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "attempted",
+            "runCount",
+            "identicalOutputDigest",
+            "summary"
+          ],
+          "properties": {
+            "attempted": {
+              "const": false
+            },
+            "runCount": {
+              "const": 1
+            },
+            "identicalOutputDigest": {
+              "type": "null"
+            },
+            "summary": {
+              "$ref": "#/definitions/summary"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "attempted",
+            "runCount",
+            "identicalOutputDigest",
+            "summary"
+          ],
+          "properties": {
+            "attempted": {
+              "const": true
+            },
+            "runCount": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "identicalOutputDigest": {
+              "type": "boolean"
+            },
+            "summary": {
+              "$ref": "#/definitions/summary"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # AutoJs6 DEX Compiler
 
-This plugin compiles one normalized JAR with D8 8.13.17 and returns a bounded ZIP containing contiguous `classes*.dex` entries.
+This plugin compiles one normalized JAR with D8 8.13.22 and returns a bounded ZIP containing contiguous `classes*.dex` entries.
 
 The plugin requires host build 5270 or later and Android API 24 or later.
 

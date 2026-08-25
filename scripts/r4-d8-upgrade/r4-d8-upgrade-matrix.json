@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "autojs6.dex.r4.d8-upgrade-matrix/v2",
+  "matrixId": "r4.1-g1-d8-upgrade",
+  "compiler": {
+    "coordinate": "com.android.tools:r8",
+    "pinnedVersion": "8.13.22",
+    "rollbackVersion": "8.13.17",
+    "candidateVersionProperty": "d8CandidateVersion",
+    "rollbackEvaluationProperty": "d8RollbackEvaluation"
+  },
+  "evidenceBoundary": "JVM_COMPILER_ONLY",
+  "acceptanceKeyTemplate": "{caseId}|minApi={minApi}|mode={mode}|compiler={compilerVersion}",
+  "minApis": [
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36
+  ],
+  "modes": [
+    "DEBUG",
+    "RELEASE"
+  ],
+  "cases": [
+    {
+      "id": "java8",
+      "fixtureKind": "JAVA_CLASSFILE",
+      "languageVersion": "8",
+      "jvmTarget": "8",
+      "minApis": [24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36],
+      "modes": ["DEBUG", "RELEASE"],
+      "expectedOutcome": "COMPILE_SUCCESS"
+    },
+    {
+      "id": "java11",
+      "fixtureKind": "JAVA_CLASSFILE",
+      "languageVersion": "11",
+      "jvmTarget": "11",
+      "minApis": [24, 36],
+      "modes": ["DEBUG", "RELEASE"],
+      "expectedOutcome": "COMPILE_SUCCESS"
+    },
+    {
+      "id": "java17",
+      "fixtureKind": "JAVA_CLASSFILE",
+      "languageVersion": "17",
+      "jvmTarget": "17",
+      "minApis": [24, 36],
+      "modes": ["DEBUG", "RELEASE"],
+      "expectedOutcome": "COMPILE_SUCCESS"
+    },
+    {
+      "id": "java21",
+      "fixtureKind": "JAVA_CLASSFILE",
+      "languageVersion": "21",
+      "jvmTarget": "21",
+      "minApis": [24, 36],
+      "modes": ["DEBUG", "RELEASE"],
+      "expectedOutcome": "COMPILE_SUCCESS"
+    },
+    {
+      "id": "kotlin-current-target21",
+      "fixtureKind": "KOTLIN_CLASSFILE",
+      "languageVersion": "CURRENT",
+      "jvmTarget": "21",
+      "minApis": [24, 36],
+      "modes": ["DEBUG", "RELEASE"],
+      "expectedOutcome": "COMPILE_SUCCESS"
+    },
+    {
+      "id": "standard-desugaring",
+      "fixtureKind": "STANDARD_DESUGARING",
+      "languageVersion": "17",
+      "jvmTarget": "17",
+      "minApis": [24, 26, 36],
+      "modes": ["DEBUG", "RELEASE"],
+      "expectedOutcome": "COMPILE_SUCCESS"
+    },
+    {
+      "id": "generated-multidex",
+      "fixtureKind": "GENERATED_MULTIDEX",
+      "languageVersion": "21",
+      "jvmTarget": "21",
+      "minApis": [24, 36],
+      "modes": ["DEBUG", "RELEASE"],
+      "expectedOutcome": "COMPILE_SUCCESS"
+    },
+    {
+      "id": "missing-dependency",
+      "fixtureKind": "MISSING_DEPENDENCY",
+      "languageVersion": "17",
+      "jvmTarget": "17",
+      "minApis": [24, 36],
+      "modes": ["DEBUG"],
+      "expectedOutcome": "COMPILE_SUCCESS"
+    },
+    {
+      "id": "malformed-classfile",
+      "fixtureKind": "MALFORMED_CLASSFILE",
+      "languageVersion": "N/A",
+      "jvmTarget": "N/A",
+      "minApis": [24, 36],
+      "modes": ["DEBUG"],
+      "expectedOutcome": "COMPILE_FAILURE"
+    },
+    {
+      "id": "unsupported-classfile",
+      "fixtureKind": "UNSUPPORTED_CLASSFILE",
+      "languageVersion": "UNSUPPORTED",
+      "jvmTarget": "UNSUPPORTED",
+      "minApis": [24, 36],
+      "modes": ["DEBUG"],
+      "expectedOutcome": "COMPILE_FAILURE"
+    },
+    {
+      "id": "duplicate-definition",
+      "fixtureKind": "DUPLICATE_DEFINITION",
+      "languageVersion": "17",
+      "jvmTarget": "17",
+      "minApis": [24, 36],
+      "modes": ["DEBUG"],
+      "expectedOutcome": "COMPILE_FAILURE"
+    }
+  ]
+}

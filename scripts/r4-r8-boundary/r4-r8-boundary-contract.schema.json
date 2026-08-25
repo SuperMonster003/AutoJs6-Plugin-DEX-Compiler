@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://autojs6.com/schemas/dex-compiler/r4-r8-boundary-contract-v1.json",
+  "title": "AutoJs6 DEX Compiler R4.2-G0 D8/R8 boundary contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "contractId",
+    "evidenceBoundary",
+    "inputs",
+    "dexProvider",
+    "productionInputSha256",
+    "enginePolicy",
+    "apiAarSha256",
+    "readmeBoundaryKeywords",
+    "claims"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "autojs6.dex.r4.r8-boundary-contract/v1"
+    },
+    "contractId": {
+      "const": "r4.2-g0-d8-r8-separation"
+    },
+    "evidenceBoundary": {
+      "const": "SOURCE_STATIC_ONLY"
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest",
+        "runtime",
+        "pluginInfo",
+        "engine",
+        "session",
+        "appBuild",
+        "apiAar",
+        "readme"
+      ],
+      "properties": {
+        "manifest": { "const": "app/src/main/AndroidManifest.xml" },
+        "runtime": { "const": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/DexCompilerRuntime.kt" },
+        "pluginInfo": { "const": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/DexCompilerPluginInfoService.kt" },
+        "engine": { "const": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/D8DexCompilerEngine.kt" },
+        "session": { "const": "app/src/main/java/io/github/supermonster003/autojs6/plugin/dexcompiler/service/RemoteDexCompileSession.kt" },
+        "appBuild": { "const": "app/build.gradle.kts" },
+        "apiAar": { "const": "libs/dex-compiler-api.aar" },
+        "readme": { "const": "README.md" }
+      }
+    },
+    "dexProvider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicationId",
+        "pluginId",
+        "engineIdExpression",
+        "variant",
+        "providerId",
+        "infoServiceName",
+        "infoServiceAction",
+        "serviceName",
+        "serviceAction",
+        "serviceCategory",
+        "serviceProcess",
+        "servicePermission",
+        "compilerFamily",
+        "inputFormats",
+        "outputFormats",
+        "modes",
+        "determinismClaim"
+      ],
+      "properties": {
+        "applicationId": { "const": "io.github.supermonster003.autojs6.plugin.dexcompiler" },
+        "pluginId": { "const": "dex-compiler" },
+        "engineIdExpression": { "const": "DexCompilerContract.ENGINE_ID" },
+        "variant": { "const": "d8" },
+        "providerId": { "const": "autojs6-d8" },
+        "infoServiceName": { "const": ".DexCompilerPluginInfoService" },
+        "infoServiceAction": { "const": "org.autojs.plugin.INFO" },
+        "serviceName": { "const": ".DexCompilerService" },
+        "serviceAction": { "const": "org.autojs.plugin.DEX_COMPILER" },
+        "serviceCategory": { "const": "dex-compiler" },
+        "serviceProcess": { "const": ":compiler" },
+        "servicePermission": { "const": "org.autojs.permission.PLUGIN" },
+        "compilerFamily": { "const": "D8" },
+        "inputFormats": {
+          "const": ["JAR"]
+        },
+        "outputFormats": {
+          "const": ["DEX_ZIP"]
+        },
+        "modes": {
+          "const": ["DEBUG", "RELEASE"]
+        },
+        "determinismClaim": { "const": "NOT_CLAIMED" }
+      }
+    },
+    "productionInputSha256": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "runtime", "pluginInfo", "engine", "session", "appBuild"],
+      "properties": {
+        "manifest": { "const": "43ac6c06250edaa578a38f5d8e5acbba8d487295660c626a81acf0ce9831aeba" },
+        "runtime": { "const": "63db14b558a6fe193a15416a4e20f3c96488a4e2499b3df9d03514ca4780a70f" },
+        "pluginInfo": { "const": "f0828a3d989816bbbc7ba5c84ad465fc4d41b74c426d94238ba98a84e7b69543" },
+        "engine": { "const": "b28c5ba182760a09afef2c06b7e54454721b10737ca755dd68497517975cafa1" },
+        "session": { "const": "e04f703d0e89dba115c2fa37e964ed73e177e35c40b05ba8a47fb2823cea4c28" },
+        "appBuild": { "const": "693bd7e8e16a95a82de2d2bbb1a14f34c6fe1b5d8139e98da908eddcfccab808" }
+      }
+    },
+    "enginePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policyFunction",
+        "mappings",
+        "requiredRunners",
+        "forbiddenRunners"
+      ],
+      "properties": {
+        "policyFunction": { "const": "toD8ExecutionMode" },
+        "mappings": {
+          "const": [
+            { "wireMode": "DEBUG", "compilationMode": "DEBUG", "cliFlag": "--debug" },
+            { "wireMode": "RELEASE", "compilationMode": "RELEASE", "cliFlag": "--release" }
+          ]
+        },
+        "requiredRunners": {
+          "const": ["D8", "D8Command"]
+        },
+        "forbiddenRunners": {
+          "const": ["R8", "R8Command"]
+        }
+      }
+    },
+    "apiAarSha256": {
+      "const": "4766af19ea414400177ba8541f753737c8bf40624cbfc866bb5442cc4b07fea5"
+    },
+    "readmeBoundaryKeywords": {
+      "const": [
+        "DexCompilerMode.RELEASE",
+        "D8",
+        "release compilation mode",
+        "R8",
+        "shrinking",
+        "optimization",
+        "obfuscation",
+        "mapping"
+      ]
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "r8ProviderImplemented",
+        "jvmVerified",
+        "binderVerified",
+        "r8Executed",
+        "deviceVerified"
+      ],
+      "properties": {
+        "r8ProviderImplemented": { "const": false },
+        "jvmVerified": { "const": false },
+        "binderVerified": { "const": false },
+        "r8Executed": { "const": false },
+        "deviceVerified": { "const": false }
+      }
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Compilador DEX de AutoJs6
 
-Este complemento compila un JAR normalizado con D8 8.13.17 y devuelve un ZIP acotado con entradas `classes*.dex` contiguas.
+Este complemento compila un JAR normalizado con D8 8.13.22 y devuelve un ZIP acotado con entradas `classes*.dex` contiguas.
 
 El complemento requiere la compilación 5270 o posterior del host y Android API 24 o posterior.
 

@@ -64,7 +64,7 @@ DEX Compiler هو provider مستقل للإصدار 1 من بروتوكول DEX
 ```text
 input: JAR with JVM class files
 output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.17
+compiler: D8 8.13.22
 ```
 
 ******
@@ -85,7 +85,7 @@ protocol: V1
 required host build: 5270
 ```
 
-يعلن الملحق D8 8.13.17 وإدخال JAR وإخراج DEX ZIP ووضعي DEBUG و RELEASE و minApi من 24 إلى 36 و multi-dex. نموذج runtime library هو boot classpath V1 للجهاز.
+يعلن الملحق D8 8.13.22 وإدخال JAR وإخراج DEX ZIP ووضعي DEBUG و RELEASE و minApi من 24 إلى 36 و multi-dex. نموذج runtime library هو boot classpath V1 للجهاز.
 
 يلزم build المضيف 5270 أو أحدث. لا يحتوي الملحق native library ولذلك يدعم ملف universal APK واحد مبني على JVM جميع ABI للأجهزة.
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### القيود المعروفة وحدود القبول
 
-ينفذ V1 فقط تحويلا محدودا من raw JVM JAR إلى DEX ZIP. ولا يوفر R8 shrinking/obfuscation أو classpath خارجيا أو desugared library مخصصة أو compile عبر الشبكة أو خرج بايت حتميا. قد تؤدي BUSY إلى fallback لدى المضيف، وقد يستمر عمل D8 على CPU في العملية المعزولة حتى اكتمال التنظيف بعد الإلغاء. يبقى الإلغاء التعاوني بعد مغادرة آخر waiter ضمن R2؛ أما ترقية الأداء والتفعيل الافتراضي وإزالة اعتماد مترجم المضيف فهي خارج R1 المكتملة.
+ينفذ V1 فقط تحويلا محدودا من raw JVM JAR إلى DEX ZIP. ولا يوفر R8 shrinking/obfuscation أو classpath خارجيا أو desugared library مخصصة أو compile عبر الشبكة أو خرج بايت حتميا. يختار `DexCompilerMode.RELEASE` فقط release compilation mode في D8؛ ولا يفعّل R8 ولا يَعِد بـ shrinking أو optimization أو obfuscation أو mapping. قد تؤدي BUSY إلى fallback لدى المضيف، وقد يستمر عمل D8 على CPU في العملية المعزولة حتى اكتمال التنظيف بعد الإلغاء. يبقى الإلغاء التعاوني بعد مغادرة آخر waiter ضمن R2؛ أما ترقية الأداء والتفعيل الافتراضي وإزالة اعتماد مترجم المضيف فهي خارج R1 المكتملة.
 
 ******
 
@@ -261,7 +261,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-يستخدم المترجم D8 8.13.17 من Maven. توفر ملفات AAR المحلية حد البروتوكول الثابت فقط والناتج universal APK بلا native library.
+يستخدم المترجم D8 8.13.22 من Maven. توفر ملفات AAR المحلية حد البروتوكول الثابت فقط والناتج universal APK بلا native library.
 
 ******
 

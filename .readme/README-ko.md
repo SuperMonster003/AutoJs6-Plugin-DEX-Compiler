@@ -64,7 +64,7 @@ DEX Compiler는 AutoJs6 DEX Compiler 프로토콜 V1을 위한 독립 provider�
 ```text
 input: JAR with JVM class files
 output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.17
+compiler: D8 8.13.22
 ```
 
 ******
@@ -85,7 +85,7 @@ protocol: V1
 required host build: 5270
 ```
 
-플러그인은 D8 8.13.17, JAR 입력, DEX ZIP 출력, DEBUG 및 RELEASE 모드, minApi 24부터 36과 multi-dex를 선언합니다. Runtime library model은 기기 boot classpath V1입니다.
+플러그인은 D8 8.13.22, JAR 입력, DEX ZIP 출력, DEBUG 및 RELEASE 모드, minApi 24부터 36과 multi-dex를 선언합니다. Runtime library model은 기기 boot classpath V1입니다.
 
 호스트 build 5270 이상이 필요합니다. Native library가 없으므로 순수 JVM universal APK 하나가 모든 기기 ABI를 지원합니다.
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### 알려진 제한 및 승인 경계
 
-V1은 bounded raw JVM JAR-to-DEX-ZIP 변환만 수행합니다. R8 shrinking/obfuscation, 외부 classpath, custom desugared library, network compile 또는 deterministic byte output을 제공하지 않습니다. BUSY는 호스트 fallback으로 이어질 수 있으며 cancel 이후에도 D8 CPU 작업이 cleanup 완료까지 isolated process에서 계속될 수 있습니다. 마지막 waiter 이탈 뒤의 협력 취소는 R2에 남아 있으며 성능 승격, 기본 활성화 및 호스트 컴파일러 의존성 제거는 완료된 R1 범위 밖입니다.
+V1은 bounded raw JVM JAR-to-DEX-ZIP 변환만 수행합니다. R8 shrinking/obfuscation, 외부 classpath, custom desugared library, network compile 또는 deterministic byte output을 제공하지 않습니다. `DexCompilerMode.RELEASE`는 D8의 release compilation mode만 선택하며 R8을 활성화하거나 shrinking, optimization, obfuscation, mapping을 보장하지 않습니다. BUSY는 호스트 fallback으로 이어질 수 있으며 cancel 이후에도 D8 CPU 작업이 cleanup 완료까지 isolated process에서 계속될 수 있습니다. 마지막 waiter 이탈 뒤의 협력 취소는 R2에 남아 있으며 성능 승격, 기본 활성화 및 호스트 컴파일러 의존성 제거는 완료된 R1 범위 밖입니다.
 
 ******
 
@@ -261,7 +261,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-컴파일러는 Maven의 D8 8.13.17을 사용합니다. 로컬 AAR은 안정된 프로토콜 경계만 제공하며 결과는 native library가 없는 universal APK입니다.
+컴파일러는 Maven의 D8 8.13.22을 사용합니다. 로컬 AAR은 안정된 프로토콜 경계만 제공하며 결과는 native library가 없는 universal APK입니다.
 
 ******
 

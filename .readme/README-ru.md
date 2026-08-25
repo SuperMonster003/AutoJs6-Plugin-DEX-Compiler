@@ -64,7 +64,7 @@ DEX Compiler является независимым provider версии 1 п�
 ```text
 input: JAR with JVM class files
 output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.17
+compiler: D8 8.13.22
 ```
 
 ******
@@ -85,7 +85,7 @@ protocol: V1
 required host build: 5270
 ```
 
-Плагин объявляет D8 8.13.17, ввод JAR, вывод DEX ZIP, режимы DEBUG и RELEASE, minApi от 24 до 36 и multi-dex. Модель runtime library использует boot classpath V1 устройства.
+Плагин объявляет D8 8.13.22, ввод JAR, вывод DEX ZIP, режимы DEBUG и RELEASE, minApi от 24 до 36 и multi-dex. Модель runtime library использует boot classpath V1 устройства.
 
 Требуется build хоста 5270 или новее. В плагине нет native library, поэтому один чистый JVM universal APK поддерживает все ABI.
 
@@ -169,7 +169,7 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 
 #### Известные ограничения и граница приемки
 
-V1 выполняет только ограниченное преобразование raw JVM JAR в DEX ZIP. Нет R8 shrinking/obfuscation, внешнего classpath, собственной desugared library, сетевой компиляции и детерминированного побайтового вывода. BUSY может привести к fallback хоста, а CPU-работа D8 после отмены может продолжаться в изолированном процессе до очистки. Кооперативная отмена после ухода последнего waiter остается в R2; повышение производительности, включение по умолчанию и удаление зависимостей компилятора хоста находятся вне завершенного R1.
+V1 выполняет только ограниченное преобразование raw JVM JAR в DEX ZIP. Нет R8 shrinking/obfuscation, внешнего classpath, собственной desugared library, сетевой компиляции и детерминированного побайтового вывода. `DexCompilerMode.RELEASE` выбирает только release compilation mode D8; он не включает R8 и не обещает shrinking, optimization, obfuscation или mapping. BUSY может привести к fallback хоста, а CPU-работа D8 после отмены может продолжаться в изолированном процессе до очистки. Кооперативная отмена после ухода последнего waiter остается в R2; повышение производительности, включение по умолчанию и удаление зависимостей компилятора хоста находятся вне завершенного R1.
 
 ******
 
@@ -261,7 +261,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-Компилятор использует D8 8.13.17 из Maven. Локальные AAR дают только стабильную границу протокола, результатом является universal APK без native library.
+Компилятор использует D8 8.13.22 из Maven. Локальные AAR дают только стабильную границу протокола, результатом является universal APK без native library.
 
 ******
 

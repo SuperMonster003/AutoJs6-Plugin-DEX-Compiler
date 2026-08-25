@@ -64,7 +64,7 @@ La versión 1 declara únicamente el siguiente alcance de compilación:
 ```text
 input: JAR with JVM class files
 output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.17
+compiler: D8 8.13.22
 ```
 
 ******
@@ -85,7 +85,7 @@ protocol: V1
 required host build: 5270
 ```
 
-El plugin declara D8 8.13.17, entrada JAR, salida DEX ZIP, modos DEBUG y RELEASE, minApi de 24 a 36 y multi-dex. El modelo de runtime library es el boot classpath V1 del dispositivo.
+El plugin declara D8 8.13.22, entrada JAR, salida DEX ZIP, modos DEBUG y RELEASE, minApi de 24 a 36 y multi-dex. El modelo de runtime library es el boot classpath V1 del dispositivo.
 
 Se requiere la build 5270 o posterior del host. El plugin no contiene bibliotecas nativas, por lo que un APK universal JVM puro admite todas las ABI.
 
@@ -169,7 +169,7 @@ Selecciona primero Built-in D8/dx, confirma que el resumen muestra el experiment
 
 #### Límites conocidos y frontera de aceptación
 
-V1 solo realiza conversión acotada de JAR JVM raw a DEX ZIP. No ofrece shrinking/obfuscation de R8, classpath externo, biblioteca desugared personalizada, compilación por red ni salida binaria determinista. BUSY puede llevar al fallback del host y el trabajo CPU de D8 puede continuar en el proceso aislado hasta la limpieza tras una cancelación. La cancelación cooperativa cuando se va el último waiter sigue en R2; la promoción de rendimiento, la activación predeterminada y la retirada de dependencias del compilador host quedan fuera del R1 completado.
+V1 solo realiza conversión acotada de JAR JVM raw a DEX ZIP. No ofrece shrinking/obfuscation de R8, classpath externo, biblioteca desugared personalizada, compilación por red ni salida binaria determinista. `DexCompilerMode.RELEASE` solo selecciona el release compilation mode de D8; no activa R8 ni promete shrinking, optimization, obfuscation o mapping. BUSY puede llevar al fallback del host y el trabajo CPU de D8 puede continuar en el proceso aislado hasta la limpieza tras una cancelación. La cancelación cooperativa cuando se va el último waiter sigue en R2; la promoción de rendimiento, la activación predeterminada y la retirada de dependencias del compilador host quedan fuera del R1 completado.
 
 ******
 
@@ -261,7 +261,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-El compilador usa D8 8.13.17 desde Maven. Los AAR locales solo aportan el límite estable del protocolo y el resultado es un APK universal sin bibliotecas nativas.
+El compilador usa D8 8.13.22 desde Maven. Los AAR locales solo aportan el límite estable del protocolo y el resultado es un APK universal sin bibliotecas nativas.
 
 ******
 

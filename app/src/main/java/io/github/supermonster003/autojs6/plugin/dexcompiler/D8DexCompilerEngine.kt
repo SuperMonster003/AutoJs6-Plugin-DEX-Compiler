@@ -39,7 +39,7 @@ internal class D8DexCompilerEngine(
             } else {
                 val arguments = mutableListOf(
                     "--output", outputDirectory.absolutePath,
-                    if (request.mode == DexCompilerMode.DEBUG) "--debug" else "--release",
+                    request.mode.toD8ExecutionMode().cliFlag,
                     "--min-api", request.minApi.toString(),
                 )
                 runtimeLibraries.files.forEach {
@@ -114,6 +114,23 @@ internal fun interface D8CliRunner {
     fun run(arguments: Array<String>)
 }
 
+/**
+ * Maps the V1 wire mode to D8's two invocation forms.
+ *
+ * [DexCompilerMode.RELEASE] means only [CompilationMode.RELEASE] (or D8's matching CLI flag).
+ * It does not select R8 or add keep rules, shrinking, minification, obfuscation, mapping, seeds,
+ * or usage-output semantics to this provider.
+ */
+internal fun DexCompilerMode.toD8ExecutionMode(): D8ExecutionMode = when (this) {
+    DexCompilerMode.DEBUG -> D8ExecutionMode(CompilationMode.DEBUG, "--debug")
+    DexCompilerMode.RELEASE -> D8ExecutionMode(CompilationMode.RELEASE, "--release")
+}
+
+internal data class D8ExecutionMode(
+    val compilationMode: CompilationMode,
+    val cliFlag: String,
+)
+
 private object AndroidD8CommandRunner : D8CommandRunner {
     @TargetApi(Build.VERSION_CODES.O)
     override fun run(
@@ -126,16 +143,11 @@ private object AndroidD8CommandRunner : D8CommandRunner {
         val builder = D8Command.builder(diagnosticsHandler)
             .addProgramFiles(inputs.programJar.toPath())
             .setOutput(outputDirectory.toPath(), OutputMode.DexIndexed)
-            .setMode(request.mode.toCompilationMode())
+            .setMode(request.mode.toD8ExecutionMode().compilationMode)
             .setMinApiLevel(request.minApi)
         runtimeLibraries.forEach { builder.addLibraryFiles(it.toPath()) }
         inputs.classpathJars.forEach { builder.addClasspathFiles(it.toPath()) }
         D8.run(builder.build())
-    }
-
-    private fun DexCompilerMode.toCompilationMode(): CompilationMode = when (this) {
-        DexCompilerMode.DEBUG -> CompilationMode.DEBUG
-        DexCompilerMode.RELEASE -> CompilationMode.RELEASE
     }
 }
 

@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://autojs6.com/schemas/dex-compiler/r4-d8-upgrade-matrix-v2.json",
+  "title": "AutoJs6 DEX Compiler R4.1-G1 upgrade matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "matrixId",
+    "compiler",
+    "evidenceBoundary",
+    "acceptanceKeyTemplate",
+    "minApis",
+    "modes",
+    "cases"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "autojs6.dex.r4.d8-upgrade-matrix/v2"
+    },
+    "matrixId": {
+      "const": "r4.1-g1-d8-upgrade"
+    },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coordinate",
+        "pinnedVersion",
+        "rollbackVersion",
+        "candidateVersionProperty",
+        "rollbackEvaluationProperty"
+      ],
+      "properties": {
+        "coordinate": {
+          "const": "com.android.tools:r8"
+        },
+        "pinnedVersion": {
+          "const": "8.13.22"
+        },
+        "rollbackVersion": {
+          "const": "8.13.17"
+        },
+        "candidateVersionProperty": {
+          "const": "d8CandidateVersion"
+        },
+        "rollbackEvaluationProperty": {
+          "const": "d8RollbackEvaluation"
+        }
+      }
+    },
+    "evidenceBoundary": {
+      "const": "JVM_COMPILER_ONLY"
+    },
+    "acceptanceKeyTemplate": {
+      "const": "{caseId}|minApi={minApi}|mode={mode}|compiler={compilerVersion}"
+    },
+    "minApis": {
+      "type": "array",
+      "minItems": 13,
+      "maxItems": 13,
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 24,
+        "maximum": 36
+      }
+    },
+    "modes": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["DEBUG", "RELEASE"]
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": {
+        "$ref": "#/definitions/matrixCase"
+      }
+    }
+  },
+  "definitions": {
+    "matrixCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "fixtureKind",
+        "languageVersion",
+        "jvmTarget",
+        "minApis",
+        "modes",
+        "expectedOutcome"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"
+        },
+        "fixtureKind": {
+          "enum": [
+            "JAVA_CLASSFILE",
+            "KOTLIN_CLASSFILE",
+            "STANDARD_DESUGARING",
+            "GENERATED_MULTIDEX",
+            "MISSING_DEPENDENCY",
+            "MALFORMED_CLASSFILE",
+            "UNSUPPORTED_CLASSFILE",
+            "DUPLICATE_DEFINITION"
+          ]
+        },
+        "languageVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "jvmTarget": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "minApis": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 13,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 24,
+            "maximum": 36
+          }
+        },
+        "modes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["DEBUG", "RELEASE"]
+          }
+        },
+        "expectedOutcome": {
+          "enum": ["COMPILE_SUCCESS", "COMPILE_FAILURE"]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "schemaVersion": "autojs6.dex.r4.r8-closeout-contract/v1",
+  "evidenceBoundary": "INDEPENDENT_R8_PRIVATE_RELEASE_AND_HOST_ACCEPTANCE_CLOSEOUT",
+  "r8Repository": {
+    "nameWithOwner": "SuperMonster003/AutoJs6-Plugin-R8-Compiler",
+    "originUrl": "https://github.com/SuperMonster003/AutoJs6-Plugin-R8-Compiler.git",
+    "defaultBranch": "master",
+    "head": "277ce8a05faa9566abcf474fcb0d3e6f928737ff",
+    "tree": "5eddb99350057f20f8db9dcd7eb779a2e9c0c901",
+    "reachableCommitCount": 4,
+    "identityName": "SuperMonster003",
+    "identityEmail": "30370009+SuperMonster003@users.noreply.github.com"
+  },
+  "annotatedTag": {
+    "name": "v0.1.0-provider-dev-private.1",
+    "object": "fdce4dc42e6b1f65dae8677099d0f4b77fafec4a",
+    "target": "29abdf6a2742e3f327b17eb6ca1f50684bd5f72b",
+    "taggerName": "SuperMonster003",
+    "taggerEmail": "30370009+SuperMonster003@users.noreply.github.com"
+  },
+  "host": {
+    "integrationCommit": "4a9718d63923834c9a99fd70e0cd58c898e138f6",
+    "r8ApiAarPath": "libs/r8-compiler-api-0_1_0/r8-compiler-api-0.1.0.aar",
+    "r8ApiAarByteLength": 179855,
+    "r8ApiAarSha256": "e9df49b7e49992615a15bc0af2372a4525f02b4a2a915a560ddab3128bb2f066"
+  },
+  "gates": [
+    {
+      "id": "g2",
+      "path": "build/reports/r42-g2/provider-gate.json",
+      "schemaVersion": "autojs6.r8.g2.provider-gate/v2",
+      "invocationId": "e8d210c8-0022-47be-9846-4a17b11c6e52",
+      "evidenceBoundary": "LOCAL_PROVIDER_JVM_AND_ANDROID_BUILD",
+      "byteLength": 5664,
+      "sha256": "c7913af510bc24ab2a24c989886722f351e4d72f307f7fc0bff4aba6e296bfae"
+    },
+    {
+      "id": "g3",
+      "path": "build/reports/r42-g3/host-control-plane-gate.json",
+      "schemaVersion": "autojs6.r8.g3.host-transaction-gate/v4",
+      "invocationId": "49f8c6cb-e547-4fea-9bc1-c53be48fff75",
+      "evidenceBoundary": "HOST_R8_EXPLICIT_SCRIPT_INTEGRATION_JVM_AND_ANDROID_COMPILE",
+      "byteLength": 11974,
+      "sha256": "b4c8e257e31c151fd069cac26a3d33470ec8f4dfacc6d7760b163b542f57b53a"
+    },
+    {
+      "id": "g4",
+      "path": "build/reports/r42-g4/compatibility-corpus-gate.json",
+      "schemaVersion": "autojs6.r8.g4.compatibility-corpus-gate/v1",
+      "invocationId": "0c7b701f-918d-4b45-9da4-e731b27cfe63",
+      "evidenceBoundary": "R8_COMPATIBILITY_CORPUS_JVM_ARTIFACT_AND_SCRIPT_ROUTE",
+      "byteLength": 32252,
+      "sha256": "879d4682bdf485e71bd883308d5a59eebaeb393b93973f131cbd14cbdf9214f1"
+    },
+    {
+      "id": "g5",
+      "path": "build/reports/r42-g5/local-release-gate.json",
+      "schemaVersion": "autojs6.r8.g5.local-release-gate/v1",
+      "invocationId": "a85ba7ca-0177-4575-8f20-c6d35d58e1ea",
+      "evidenceBoundary": "LOCAL_SIGNED_PROVIDER_RELEASE_SAME_ENVIRONMENT_REPRODUCIBILITY",
+      "byteLength": 7250,
+      "sha256": "994a9ba471e94aef78423a4bb313dea2be84a4a77c7b731665e1cfd28ab0826f"
+    },
+    {
+      "id": "g6",
+      "path": "build/reports/r42-g6/device-acceptance-gate.json",
+      "schemaVersion": "autojs6.r8.g6.device-acceptance-gate/v1",
+      "invocationId": "1d978a79-4d08-41d8-a443-0115fb91cb59",
+      "evidenceBoundary": "AUTHORIZED_CROSS_APK_BINDER_PFD_DEVICE_ACCEPTANCE",
+      "byteLength": 17343,
+      "sha256": "24fc3e2b09182859e4405ab1d125efd2fefdced843f0f89bc106c70e60e32970"
+    },
+    {
+      "id": "g7Local",
+      "path": "build/reports/r42-g7/local-release-gate.json",
+      "schemaVersion": "autojs6.r8.g7.local-release-gate/v1",
+      "invocationId": "2efce169-b337-47e5-8814-b2aa152232a4",
+      "evidenceBoundary": "APPEND_ONLY_LOCAL5_PLATFORM_LIBRARY_FIX_RELEASE",
+      "byteLength": 2726,
+      "sha256": "fe3df1fdce2b6ff675b41cad8d2da4720a6554da86230f11d1440f1d5f66953d"
+    },
+    {
+      "id": "g7Runtime",
+      "path": "build/reports/r42-g7/art-jni-retrace-gate.json",
+      "schemaVersion": "autojs6.r8.g7.art-jni-retrace-gate/v1",
+      "invocationId": "36e7e2ff-b734-4034-96ab-cce5a0a037f5",
+      "evidenceBoundary": "AUTHORIZED_LOCAL5_ART_JNI_AND_PINNED_RETRACE",
+      "byteLength": 14433,
+      "sha256": "263a80a840b93d73de31e727ce9a76a824e44f326f3ae99b22a6f64850a466ff"
+    },
+    {
+      "id": "g8",
+      "path": "build/reports/r42-g8/private-remote-release-gate.json",
+      "schemaVersion": "autojs6.r8.g8.private-remote-release-gate/v1",
+      "invocationId": "ab010b7d-800f-43d9-acc9-27efb087efa2",
+      "evidenceBoundary": "PRIVACY_NORMALIZED_PRIVATE_GITHUB_RELEASE",
+      "byteLength": 4826,
+      "sha256": "ead4d551ae7eb13e319bc5ffed3639edc1ab96c6a85b9088ed7ca070f0a3e000"
+    }
+  ],
+  "releaseAssets": [
+    {
+      "name": "autojs6-r8-compiler-provider-0.1.0-provider-dev-signed.apk",
+      "localPath": "releases/provider/0.1.0-provider-dev/local.5/autojs6-r8-compiler-provider-0.1.0-provider-dev-signed.apk",
+      "byteLength": 33155599,
+      "sha256": "84447972cb0e4e020e5a696d0d2dabeb273e2990067a62f2d1b7590add628265"
+    },
+    {
+      "name": "protocol-wire-api-0.1.0.aar",
+      "localPath": "releases/provider/0.1.0-provider-dev/local.5/protocol-wire-api-0.1.0.aar",
+      "byteLength": 29387,
+      "sha256": "1d97a5b44b2c20e85aa12b263fca604a32d6d89275d47a19076861cd20c29a36"
+    },
+    {
+      "name": "r8-compiler-api-0.1.0.aar",
+      "localPath": "releases/provider/0.1.0-provider-dev/local.5/r8-compiler-api-0.1.0.aar",
+      "byteLength": 179855,
+      "sha256": "e9df49b7e49992615a15bc0af2372a4525f02b4a2a915a560ddab3128bb2f066"
+    },
+    {
+      "name": "release-manifest.json",
+      "localPath": "releases/provider/0.1.0-provider-dev/local.5/release-manifest.json",
+      "byteLength": 990,
+      "sha256": "d97ed12a150a991b30e2697258ae0e381afa80667aed5e8272a5a5ebd4ec1583"
+    },
+    {
+      "name": "autojs6-r8-compiler-provider-0.1.0-provider-dev-private.1-SHA256SUMS.txt",
+      "localPath": "build/reports/r42-g8/autojs6-r8-compiler-provider-0.1.0-provider-dev-private.1-SHA256SUMS.txt",
+      "byteLength": 399,
+      "sha256": "061e760ca9283f48be1a0d974c502fb087059cb14163bb715ecfdfe9b676e3cb"
+    }
+  ],
+  "github": {
+    "repositoryId": 1345668157,
+    "visibility": "PRIVATE",
+    "releaseId": 376144423,
+    "draft": false,
+    "prerelease": true
+  }
+}

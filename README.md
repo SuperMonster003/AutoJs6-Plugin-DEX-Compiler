@@ -64,7 +64,7 @@ DEX Compiler 是 AutoJs6 的独立 DEX Compiler 协议 V1 provider. 它在应用
 ```text
 input: JAR with JVM class files
 output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.17
+compiler: D8 8.13.22
 ```
 
 ******
@@ -85,7 +85,7 @@ protocol: V1
 required host build: 5270
 ```
 
-插件声明 D8 8.13.17, 协议范围 V1.0 至 V1.1, JAR 输入, DEX ZIP 输出, DEBUG 和 RELEASE 模式, minApi 24 至 36 及 multi-dex. Runtime library model 为设备 boot classpath V1.
+插件声明 D8 8.13.22, 协议范围 V1.0 至 V1.1, JAR 输入, DEX ZIP 输出, DEBUG 和 RELEASE 模式, minApi 24 至 36 及 multi-dex. Runtime library model 为设备 boot classpath V1.
 
 build 5270 是 legacy V1.0 的最低宿主要求; `runtime.loadJarWithClasspath` 还要求包含 R3.3 的配对宿主构建, 本轮代表性验收使用 build 5274. 插件不含 native library, 因而通过一个纯 JVM universal APK 支持所有设备 ABI.
 
@@ -178,7 +178,7 @@ legacy `runtime.loadJar()` 固定使用 V1.0, 在允许回退的失败上仍至�
 
 #### 已知限制与验收边界
 
-V1 仅处理有界 JVM JAR 到 DEX ZIP 的转换. V1.1 的 bundled classpath 是 compile-only, 不是运行时依赖打包、combined loader 或任意外部 classpath; 也不提供 R8 shrinking/obfuscation、自定义 desugared library、Maven/Gradle 下载解析、网络编译或确定性字节输出. BUSY 可触发符合对应版本语义的宿主回退. 最后一个 waiter 离开会协作请求取消, 终止后禁止发布并最终清理; 若 D8 已进入不可中断调用, CPU 工作仍可能在隔离进程中继续到当前编译返回. 性能晋级、默认启用、全 API/ABI V1.1 矩阵及移除宿主编译器依赖不属于本轮闭环范围.
+V1 仅处理有界 JVM JAR 到 DEX ZIP 的转换. V1.1 的 bundled classpath 是 compile-only, 不是运行时依赖打包、combined loader 或任意外部 classpath; 也不提供 R8 shrinking/obfuscation、自定义 desugared library、Maven/Gradle 下载解析、网络编译或确定性字节输出. `DexCompilerMode.RELEASE` 只选择 D8 的 release compilation mode; 它不启用 R8, 也不承诺 shrinking、optimization、obfuscation 或 mapping. BUSY 可触发符合对应版本语义的宿主回退. 最后一个 waiter 离开会协作请求取消, 终止后禁止发布并最终清理; 若 D8 已进入不可中断调用, CPU 工作仍可能在隔离进程中继续到当前编译返回. 性能晋级、默认启用、全 API/ABI V1.1 矩阵及移除宿主编译器依赖不属于本轮闭环范围.
 
 ******
 
@@ -271,7 +271,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-编译器通过 Maven 使用 D8 8.13.17. 本地 AAR 只提供稳定协议边界, 生成的插件是无 native library 的 universal APK.
+编译器通过 Maven 使用 D8 8.13.22. 本地 AAR 只提供稳定协议边界, 生成的插件是无 native library 的 universal APK.
 
 ******
 

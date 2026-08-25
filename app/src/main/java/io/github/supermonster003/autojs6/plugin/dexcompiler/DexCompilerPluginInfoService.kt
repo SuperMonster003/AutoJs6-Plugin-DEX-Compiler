@@ -9,6 +9,10 @@ import org.autojs.plugin.common.api.IPluginInfoProvider
 import org.autojs.plugin.common.api.PluginCapabilityKeys
 import org.autojs.plugin.common.api.PluginInfo
 import org.autojs.plugin.dexcompiler.api.DexCompilerContract
+import org.autojs.plugin.dexcompiler.api.DexCompilerFamily
+import java.util.Locale
+
+internal val D8_PLUGIN_FAMILY_ID: String = DexCompilerFamily.D8.name.lowercase(Locale.ROOT)
 
 class DexCompilerPluginInfoService : Service() {
     private val binder = object : IPluginInfoProvider.Stub() {
@@ -39,7 +43,7 @@ class DexCompilerPluginInfoService : Service() {
                     putLong(PluginCapabilityKeys.REQUIRES_HOST_VERSION, DexCompilerRuntime.REQUIRED_HOST_VERSION)
                     putInt("dexCompilerProtocolMajor", DexCompilerContract.PROTOCOL_MAJOR)
                     putInt("dexCompilerProtocolMinor", DexCompilerContract.PROTOCOL_MINOR)
-                    putString("compilerFamily", "d8")
+                    putString("compilerFamily", D8_PLUGIN_FAMILY_ID)
                     putString("compilerVersion", DexCompilerRuntime.COMPILER_VERSION)
                 },
             )

@@ -64,7 +64,7 @@ Version 1 declares only the following compilation scope:
 ```text
 input: JAR with JVM class files
 output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.17
+compiler: D8 8.13.22
 ```
 
 ******
@@ -85,7 +85,7 @@ protocol: V1
 required host build: 5270
 ```
 
-The plugin declares D8 8.13.17, JAR input, DEX ZIP output, DEBUG and RELEASE modes, minApi 24 through 36, and multi-dex. Its runtime library model is device boot classpath V1.
+The plugin declares D8 8.13.22, JAR input, DEX ZIP output, DEBUG and RELEASE modes, minApi 24 through 36, and multi-dex. Its runtime library model is device boot classpath V1.
 
 Host build 5270 or later is required. The plugin has no native library, so one pure JVM universal APK supports every device ABI.
 
@@ -169,7 +169,7 @@ Select Built-in D8/dx first, confirm that the summary shows the experiment off, 
 
 #### Known limits and acceptance boundary
 
-V1 performs only bounded raw JVM JAR-to-DEX-ZIP conversion. It provides no R8 shrinking or obfuscation, external classpath, custom desugared library, network compilation, or deterministic byte output. BUSY may lead to host fallback, and D8 CPU work may continue in the isolated process until cleanup after cancellation. Cooperative cancellation after the final waiter leaves remains R2; performance promotion, making the route default, and removing host compiler dependencies are outside the completed R1 scope.
+V1 performs only bounded raw JVM JAR-to-DEX-ZIP conversion. It provides no R8 shrinking or obfuscation, external classpath, custom desugared library, network compilation, or deterministic byte output. `DexCompilerMode.RELEASE` selects only D8's release compilation mode; it does not enable R8 or promise shrinking, optimization, obfuscation, or mapping. BUSY may lead to host fallback, and D8 CPU work may continue in the isolated process until cleanup after cancellation. Cooperative cancellation after the final waiter leaves remains R2; performance promotion, making the route default, and removing host compiler dependencies are outside the completed R1 scope.
 
 ******
 
@@ -261,7 +261,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-The compiler uses D8 8.13.17 from Maven. Local AARs provide only the stable protocol boundary, and the resulting plugin is a universal APK without native libraries.
+The compiler uses D8 8.13.22 from Maven. Local AARs provide only the stable protocol boundary, and the resulting plugin is a universal APK without native libraries.
 
 ******
 
