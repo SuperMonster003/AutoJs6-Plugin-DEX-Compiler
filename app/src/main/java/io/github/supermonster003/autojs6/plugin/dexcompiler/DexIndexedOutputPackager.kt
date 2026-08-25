@@ -1,6 +1,7 @@
 package io.github.supermonster003.autojs6.plugin.dexcompiler
 
 import org.autojs.plugin.dexcompiler.api.DexCompilerErrorCode
+import org.autojs.plugin.dexcompiler.api.DexCompilerDiagnostic
 import org.autojs.plugin.dexcompiler.api.DexCompilerFailurePhase
 import org.autojs.plugin.dexcompiler.api.DexSha256
 import java.io.BufferedOutputStream
@@ -18,6 +19,7 @@ internal data class DexArtifact(
     val outputSizeBytes: Long,
     val outputSha256: DexSha256,
     val dexEntryCount: Int,
+    val diagnostics: List<DexCompilerDiagnostic> = emptyList(),
 )
 
 internal object DexIndexedOutputPackager {

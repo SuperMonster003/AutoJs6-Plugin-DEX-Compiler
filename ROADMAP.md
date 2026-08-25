@@ -1,8 +1,8 @@
 # DEX Compiler Roadmap
 
-更新日期: 2026-08-25
+更新日期: 2026-08-26
 
-本路线图把后续工作拆成可独立验收的 R0-R4。每个复选框只表示对应条目已经有可复核证据，不能用较低层级的测试替代较高层级的验收。例如，JVM 单元测试通过不等于跨 APK Binder 或真实设备加载已经通过。
+本路线图把后续工作拆成可独立验收的 R0-R5。每个复选框只表示对应条目已经有可复核证据，不能用较低层级的测试替代较高层级的验收。例如，JVM 单元测试通过不等于跨 APK Binder 或真实设备加载已经通过。
 
 ## 状态与证据规则
 
@@ -22,15 +22,16 @@
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 已完成（交付 4/4，退出 1/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 已完成（R4.1 4/4；R4.2 5/5；R4.3 2/2；退出 2/2） | D8 已完成默认晋升、旧 pin 回滚与再晋升；独立 R8 provider 已完成宿主显式选择、跨 APK Binder/PFD、设备/ART/JNI/Retrace、append-only 本地发布及 Private prerelease；源码编译与 AAR/APK 职责继续隔离 | 本插件 + AutoJs6 + 独立 R8 provider |
+| R5 | 进行中（R5.0 5/6；R5.1 本地实现 4/4、真机证据待补） | 用户文档与应用内说明已重构；有界脱敏诊断、optional wire 元数据及进程内最近路由已完成本地实现，性能基准、授权真机证据、V1.1 矩阵扩面与发布仍待办 | 本插件 + AutoJs6 |
 
 依赖顺序:
 
 ```text
 R0 ──> R1 ──> R2 ──> R3
-                    └──> R4
+                    └──> R4 ──> R5
 ```
 
-R4 的设计工作可以提前开展，但不得在 R0-R3 的接口中偷偷引入 shrinking、obfuscation 或源码编译语义。
+R4 的设计工作可以提前开展，但不得在 R0-R3 的接口中偷偷引入 shrinking、obfuscation 或源码编译语义。R5.0 的文档条目是纯本地工作，不依赖设备；R5.1-R5.3 中涉及设备的条目沿用 R1 的授权设备规则。
 
 ## R0: 低内存验证与本地质量门禁
 
@@ -433,6 +434,82 @@ R4.3 本轮实现与证据（2026-08-25）:
 
 - [x] 已将候选 D8 实际晋升为默认 pin，并在同一 source/build identity 下完成一次旧 pin rollback；单纯 candidate override 与撤销不计为 promotion/rollback。
 - [x] R8/源码编译若落地，均拥有独立身份、安全模型、验收矩阵和发布证据；当前源码编译没有进入 DEX 插件，因此以 fail-closed absence/validated-JAR boundary 关闭本项，不虚构尚不存在的 source provider 发布。
+
+## R5: 可用性、诊断与发布治理
+
+目标: 在不改变 R0-R4 已验收语义（默认关闭、显式选择、单次同语义回退、取消不回退）的前提下，把"普通用户能看懂、能用好、能反馈"变成可验收面，并为下一个正式版本建立可复核的发布与评估节奏。
+
+### R5.0 用户文档可读性重构
+
+- [x] 重写 README 模板与全部 10 个 locale 的 JSON 源：以"是什么、怎么用、怎么排查"优先，新增"工作原理"、"常见问题"与"能力边界"章节，安装步骤改为编号清单，参考信息集中到"技术参考"；面向用户的文档不再出现 R 阶段编号、canonical 矩阵、single-flight 等内部验收术语（它们保留在本文件中）。
+- [x] 重写全部 10 个 locale 的更新日志条目，用用户可理解的语言描述 v1.0.0 的行为与边界（默认关闭、手动启用、单次回退、权限模型）。
+- [x] 生成器保持幂等：`.python/generate_markdown.py` 连续两次运行，第二次对 25 个生成文件零改动；`git diff --check` 无空白错误。
+- [x] 生成产物人工核对：简体中文主 README 逐段核对章节顺序、代码块与列表渲染；其余 locale 由同一模板生成，结构一致。
+- [x] 应用内 `plugin_instruction.md`（10 个 locale）与新 README 口径同步，覆盖默认关闭、手动启用与回退语义。
+- [ ] 邀请至少一名未参与开发的用户按新 README 完成"安装 → 启用 → 运行示例脚本"的完整走查，记录卡点并回填文档。
+
+R5.0 本轮证据（2026-08-25）:
+
+- 重写范围: `.readme/template_readme.md`、`.readme/lang_*.json` × 10、`.changelog/lang_*.json` × 10；`generate_markdown.py` 仅新增 `placeholder_boundaries` 列表渲染一处。
+- 幂等验证: 生成器连续两次运行，25 个生成文件（README.md、`.readme/README-*.md` × 10、`app/src/main/assets/doc/CHANGELOG*.md` × 14）的 SHA-256 在复跑前后完全一致；`git diff --check` 退出码 0。
+- 内容边界: 本轮只改文档源与生成器的一行渲染逻辑，未修改生产源码、未运行 Gradle/ADB/设备任务、未发布新版本；`version.properties` 保持 1.0.0/build 4。
+
+R5.0 续推进证据（2026-08-26）:
+
+- `app/src/main/res/raw*/plugin_instruction.md` 共 11 份资源文件，覆盖默认英文资源及 10 个 locale；默认资源与 `raw-en` 字节内容一致。各语言均按“启用前提 → 编号启用步骤 → 正常调用与回退 → 关闭/恢复 → 安全上限 → 问题反馈”组织，并明确安装不自动启用、至多一次同语义内置回退及取消不回退。
+- README 的 10 个 locale 源已把阶段状态更新为“R5 进行中”，不把本地实现写成真机或发布完成；生成器再次连续运行两次，25 个生成文件第二次 SHA-256 零变化。
+- R5.0 当前为 5/6；外部未参与开发用户的完整走查仍未执行，因此本小节尚未关闭。
+
+### R5.1 诊断与可观测性增强
+
+- [x] 采集完整 D8 info/warning 诊断流（R2 遗留的非门禁增强），在既有 64 KiB 诊断预算内分级截断与脱敏。
+- [x] 以旧 reader 可安全跳过的 optional tags 扩展 wire schema，携带失败 origin/entry/位置元数据，不改变 V1.0/V1.1 既有字节语义与 AIDL。
+- [x] 宿主开发者选项提供"最近一次 loadJar 编译走了哪条路径（插件 / 内置回退 / 缓存命中）"的可读摘要，仅存进程内存，不持久化路径、摘要值等敏感信息。
+- [x] 为 BUSY、超时与回退各提供一条用户可读的提示文案，覆盖 10 个 locale。
+
+最小证据: 协议/插件/宿主 JVM 定向测试，加一个获授权 Android 目标上的真实失败诊断用例；不要求重跑多 API/ABI 设备矩阵。
+
+R5.1 本地实现证据（2026-08-26）:
+
+- 协议: `DexCompilerDiagnostic` 的既有 required tags 1-3 保持不变，新增 optional tags 4-6（逻辑 origin、canonical archive entry、嵌套位置）；冻结旧 reader 测试可跳过新 tags，V1.0/V1.1 AIDL 与版本号未改。协议模块 5 suites / 44 tests 全通过。
+- 插件: API 26+ `D8Command` 与 API 24/25 CLI-compatible 参数路径均把 INFO/WARNING/ERROR 回调交给同一 collector；错误可逐出 warning/info，warning 可逐出 info，count 与 byte ceiling 共用 64 KiB 预算。私有工作区路径映射为 `program`、`classpath:n`、`runtime-library:n`、`output` 或 `<redacted-path>`，公共 collector 路径不调用 API 26 `java.nio.file.Path`。插件 15 suites / 86 tests 全通过；Debug lint 为 0 error / 27 warning，本阶段不把 warning=0 冒充为完成条件。
+- 宿主: 请求级诊断预算包含 code/message/origin/entry/位置的全部保留字节；最近路由只在最终 classloader 采用成功后写入独立的 `AtomicReference`，取消与加载失败不会生成虚假的成功路径。R2 的最近 provider 失败仍由共享 producer 写入另一份进程内快照，不会被后续路线更新或非远端回退覆盖。开发者选项显示本地化路径/提示及有界稳定失败枚举、计数与 code 摘要；它不显示 request id、文件路径、输入输出摘要、原始 provider message 或时间戳。3 个新增/关键定向 suites / 72 tests 全通过，随后 `org.autojs.autojs.core.plugin.dex.*` 全命名空间回归为 19 suites / 180 tests 全通过。
+- 配对 AAR: `libs/dex-compiler-api.aar` 为 163,690 bytes，SHA-256 `6beea0450017956ec9a5469083142529dc5f893c4e6450848a8a9dd5e1526b7c`；R4.3 责任边界 mutation 自测 13/13，并由 `:app:verifyR4OtherCapabilities` 产出 PASS invocation `e40c07af-3f5f-4150-ad12-cb4a2d171c34`，继续锁定唯一 `JAR` 输入、`PROGRAM/CLASSPATH` 角色与 `DEX_ZIP` 输出。
+- 阶段边界: 本轮未运行 ADB、`connected*`、安装或设备任务，也没有获授权 Android 目标上的真实失败诊断证据。因此四项源码/资源实现虽已完成，R5.1 阶段仍未关闭；尤其 API 24/25 的真实回调行为仍需设备验证。
+
+### R5.2 性能基准与晋升评估
+
+- [ ] 建立可重复的本地基准: 固定语料下对比插件路径与宿主内置编译器的耗时、内存与缓存命中率，产出机器可读报告并记录环境（JDK、设备/模拟器、语料摘要）。
+- [ ] 基于基准数据定义"性能晋级"的数字门槛；达标并留证前，用户文档不得声明性能优势（当前 README 已明确"目标不是性能"）。
+- [x] 建立默认启用（opt-out）的前置条件清单（稳定性、诊断覆盖、矩阵覆盖、回退演练、回滚路径），并逐项挂接证据目标；清单闭环前路由保持默认关闭。
+
+默认启用前置条件清单（建立于 2026-08-26，当前 1/7）:
+
+- [ ] 诊断覆盖: 完成 R5.1 的获授权 Android 真实失败用例，并验证用户可见提示、脱敏、预算与取消不回退。
+- [ ] 性能与资源: R5.2 固定语料报告覆盖插件/内置/缓存路径，并以实测数据确定且通过耗时、内存、命中率门槛。
+- [ ] 矩阵覆盖: R5.3 至少 3 个代表格通过，包含一台获授权 arm64 真机及 API 24/25 CLI-compatible 路径。
+- [ ] 回退演练: 用拟发布宿主/插件配对验证 BUSY、超时、远端失败、无效输出、采用失败与取消，且每项满足至多一次同语义回退或取消不回退。
+- [x] 回滚路径: README 与 10 个 locale 的应用内说明均记录“选择 Built-in D8/dx 并重启 AutoJs6”，无需卸载宿主或清除数据。
+- [ ] 可用性: 至少一名未参与开发的用户完成 R5.0 安装、启用与示例脚本走查，卡点已回填文档。
+- [ ] 发布治理: R5.3 固定拟发布版本、配对宿主 build 与 APK/AAR 摘要，并完成发布前回归和可复核证据包。
+
+该清单的“建立”不代表默认启用获批；未勾选项存在期间，安装后默认关闭和显式选择语义保持不变。
+
+### R5.3 V1.1 矩阵扩面与发布节奏
+
+- [ ] 将 V1.1 classpath 验收从单一 API 34/x86_64 纵切扩展到 R1 七格矩阵中至少 3 个代表格，至少含一台获授权 arm64 真机；沿用 R1 的证据与设备授权规则。
+- [ ] 发布携带 D8 8.13.22 默认 pin 的下一个正式版本（建议 v1.1.0），更新 `version.properties`、changelog 与 `releases/`，并记录配对宿主构建号与 APK 摘要。
+- [ ] 确定性调查: 在两台机器或两个干净目录对同一输入重复编译并记录字节差异；得到可复核证据前，`determinismClaim` 保持 `NOT_CLAIMED`。
+
+### R5.4 R8 provider 公开化协同（跨仓库）
+
+- [ ] 独立 R8 provider 完成从 Private prerelease 到 Public 的转换 Gate（含公开文档与配对宿主说明）；该 Gate 属于 R8 仓库，本条目仅跟踪其完成状态，不代办其验收。
+- [ ] Public 转换完成后，本仓库 README 的"常见问题"与"能力边界"增补指向 R8 provider 的链接，并保持"D8 = 编译，R8 = 压缩/混淆"的分工口径。
+
+#### R5 退出条件
+
+- [ ] R5.0-R5.4 各子项全部完成，或在本文件中明确记录移出原因与去向。
+- [ ] README 10 个 locale 与本路线图的阶段状态描述一致，生成器幂等检查保持通过。
 
 ## 阶段证据记录
 

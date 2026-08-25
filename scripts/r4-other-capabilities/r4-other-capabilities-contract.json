@@ -119,8 +119,8 @@
     ]
   },
   "apiAar": {
-    "byteLength": 154988,
-    "sha256": "4766af19ea414400177ba8541f753737c8bf40624cbfc866bb5442cc4b07fea5",
+    "byteLength": 163690,
+    "sha256": "6beea0450017956ec9a5469083142529dc5f893c4e6450848a8a9dd5e1526b7c",
     "inputFormats": [
       "JAR"
     ],

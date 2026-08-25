@@ -336,6 +336,7 @@ internal class RemoteDexCompileSession(
                         outputSha256 = artifact.outputSha256,
                         dexEntryCount = artifact.dexEntryCount,
                         elapsedMillis = elapsedMillis(),
+                        diagnostics = artifact.diagnostics,
                     ),
                 )
             },

@@ -8,6 +8,7 @@ import com.android.tools.r8.D8
 import com.android.tools.r8.D8Command
 import com.android.tools.r8.DiagnosticsHandler
 import com.android.tools.r8.OutputMode
+import com.android.tools.r8.origin.Origin
 import org.autojs.plugin.dexcompiler.api.DexCompileRequest
 import org.autojs.plugin.dexcompiler.api.DexCompilerErrorCode
 import org.autojs.plugin.dexcompiler.api.DexCompilerFailurePhase
@@ -30,8 +31,16 @@ internal class D8DexCompilerEngine(
         ensureActive: () -> Unit,
         beforePackaging: () -> Unit,
     ): DexArtifact {
-        val diagnostics = D8DiagnosticCollector(request.diagnosticByteLimit)
         val inputs = D8InputFiles(programJar, classpathJars.toList())
+        val diagnostics = D8DiagnosticCollector(
+            requestedByteLimit = request.diagnosticByteLimit,
+            originResolver = D8DiagnosticOriginResolver.create(
+                programJar = inputs.programJar,
+                classpathJars = inputs.classpathJars,
+                runtimeLibraries = runtimeLibraries.files,
+                outputDirectory = outputDirectory,
+            ),
+        )
         ensureActive()
         try {
             if (sdkInt() >= Build.VERSION_CODES.O) {
@@ -51,7 +60,7 @@ internal class D8DexCompilerEngine(
                     arguments += it.absolutePath
                 }
                 arguments += inputs.programJar.absolutePath
-                cliRunner.run(arguments.toTypedArray())
+                cliRunner.run(arguments.toTypedArray(), diagnostics)
             }
         } catch (error: CompilationFailedException) {
             diagnostics.recordTerminalFailure()
@@ -91,7 +100,7 @@ internal class D8DexCompilerEngine(
             destination = artifactZip,
             maximumOutputBytes = request.maxOutputBytes,
             maximumDexEntries = DexCompilerRuntime.capabilities(runtimeLibraries).limits.maxDexEntries,
-        )
+        ).copy(diagnostics = diagnostics.snapshot())
     }
 }
 
@@ -111,7 +120,7 @@ internal fun interface D8CommandRunner {
 }
 
 internal fun interface D8CliRunner {
-    fun run(arguments: Array<String>)
+    fun run(arguments: Array<String>, diagnosticsHandler: DiagnosticsHandler)
 }
 
 /**
@@ -152,7 +161,7 @@ private object AndroidD8CommandRunner : D8CommandRunner {
 }
 
 private object AndroidD8CliRunner : D8CliRunner {
-    override fun run(arguments: Array<String>) {
-        D8.main(arguments)
+    override fun run(arguments: Array<String>, diagnosticsHandler: DiagnosticsHandler) {
+        D8.run(D8Command.parse(arguments, Origin.root(), diagnosticsHandler).build())
     }
 }

@@ -5,7 +5,7 @@
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
-  <p>独立 DEX 编译插件. 使用 D8 将受验证的 JAR 编译为连续 classes*.dex ZIP</p>
+  <p>AutoJs6 独立 DEX 编译插件. 在隔离进程中使用较新的 D8 将脚本 JAR 编译为 DEX</p>
 
   <p>
     <a href="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/releases"><img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/SuperMonster003/AutoJs6-Plugin-DEX-Compiler?label=Release"/></a>
@@ -39,75 +39,64 @@
 
 ******
 
-DEX Compiler 是 AutoJs6 的独立 DEX Compiler 协议 V1 provider. 它在应用私有工作区中使用 D8 编译经过严格验证的 JVM JAR, 并通过宿主提供的输出描述符返回规范的 DEX ZIP.
+AutoJs6 的脚本可以通过 `runtime.loadJar()` 加载 JAR 并调用其中的 Java 类. 由于 Android 无法直接运行 JVM 字节码, 这些 JAR 必须先被编译为 DEX; 默认情况下, 这一步由 AutoJs6 内置的编译器完成.
+
+本插件提供另一种选择: 它是一个独立安装的应用, 在自己的隔离进程中用较新版本的 Google D8 编译器完成这步编译. AutoJs6 把 JAR 交给插件编译, 拿回 DEX 结果后自行验证, 缓存并加载; 插件出现任何问题时, AutoJs6 会自动退回内置编译器, 脚本通常不受影响.
+
+适合安装本插件的场景: 希望使用比 AutoJs6 内置版本更新的 D8; 希望编译过程运行在与 AutoJs6 隔离的进程中; 或希望在不升级 AutoJs6 的情况下单独升级编译器.
 
 ******
 
-### 功能
+### 工作原理
 
 ******
 
-- V1.0 接受一个 raw program JAR; V1.1 接受一个 program JAR 与至少一个有序的 compile-only classpath JAR. 两者均支持 DEBUG 或 RELEASE 模式, minApi 24 至 36 和 multi-dex 输出.
-- 在编译前核验声明的大小和 SHA-256, ZIP framing, entry 名称, class magic, 重复项和解压边界.
-- 使用设备 runtime boot classpath 及其指纹编译. V1.1 classpath 由宿主冻结并封装, 插件不接收调用方路径或任意 provider 文件系统 classpath.
-- 仅封装连续的 `classes.dex`, `classes2.dex` 等 DEX 文件, 并返回实际 ZIP 大小和 SHA-256.
-- Android API 26 及更高版本使用 D8Command, API 24 和 25 使用 D8 CLI fallback.
-
-******
-
-### 输入和输出格式
-
-******
-
-协议 V1.0 通过输入描述符接收一个 raw program JAR; V1.1 通过同一个有界输入描述符接收一个 program JAR 与至少一个有序的 compile-only classpath JAR. 两者都只产生以下 D8 输出:
+启用插件后, 一次 `runtime.loadJar()` 调用大致经历以下步骤:
 
 ```text
-input: JAR with JVM class files
-output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.22
+1. script     calls runtime.loadJar() or runtime.loadJarWithClasspath()
+2. AutoJs6    validates and freezes the input JAR, records its size and SHA-256
+3. plugin     re-verifies the input, then compiles it with D8 in a private sandboxed process
+4. plugin     returns a DEX ZIP (classes.dex, classes2.dex, ...)
+5. AutoJs6    independently re-validates the result, caches it, and loads the classes
+*  fallback   if anything fails, AutoJs6 retries once with its built-in compiler
 ```
 
-******
-
-### 插件接口
+插件只负责第 3 和第 4 步, 即 "编译" 本身; 输入的固定, 结果的验证, 缓存与最终加载始终由 AutoJs6 完成. 双方通过 Binder 只传递文件描述符, 插件不会读取脚本目录, 也不知道文件的原始路径. 编译结果按输入内容与编译参数缓存, 相同输入的重复加载会直接命中缓存, 无需再次编译.
 
 ******
 
-宿主通过以下标识发现并调用插件:
-
-```text
-service action: org.autojs.plugin.DEX_COMPILER
-plugin id: dex-compiler
-protocol provider id: autojs6-d8
-engine: dex-compiler
-variant: d8
-protocol: V1
-required host build: 5270
-```
-
-插件声明 D8 8.13.22, 协议范围 V1.0 至 V1.1, JAR 输入, DEX ZIP 输出, DEBUG 和 RELEASE 模式, minApi 24 至 36 及 multi-dex. Runtime library model 为设备 boot classpath V1.
-
-build 5270 是 legacy V1.0 的最低宿主要求; `runtime.loadJarWithClasspath` 还要求包含 R3.3 的配对宿主构建, 本轮代表性验收使用 build 5274. 插件不含 native library, 因而通过一个纯 JVM universal APK 支持所有设备 ABI.
+### 功能特性
 
 ******
 
-### 宿主集成状态
+- 编译由 D8 8.13.22 完成, 插件可独立于 AutoJs6 更新编译器版本.
+- 编译运行在插件自己的独立进程与私有工作区中, 崩溃或失败不影响 AutoJs6 主进程.
+- 双重校验: 插件在编译前核对 JAR 的大小, SHA-256, ZIP 结构与 class 内容; AutoJs6 在编译后独立复验 DEX 输出.
+- 支持 DEBUG 与 RELEASE 编译模式, multi-dex 输出, 以及 minApi 24 至 36 的编译参数.
+- 支持 Android 7.0 (API 24) 及以上的所有设备; API 26+ 使用 D8Command, API 24/25 自动切换到 D8 CLI 兼容路径.
+- V1.1 协议支持有序的编译期 classpath (`runtime.loadJarWithClasspath()`), 用于编译引用了外部 API 的 JAR.
+- 任何失败都会让 AutoJs6 至多自动回退一次到内置编译器, 不会让脚本卡死在插件上.
 
 ******
 
-> `runtime.loadJar` 与显式 `runtime.loadJarWithClasspath` 路由仍默认关闭, 且要求显式选择同签名 exact component. R1 的 canonical 真实 provider 矩阵保持 7/7; R3 的 V1.1 有序编译期 classpath 已由一个获授权 API 34/x86_64 真实 provider 场景代表性闭环, 不是新设备矩阵. production Runtime single-flight 在认证并最终化 key 后使用有界持久语义 cache. 任一 waiter 中断都只分离该调用方且不作本地回退; 最后一个 waiter 离开时会通过 leader-owned one-shot handle 协作请求 producer 取消, 有其他 waiter 时不得取消. 安全熔断在当前进程生命周期内保持保守.
+### 安装与使用
 
 ******
 
-### 安装与使用指南
+启用插件共三步: 安装兼容的 AutoJs6, 安装本插件 APK, 然后在 AutoJs6 开发者选项中手动选择本插件. 有两点需要提前了解:
 
-******
-
-这是默认关闭的显式 opt-in 路径, 不是安装后自动生效的替代编译器. R1 验收包含 API 24/25/26/28/31/34/36 的真实 provider 执行; R3 只增加一条 API 34/x86_64 的 V1.1 代表性纵向验收, 不重跑或扩大该矩阵. 这些闭环不会自动启用路由或把插件提升为默认编译器.
+- 插件默认不生效. 仅安装不会改变 AutoJs6 的任何行为, 必须按下文手动启用.
+- 随时可以撤销. 在开发者选项中切回 Built-in D8/dx 即可恢复原状, 无需卸载任何应用.
 
 #### 安装前提
 
-只从可信且成对发布的来源取得 AutoJs6 与插件. AutoJs6 build 5270 或更高可使用 legacy V1.0; `runtime.loadJarWithClasspath` 需要包含 R3.3 的配对宿主构建, 本轮代表性验收使用 build 5274. 宿主与插件的完整当前签名证书集合必须相同; 自行构建时也必须保留下面的固定包名和服务组件. 升级前备份脚本与重要应用数据. 若 Android 报签名不匹配, 不要通过卸载宿主或清除数据来绕过.
+- AutoJs6 build 5270 或更高 (对应 `runtime.loadJar()`); `runtime.loadJarWithClasspath()` 需要更新的配对宿主构建 (验证时使用 build 5274).
+- 宿主与插件必须来自同一可信来源且签名一致. 签名不一致时插件无法被选中; 请改用成对发布的安装包或成对自行构建, 不要用卸载宿主或清除数据的方式绕过.
+- 自行构建时保持下方固定的包名与服务组件不变.
+- 升级前建议备份脚本与重要数据.
+
+相关标识如下:
 
 ```text
 host package: org.autojs.autojs6
@@ -116,17 +105,27 @@ minimum host build: 5270
 exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
 ```
 
-#### 安装并显式启用
+#### 安装并启用
 
-先安装或升级兼容的 AutoJs6, 再安装插件 APK. 在 AutoJs6 中进入 设置 > 关于应用和开发者, 长按应用图标打开开发者选项; 然后进入 DEX compiler > Raw JAR compiler provider, 选择下方 exact component 并确认. 仅安装插件不会启用路由, AutoJs6 也不会自动选择发现到的 provider.
+1. 安装或升级到兼容版本的 AutoJs6.
+2. 安装本插件 APK.
+3. 打开 AutoJs6, 进入 设置 > 关于应用和开发者, 长按应用图标进入开发者选项.
+4. 进入 DEX compiler > Raw JAR compiler provider.
+5. 选中本插件的服务组件 (即上方 exact component) 并确认.
 
-#### 确认状态
+再次强调: 仅安装插件不会自动启用, AutoJs6 也不会自动选择它发现的任何 provider; 第 3 至 5 步是必需的.
 
-回到开发者选项确认摘要明确显示 raw `runtime.loadJar` JAR 优先使用下方 exact component; 同一个选择也控制显式 `runtime.loadJarWithClasspath`. 如果只显示 Built-in D8/dx 或找不到候选项, 请先核对宿主 build、两个包名、插件启用状态与签名. 该摘要只证明当前选择与发现资格, 不等于某一次编译已走远端. 已有验收也不会取消每次请求的身份复核、握手、验证或回退规则.
+#### 确认已生效
 
-#### AutoJs6 示例
+回到开发者选项页面, 当摘要显示已选择本插件的服务组件时, 表示启用成功: 此后脚本中 `runtime.loadJar()` 与 `runtime.loadJarWithClasspath()` 的编译会优先交给插件处理.
 
-把包含 JVM `.class` 的可读 JAR 放到脚本目录的 `lib/example.jar`, 并将示例类名和方法替换为 JAR 中真实存在的 public API. 脚本通过既有 `runtime.loadJar()` 入口使用所选 provider; 插件不会增加新的 JavaScript 全局对象.
+如果列表中找不到本插件, 或摘要仍显示 Built-in D8/dx, 请依次检查: AutoJs6 build 是否不低于 5270; 宿主与插件的包名是否与上方一致; 插件应用是否被系统禁用; 两者签名是否一致.
+
+注意: 该摘要表示的是 "当前选择了谁", 而非 "某次编译实际由谁完成"; 单次编译仍可能因缓存命中或失败回退而未经过插件 (见下文).
+
+#### 脚本示例
+
+把包含 JVM `.class` 文件的 JAR 放到脚本目录的 `lib/example.jar`, 然后在脚本中正常调用 `runtime.loadJar()` 即可; 插件不添加任何新的 JavaScript 全局对象, 脚本写法与使用内置编译器时完全相同. 示例中的类名和方法请替换为你的 JAR 中真实存在的 public API.
 
 ```javascript
 "use strict";
@@ -143,7 +142,7 @@ const Example = Packages.com.example.autojs6.DexPluginExample;
 console.log("DEX compiler example: " + Example.answer());
 ```
 
-上述示例覆盖 V1.0 raw JAR. 需要有序编译期 classpath 时可显式调用:
+若 JAR 编译时引用了运行环境中已存在, 但本身不在该 JAR 内的类 (例如某些 API stub), 可以使用显式的编译期 classpath 入口:
 
 ```javascript
 runtime.loadJarWithClasspath(
@@ -152,11 +151,34 @@ runtime.loadJarWithClasspath(
 );
 ```
 
-该入口至少需要一个 classpath JAR, 保留声明顺序并把它纳入 cache identity. classpath 只供 D8 编译查找, 不进入输出也不自动装载; program 引用的运行时类型必须已由最终 program loader 的 parent 提供. 先用 `runtime.loadJar()` 加载依赖只会创建 sibling loader, 不能建立这种 parent 可见性. `.aar`、已编译 `.dex`、兼容辅助路径和动态 `defineClass()` 始终保留在宿主内置路径. 不可信字节码在编译后仍不安全, 只加载你信任的 JAR.
+关于 classpath 的三个要点:
 
-#### 采集诊断
+- classpath JAR 只在编译期用于解析引用, 不会打包进输出, 也不会被自动加载.
+- 若 program 在运行时确实要用到这些类, 它们必须已存在于最终类加载器的 parent 链中 (如 Android 系统类或 AutoJs6 自带类). 先用 `runtime.loadJar()` 加载依赖 JAR 无法满足这一点, 那只会创建一个平级的加载器.
+- classpath 的声明顺序有意义并参与缓存标识; 该入口至少需要传入一个 classpath JAR.
 
-报告问题时请记录 AutoJs6 build/版本、插件版本、开发者选项中的完整 exact component 摘要、设备型号/API/ABI、program 与每个有序 classpath JAR 的字节数和 SHA-256、发生时间、完整脚本异常及复现步骤. 如使用 ADB, 对每条命令显式填写唯一获授权设备的 `<serial>`, 截取故障时间附近的 AndroidClassLoader/AndroidRuntime 日志, 并在分享前删去私有路径、脚本内容和其他敏感数据.
+另外, `.aar` 文件, 已编译的 `.dex`, 以及 `defineClass()` 等动态入口始终由 AutoJs6 内置路径处理, 与本插件无关. 最后请牢记: 编译不等于安全审查, 只加载你信任的 JAR.
+
+#### 编译失败时会发生什么
+
+启用插件后, AutoJs6 依然把 "脚本能跑起来" 放在第一位:
+
+- `runtime.loadJar()`: 插件不可用, 编译失败, 超时或输出未通过验证时, AutoJs6 会用同一份 JAR 自动改用内置 D8/dx 编译, 每次请求至多回退一次.
+- `runtime.loadJarWithClasspath()`: 回退同样至多一次, 且必须带着完全相同的 program 与 classpath 交给本地 D8 重新编译; 不会丢弃 classpath, 也不会静默降级.
+- 你主动取消 (例如停止脚本) 不属于失败, 不会触发回退, 而是直接结束本次加载.
+- 插件返回 BUSY (同一时刻只允许一个编译会话) 时, AutoJs6 按上述规则处理, 稍后重试脚本即可.
+
+因此脚本最终成功运行并不能证明那次编译经过了插件; 需要确认时请参考下文的排查方法.
+
+#### 排查问题与反馈
+
+怀疑插件工作不正常时, 可先切回 Built-in D8/dx 对比行为是否变化. 反馈问题时请尽量附上以下信息:
+
+- AutoJs6 build/版本, 插件版本, 以及开发者选项摘要中的完整组件名.
+- 设备型号, Android 版本 (API) 与 CPU 架构 (ABI).
+- 触发问题的 JAR (或其字节数与 SHA-256), 完整脚本异常信息与复现步骤.
+
+如果会使用 ADB, 以下命令可采集相关日志 (`<serial>` 替换为你的设备序列号; 分享前请删去日志中的私有路径与敏感内容):
 
 ```powershell
 adb -s <serial> shell dumpsys package org.autojs.autojs6
@@ -164,21 +186,117 @@ adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.d
 adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
 ```
 
-#### 禁用与紧急回滚
+#### 关闭, 回滚与卸载
 
-在开发者选项的 Raw JAR compiler provider 中选择 Built-in D8/dx 并确认, 然后停止并重新启动 AutoJs6. 这会关闭实验路由但保留已选组件记录, 便于以后重新选择. 紧急情况下应先禁用并重启宿主; 不需要卸载 AutoJs6、清除其数据或删除脚本. 已打开的进程级安全熔断会保守地保持到该 AutoJs6 进程结束.
+- 临时关闭: 在开发者选项的 Raw JAR compiler provider 中选择 Built-in D8/dx 并确认, 然后完全退出并重启 AutoJs6. 组件选择记录会被保留, 之后可以随时重新启用.
+- 遇到紧急问题: 按上述方式关闭并重启宿主即可, 不需要卸载 AutoJs6, 清除其数据或删除脚本.
+- 卸载插件: 先切回 Built-in D8/dx, 再停止 AutoJs6 并卸载插件 APK. 卸载会清除插件自己的全部数据与临时文件; AutoJs6 继续使用内置编译器, 不受影响.
+- 重新安装后需要重新手动启用, 旧的选择不会自动恢复.
 
-#### 理解 fallback
+******
 
-legacy `runtime.loadJar()` 固定使用 V1.0, 在允许回退的失败上仍至多转入一次宿主内置 D8/dx. 非空 classpath 的 `runtime.loadJarWithClasspath()` 请求 V1.1; 路由关闭、旧 provider、绑定/远端失败、超时、输出无效或 adoption 失败时, 宿主仅可用完全相同的冻结 program+ordered classpath 转入一次本地 D8, 不得忽略 classpath、静默降为 V1.0 或进入 dx. 已 dispatch 的 Binder 工作不会自动重试; 调用方取消或线程中断会直接传播且不回退. AAR、loadDex 和 defineClass 本来就不经过插件, 因而脚本最终成功不能单独证明插件完成了编译.
+### 常见问题
 
-#### 卸载与恢复
+******
 
-先选择 Built-in D8/dx, 确认摘要已关闭实验, 再停止 AutoJs6 并卸载插件. 卸载会永久删除插件自己的应用数据和私有临时工作区, 但宿主可继续使用内置编译器. 恢复时安装兼容且同签名的插件, 重新打开开发者选项并再次显式选择 exact component; 不要假定旧选择会自动恢复为启用状态.
+**问: 安装插件后脚本没有任何变化, 是坏了吗?**
 
-#### 已知限制与验收边界
+答: 不是. 插件默认关闭, 需要在开发者选项中手动启用 (见上文); 且它只影响 `runtime.loadJar()` 与 `runtime.loadJarWithClasspath()` 的编译环节, 不改变脚本的其他行为.
 
-V1 仅处理有界 JVM JAR 到 DEX ZIP 的转换. V1.1 的 bundled classpath 是 compile-only, 不是运行时依赖打包、combined loader 或任意外部 classpath; 也不提供 R8 shrinking/obfuscation、自定义 desugared library、Maven/Gradle 下载解析、网络编译或确定性字节输出. `DexCompilerMode.RELEASE` 只选择 D8 的 release compilation mode; 它不启用 R8, 也不承诺 shrinking、optimization、obfuscation 或 mapping. BUSY 可触发符合对应版本语义的宿主回退. 最后一个 waiter 离开会协作请求取消, 终止后禁止发布并最终清理; 若 D8 已进入不可中断调用, CPU 工作仍可能在隔离进程中继续到当前编译返回. 性能晋级、默认启用、全 API/ABI V1.1 矩阵及移除宿主编译器依赖不属于本轮闭环范围.
+**问: 如何确认某次编译真的由插件完成?**
+
+答: 开发者选项摘要只表示 "已选择插件". 由于失败会自动回退且结果会被缓存, 脚本成功不能反推编译经过插件; 可按 "排查问题与反馈" 一节采集日志确认.
+
+**问: 这个插件能让脚本跑得更快吗?**
+
+答: 它的目标是更新的编译器, 更严格的输入校验与进程隔离, 而不是性能. 编译耗时与内置编译器大体相当, 且已编译结果会被 AutoJs6 缓存.
+
+**问: 插件支持 R8 压缩/混淆吗? RELEASE 模式是不是 R8?**
+
+答: 不支持, 也不是. 本插件只做 D8 编译; `RELEASE` 只是 D8 的 release 编译模式, 不包含 shrinking, obfuscation 或 mapping. R8 能力属于另一个独立的 provider 插件, 不在本插件范围内.
+
+**问: 为什么要求宿主与插件签名一致?**
+
+答: 这是双向的安全校验: 防止其他应用冒充 AutoJs6 调用插件, 也防止被篡改的插件冒充编译服务. 签名不一致时请更换成对发布的安装包, 不要用卸载或清除数据绕过.
+
+**问: 插件会联网或读取我的文件吗?**
+
+答: 不会. 插件没有网络与存储权限, 只能通过 AutoJs6 递来的文件描述符读取待编译内容, 临时文件全部位于自己的私有目录.
+
+******
+
+### 能力边界
+
+******
+
+为避免误解, 以下事项明确不属于本插件的功能范围:
+
+- 不做 R8 shrinking, optimization, obfuscation, 也不生成 mapping 文件; `RELEASE` 仅代表 D8 的 release 编译模式.
+- 不下载或解析依赖 (没有 Maven/Gradle 集成), 不进行网络编译.
+- 不处理 `.aar`, 已编译的 `.dex` 与 `defineClass()` 动态字节码, 它们始终走 AutoJs6 内置路径.
+- V1.1 classpath 仅用于编译, 不打包运行时依赖, 也不建立组合类加载器.
+- 不承诺字节级确定性输出: 相同输入在不同编译器版本下可能产生不同但等价的 DEX.
+- 不替代 AutoJs6 的输出验证: 宿主始终对 DEX 结果做独立复验.
+- 不会自动成为默认编译器: 启用与否始终由用户显式控制.
+
+******
+
+### 技术参考
+
+******
+
+以下内容面向需要精确边界的开发者与集成方; 仅使用插件时通常无需阅读.
+
+#### 输入与输出
+
+协议 V1.0 通过输入描述符接收一个 raw program JAR; V1.1 在同一个有界输入包中接收一个 program JAR 与至少一个有序的编译期 classpath JAR. 两者产生相同形式的输出:
+
+```text
+input: JAR with JVM class files
+output: DEX ZIP with contiguous classes*.dex entries
+compiler: D8 8.13.22
+```
+
+#### 插件发现标识
+
+宿主通过以下标识发现并调用插件:
+
+```text
+service action: org.autojs.plugin.DEX_COMPILER
+plugin id: dex-compiler
+protocol provider id: autojs6-d8
+engine: dex-compiler
+variant: d8
+protocol: V1
+required host build: 5270
+```
+
+插件声明 D8 8.13.22, 协议范围 V1.0 至 V1.1, JAR 输入, DEX ZIP 输出, DEBUG 与 RELEASE 模式, minApi 24 至 36 及 multi-dex; runtime library model 为设备 boot classpath V1.
+
+build 5270 是 V1.0 的最低宿主要求; `runtime.loadJarWithClasspath()` 需要包含 V1.1 支持的配对宿主构建 (代表性验证使用 build 5274). 插件不含 native library, 以一个纯 JVM universal APK 覆盖所有设备 ABI.
+
+#### 安全模型
+
+插件不申请网络与存储权限. 编译服务受 `org.autojs.permission.PLUGIN` 权限保护, 每次调用都会核验 AutoJs6 的包名, 调用方 UID 归属与双方签名. 输入输出均通过文件描述符传递并在异步处理前复制, 临时文件仅位于插件私有 cache 且会在编译结束后清理.
+
+#### 资源上限
+
+为防御恶意或异常输入, 插件对各环节设置了硬性上限, 超限请求会被直接拒绝:
+
+- 输入 JAR: 压缩后最大 64 MiB, 最多 20000 个 entry, 解压总量最大 256 MiB.
+- V1.1 classpath: 最多 32 个 JAR, 单个压缩后最大 64 MiB, classpath 压缩总量最大 128 MiB, 整个输入包最大 256 MiB.
+- class 数据: 总量最大 128 MiB, 单个 class 最大 8 MiB; entry 与整体压缩比另有限制.
+- 输出 DEX ZIP: 最大 16 MiB, 最多 64 个连续编号的 DEX entry; 请求可声明更低的上限.
+- 并发: 同一进程同时只处理一个编译会话, 其余请求收到可重试的 BUSY 错误.
+- 诊断数据最多 64 KiB, 错误文本与回调队列亦有独立上限.
+
+#### 注意事项
+
+- 取消或关闭会立即阻止结果发布并中断 worker, 但 D8 内部的 CPU 计算无法保证立刻停止, 可能在隔离进程中继续到本次编译返回.
+- 取消后的会话槽会保留到 worker 实际退出并完成清理, 期间新请求仍会收到 BUSY.
+- 插件不声明确定性输出; 缓存标识包含编译器版本与运行时指纹, 版本变化不会误用旧结果.
+- V1.1 只接受宿主冻结打包的编译期 classpath, 不接收调用方文件路径或自定义 desugared library 配置.
+- 设备 runtime boot classpath 因系统而异, 请求必须与 provider 报告的 runtime 指纹一致.
 
 ******
 
@@ -186,42 +304,9 @@ V1 仅处理有界 JVM JAR 到 DEX ZIP 的转换. V1.1 的 bundled classpath 是
 
 ******
 
-R1 与 R2 保持闭环. R3 已完成 V1.0/V1.1 并存 wire、provider canonical bundle、宿主同语义 D8-only fallback、多输入 cache/single-flight identity 和显式 Rhino 入口, 并在一个获授权 API 34/x86_64 目标上完成真实 provider classpath 编译、最终 DexClassLoader 执行和一次 V1.0 回归. 这是一条代表性纵向证据, 不是新的设备矩阵; 路由仍默认关闭, 调用方取消不回退, classpath 仍是 compile-only. 详细状态和可复核证据以 ROADMAP 为准.
+开发按阶段推进, R0 至 R4 均已完成并留有可复核证据. R5 正在进行: 用户指南与应用内说明已经重写, 有界且经脱敏的诊断及仅存于进程内的最近路径摘要已完成本地实现. 性能基准, 更大范围的 V1.1 设备验收, 获授权 Android 真实诊断用例及发布晋升仍待完成. 各条目的完成定义与证据见:
 
 - [查看可勾选的 ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
-
-******
-
-### 安全性
-
-******
-
-插件不请求网络或存储权限. 编译服务受 `org.autojs.permission.PLUGIN` 保护, 并核验 AutoJs6 包名, 调用 UID 归属及双方签名. 输入输出描述符在异步处理前复制, 临时文件仅位于应用私有 cache 并在 worker 退出后清理.
-
-******
-
-### 运行限制
-
-******
-
-- 压缩 JAR 最大 64 MiB, 最多 20000 个 entry, 解压总量最大 256 MiB.
-- V1.1 最多接受 32 个 classpath JAR, 单个压缩 classpath JAR 最大 64 MiB, classpath 压缩总量最大 128 MiB, 整个 canonical bundle 最大 256 MiB.
-- class 数据总量最大 128 MiB, 单个 class 最大 8 MiB. Entry 和整体压缩比均受限制.
-- DEX ZIP 最大 16 MiB, 最多 64 个连续编号的 DEX entry. 请求可声明更低的输出上限.
-- 同一进程最多有一个活动编译会话. 忙碌请求会返回可重试的 BUSY 错误.
-- 诊断数据最多 64 KiB, 错误文本和回调队列也有独立上限.
-
-******
-
-### 限制和注意事项
-
-******
-
-- 取消或关闭会立即阻止结果发布, 关闭描述符并中断 worker, 但 D8 的 CPU 工作无法可靠中断.
-- 取消后的会话槽会一直保留到 D8 worker 实际退出并完成清理, 期间新请求仍会收到 BUSY.
-- 插件不声明确定性. V1.1 只接受宿主冻结在 canonical bundle 中的 compile-only classpath, 不接收调用方路径、任意 provider 文件系统 classpath 或自定义 desugared library 配置.
-- 宿主仍会使用完整的 DexIndexedZipValidator 二次验证输出. 插件的输出封装检查不是宿主验证的替代品.
-- 设备 runtime boot classpath 可能因系统而异, 请求必须匹配 provider 报告的 runtime 指纹.
 
 ******
 
@@ -233,13 +318,15 @@ R1 与 R2 保持闭环. R3 已完成 V1.0/V1.1 并存 wire、provider canonical 
 
 ###### 2026/08/08
 
-* `新增` DEX Compiler 协议 V1 provider, 插件 ID 和引擎为 `dex-compiler`, provider ID 为 `autojs6-d8`, 变体为 `d8`
-* `新增` JAR 到 DEX ZIP 编译, 支持 DEBUG, RELEASE, minApi 24 至 36, multi-dex 及设备 runtime boot classpath 指纹
-* `新增` 有界 JAR 大小, entry 数量, 解压数据, class 数据, 诊断和输出, 并严格验证 ZIP framing, 名称及 class magic
-* `新增` 仅封装连续 `classes*.dex`, 回报实际大小和 SHA-256, 且由宿主使用 DexIndexedZipValidator 二次验证
-* `新增` 单活动会话, 同签名 AutoJs6 调用方核验, 私有临时工作区, API 24 和 25 CLI fallback 及保守取消语义
-* `新增` 纯 JVM universal APK, 以及 10 种语言的 README, 更新日志, Android 界面和插件说明
-* `依赖` 附加 R8 8.13.17, 用于 D8 编译
+* `提示` 首个正式版本. 安装后默认不生效, 需在 AutoJs6 开发者选项中手动启用; 详细步骤见 README 的 "安装与使用" 章节
+* `新增` 作为 AutoJs6 的外部 DEX 编译插件: 脚本调用 `runtime.loadJar()` 加载 JAR 时, 可由本插件代替内置编译器完成 JAR 到 DEX 的编译
+* `新增` 编译在插件独立进程的私有沙箱中进行, 与 AutoJs6 相互隔离; 插件失败或不可用时, AutoJs6 至多自动回退一次到内置编译器
+* `新增` 编译前严格校验输入 JAR 的大小, SHA-256, ZIP 结构, entry 名称与 class 内容, 拒绝畸形, 超限或被篡改的输入
+* `新增` 支持 DEBUG 与 RELEASE 编译模式, multi-dex 输出与 minApi 24 至 36; 输出为连续编号的 `classes*.dex` ZIP 并回报实际大小与 SHA-256
+* `新增` 兼容 Android 7.0 (API 24) 及以上设备; API 26+ 使用 D8Command, API 24/25 自动使用 D8 CLI 兼容路径
+* `新增` 仅与同签名的 AutoJs6 通信 (受 `org.autojs.permission.PLUGIN` 权限保护), 不申请网络与存储权限
+* `新增` 纯 JVM 实现, 单个 universal APK 覆盖所有设备架构; 附带 10 种语言的界面, README 与应用内说明
+* `依赖` 附带 Google R8 库 8.13.17 (提供 D8 编译器)
 
 ##### 更多版本
 
@@ -271,7 +358,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-编译器通过 Maven 使用 D8 8.13.22. 本地 AAR 只提供稳定协议边界, 生成的插件是无 native library 的 universal APK.
+编译器通过 Maven 引入 D8 8.13.22. 本地 AAR 只提供稳定的协议边界, 构建产物是不含 native library 的 universal APK.
 
 ******
 
@@ -295,7 +382,7 @@ app/src/main/assets/doc/CHANGELOG-*.md
 app/src/main/res/values-*/strings.xml
 ```
 
-`.python/generate_markdown.py` 从 JSON 源生成 10 种语言的 README 和应用内更新日志. Android 字符串由各自资源目录管理.
+`.python/generate_markdown.py` 从 JSON 源生成全部 10 种语言的 README 与应用内更新日志; 修改文档请编辑 JSON 源而非生成的 Markdown. Android 界面字符串由各自的资源目录管理.
 
 ******
 

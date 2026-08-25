@@ -8,10 +8,12 @@
 
 ###### 2026/08/08
 
-* `新增` DEX Compiler 协议 V1 provider, 插件 ID 和引擎为 `dex-compiler`, provider ID 为 `autojs6-d8`, 变体为 `d8`
-* `新增` JAR 到 DEX ZIP 编译, 支持 DEBUG, RELEASE, minApi 24 至 36, multi-dex 及设备 runtime boot classpath 指纹
-* `新增` 有界 JAR 大小, entry 数量, 解压数据, class 数据, 诊断和输出, 并严格验证 ZIP framing, 名称及 class magic
-* `新增` 仅封装连续 `classes*.dex`, 回报实际大小和 SHA-256, 且由宿主使用 DexIndexedZipValidator 二次验证
-* `新增` 单活动会话, 同签名 AutoJs6 调用方核验, 私有临时工作区, API 24 和 25 CLI fallback 及保守取消语义
-* `新增` 纯 JVM universal APK, 以及 10 种语言的 README, 更新日志, Android 界面和插件说明
-* `依赖` 附加 R8 8.13.17, 用于 D8 编译
+* `提示` 首个正式版本. 安装后默认不生效, 需在 AutoJs6 开发者选项中手动启用; 详细步骤见 README 的 "安装与使用" 章节
+* `新增` 作为 AutoJs6 的外部 DEX 编译插件: 脚本调用 `runtime.loadJar()` 加载 JAR 时, 可由本插件代替内置编译器完成 JAR 到 DEX 的编译
+* `新增` 编译在插件独立进程的私有沙箱中进行, 与 AutoJs6 相互隔离; 插件失败或不可用时, AutoJs6 至多自动回退一次到内置编译器
+* `新增` 编译前严格校验输入 JAR 的大小, SHA-256, ZIP 结构, entry 名称与 class 内容, 拒绝畸形, 超限或被篡改的输入
+* `新增` 支持 DEBUG 与 RELEASE 编译模式, multi-dex 输出与 minApi 24 至 36; 输出为连续编号的 `classes*.dex` ZIP 并回报实际大小与 SHA-256
+* `新增` 兼容 Android 7.0 (API 24) 及以上设备; API 26+ 使用 D8Command, API 24/25 自动使用 D8 CLI 兼容路径
+* `新增` 仅与同签名的 AutoJs6 通信 (受 `org.autojs.permission.PLUGIN` 权限保护), 不申请网络与存储权限
+* `新增` 纯 JVM 实现, 单个 universal APK 覆盖所有设备架构; 附带 10 种语言的界面, README 与应用内说明
+* `依赖` 附带 Google R8 库 8.13.17 (提供 D8 编译器)

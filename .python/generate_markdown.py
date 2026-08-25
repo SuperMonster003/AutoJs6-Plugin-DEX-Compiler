@@ -119,6 +119,7 @@ def build_readme_values(code, languages, changelogs):
     repo_url = content["repo_url"]
     content["placeholder_ul_languages_all_supported"] = build_language_list(code, languages)
     content["placeholder_features"] = bullet_list(content["features"])
+    content["placeholder_boundaries"] = bullet_list(content["boundaries"])
     content["placeholder_security_limits"] = bullet_list(content["security_limits"])
     content["placeholder_caveats"] = bullet_list(content["caveats"])
     content["placeholder_latest_release_history"] = format_changelog_items(

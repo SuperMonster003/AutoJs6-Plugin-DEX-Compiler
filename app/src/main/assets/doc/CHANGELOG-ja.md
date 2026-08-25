@@ -8,10 +8,12 @@
 
 ###### 2026/08/08
 
-* `機能` Plugin ID と engine が `dex-compiler`, provider ID が `autojs6-d8`, variant が `d8` の DEX Compiler プロトコル V1 provider
-* `機能` DEBUG, RELEASE, minApi 24 から 36, multi-dex, 端末 runtime boot classpath fingerprint に対応する JAR から DEX ZIP へのコンパイル
-* `機能` JAR サイズ, entry 数, 展開データ, class データ, 診断, 出力の上限と厳密な ZIP framing, 名前, class magic 検証
-* `機能` 連続 `classes*.dex` の packaging と実サイズおよび SHA-256 の報告, ホスト DexIndexedZipValidator による再検証
-* `機能` 単一アクティブセッション, 同一署名 AutoJs6 呼び出し元検証, 専用ワークスペース, API 24 と 25 の CLI fallback, 保守的なキャンセル動作
-* `機能` 純 JVM universal APK と 10 言語の README, changelog, Android UI, プラグイン説明
-* `依存関係` D8 コンパイル用に R8 8.13.17 を追加
+* `ヒント` 初の安定版リリース. インストール後は既定で無効であり, AutoJs6 の開発者オプションで手動有効化が必要です; 手順は README の "インストールと使い方" 章を参照してください
+* `機能` AutoJs6 の外部 DEX コンパイラプラグインとして動作: スクリプトが `runtime.loadJar()` で JAR を読み込む際, 内蔵コンパイラの代わりに本プラグインが JAR から DEX へのコンパイルを実行できます
+* `機能` コンパイルはプラグイン自身のプロセス内の私有サンドボックスで実行され, AutoJs6 から隔離されます; プラグインが失敗または利用不可の場合, AutoJs6 は最大 1 回だけ内蔵コンパイラへフォールバックします
+* `機能` コンパイル前に入力 JAR のサイズ, SHA-256, ZIP 構造, entry 名, class 内容を厳格に検証し, 不正・超過・改ざんされた入力を拒否します
+* `機能` DEBUG と RELEASE のコンパイルモード, multi-dex 出力, minApi 24 から 36 に対応; 出力は連番の `classes*.dex` ZIP で, 実際のサイズと SHA-256 を報告します
+* `機能` Android 7.0 (API 24) 以上の端末に対応; API 26+ は D8Command を使用し, API 24/25 は自動的に D8 CLI 互換パスを使用します
+* `機能` 同一署名の AutoJs6 とのみ通信し (`org.autojs.permission.PLUGIN` 権限で保護), ネットワーク権限もストレージ権限も要求しません
+* `機能` 純 JVM 実装で, 単一の universal APK が全端末アーキテクチャをカバー; 10 言語の UI, README, アプリ内説明を同梱
+* `依存関係` Google R8 ライブラリ 8.13.17 を同梱 (D8 コンパイラを提供)

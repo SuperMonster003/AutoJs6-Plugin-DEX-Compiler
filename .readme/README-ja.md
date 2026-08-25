@@ -5,7 +5,7 @@
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
-  <p>独立 DEX コンパイラプラグイン. 検証済み JAR を D8 で連続した classes*.dex ZIP にコンパイル</p>
+  <p>AutoJs6 向け独立 DEX コンパイラプラグイン. 隔離プロセス内で最新の D8 を使い, スクリプトの JAR を DEX にコンパイル</p>
 
   <p>
     <a href="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/releases"><img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/SuperMonster003/AutoJs6-Plugin-DEX-Compiler?label=Release"/></a>
@@ -20,7 +20,7 @@
 
 ******
 
-現在の README.md は次の言語に対応しています:
+README.md は現在以下の言語で利用できます:
 
 - [简体中文 [zh-Hans]](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/.readme/README-zh-Hans.md)
 - [繁體中文 (香港) [zh-Hant-HK]](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/.readme/README-zh-Hant-HK.md)
@@ -39,7 +39,30 @@
 
 ******
 
-DEX Compiler は AutoJs6 DEX Compiler プロトコル V1 の独立 provider です. アプリ専用ワークスペースの D8 で厳密に検証した JVM JAR をコンパイルし, ホストが提供した出力 descriptor から正規 DEX ZIP を返します.
+AutoJs6 のスクリプトは `runtime.loadJar()` で JAR を読み込み, その中の Java クラスを呼び出せます. Android は JVM バイトコードを直接実行できないため, JAR はまず DEX にコンパイルする必要があります; 既定ではこの工程を AutoJs6 内蔵のコンパイラが担当します.
+
+本プラグインはもう一つの選択肢を提供します: 別途インストールするアプリとして, 自身の隔離プロセス内でより新しい Google D8 コンパイラを使ってこのコンパイルを行います. AutoJs6 は JAR をプラグインに渡し, DEX 結果を受け取った後, 自ら検証・キャッシュ・ロードします; プラグインに問題が起きた場合, AutoJs6 は自動的に内蔵コンパイラへ戻るため, スクリプトは通常影響を受けません.
+
+本プラグインが適する場面: AutoJs6 同梱版より新しい D8 を使いたい; コンパイル処理を AutoJs6 から隔離されたプロセスで実行したい; AutoJs6 を更新せずにコンパイラだけを更新したい.
+
+******
+
+### 動作の仕組み
+
+******
+
+プラグインを有効にすると, `runtime.loadJar()` の呼び出しはおおよそ次の手順をたどります:
+
+```text
+1. script     calls runtime.loadJar() or runtime.loadJarWithClasspath()
+2. AutoJs6    validates and freezes the input JAR, records its size and SHA-256
+3. plugin     re-verifies the input, then compiles it with D8 in a private sandboxed process
+4. plugin     returns a DEX ZIP (classes.dex, classes2.dex, ...)
+5. AutoJs6    independently re-validates the result, caches it, and loads the classes
+*  fallback   if anything fails, AutoJs6 retries once with its built-in compiler
+```
+
+プラグインが担当するのは手順 3 と 4, すなわち "コンパイル" そのものだけです; 入力の固定, 結果の検証, キャッシュと最終的なクラスロードは常に AutoJs6 側で行われます. 両アプリは Binder 経由でファイルディスクリプタのみをやり取りするため, プラグインがスクリプトディレクトリを読むことはなく, 元のファイルパスも知り得ません. コンパイル結果は入力内容とコンパイルパラメータに基づいてキャッシュされ, 同じ入力の再ロードは再コンパイルなしでキャッシュにヒットします.
 
 ******
 
@@ -47,67 +70,33 @@ DEX Compiler は AutoJs6 DEX Compiler プロトコル V1 の独立 provider で�
 
 ******
 
-- DEBUG または RELEASE モードの JAR を受け付け, minApi 24 から 36 と multi-dex 出力に対応します.
-- コンパイル前に宣言サイズと SHA-256, ZIP framing, entry 名, class magic, 重複, 展開上限を検証します.
-- 外部 classpath を受け付けず, 端末の runtime boot classpath とその fingerprint に対してコンパイルします.
-- 連続した `classes.dex`, `classes2.dex` 以降だけを格納し, 実際の ZIP サイズと SHA-256 を返します.
-- Android API 26 以降では D8Command, API 24 と 25 では D8 CLI fallback を使用します.
+- コンパイルは D8 8.13.22 が実行し, プラグインは AutoJs6 と独立してコンパイラを更新できます.
+- コンパイルはプラグイン自身の独立プロセスと私有ワークスペースで実行され, クラッシュや失敗が AutoJs6 本体のプロセスに影響することはありません.
+- 二重検証: プラグインはコンパイル前に JAR のサイズ, SHA-256, ZIP 構造, class 内容を照合し, AutoJs6 はコンパイル後に DEX 出力を独立に再検証します.
+- DEBUG と RELEASE のコンパイルモード, multi-dex 出力, minApi 24 から 36 のコンパイルパラメータに対応.
+- Android 7.0 (API 24) 以上のすべての端末に対応; API 26+ は D8Command を使用し, API 24/25 は自動的に D8 CLI 互換パスへ切り替えます.
+- V1.1 プロトコルは順序付きコンパイル時 classpath (`runtime.loadJarWithClasspath()`) に対応し, 外部 API を参照する JAR のコンパイルに使えます.
+- いかなる失敗でも AutoJs6 は最大 1 回だけ内蔵コンパイラへフォールバックするため, スクリプトがプラグインで詰まることはありません.
 
 ******
 
-### 入力と出力形式
+### インストールと使い方
 
 ******
 
-バージョン 1 は次のコンパイル範囲だけを宣言します:
+プラグインの有効化は 3 ステップです: 互換性のある AutoJs6 をインストールし, 本プラグインの APK をインストールし, AutoJs6 の開発者オプションで本プラグインを手動選択します. 先に知っておくべきことが 2 点あります:
 
-```text
-input: JAR with JVM class files
-output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.22
-```
-
-******
-
-### プラグインインターフェース
-
-******
-
-ホストは次の識別情報でプラグインを検出して呼び出します:
-
-```text
-service action: org.autojs.plugin.DEX_COMPILER
-plugin id: dex-compiler
-protocol provider id: autojs6-d8
-engine: dex-compiler
-variant: d8
-protocol: V1
-required host build: 5270
-```
-
-プラグインは D8 8.13.22, JAR 入力, DEX ZIP 出力, DEBUG と RELEASE モード, minApi 24 から 36, multi-dex を宣言します. Runtime library model は端末 boot classpath V1 です.
-
-ホスト build 5270 以降が必要です. Native library を含まないため, 1 個の純 JVM universal APK がすべての端末 ABI に対応します.
-
-******
-
-### ホスト統合状態
-
-******
-
-> runtime.loadJar の raw 経路はデフォルト無効のままで, ホストと同一署名の exact component を明示的に選択する必要があります. R1 は R1.1 7/7、R1.2 4/4、canonical 実 provider マトリクス 7/7 で完了しました. production Runtime の single-flight は認証済み key の確定後に有界永続セマンティックキャッシュを使用します. 最後の waiter を含む任意の割り込みはその呼び出し元だけをローカルフォールバックなしで切り離し, producer は完了してキャッシュへ保存できます. last-waiter 協調キャンセルは R2 に残り, safety circuit はプロセス存続中は保守的です.
-
-******
-
-### R1 インストール・利用ガイド
-
-******
-
-これは既定で無効な R1 の明示的 opt-in 経路であり, インストールだけで有効になる代替コンパイラではありません. R1 受入証拠は API 24/25/26/28/31/34/36 の実 provider 実行を含み, x86_64 エミュレーターと arm64 実機をカバーします. これは固定 R1 gate を閉じるもので, 経路の自動有効化、既定化、有界 V1 プロトコルの拡張ではありません.
+- プラグインは既定では無効です. インストールしただけでは AutoJs6 の挙動は何も変わらず, 下記の手順で手動有効化が必要です.
+- いつでも元に戻せます. 開発者オプションで Built-in D8/dx に切り替えれば, 何もアンインストールせずに元の挙動へ戻ります.
 
 #### 前提条件
 
-AutoJs6 とプラグインは, 信頼できる組み合わせ済みのリリース元からのみ取得してください. AutoJs6 は build 5270 以降で, ホストとプラグインの現在の完全な署名証明書セットが一致する必要があります. 自分でビルドする場合も下記の固定 package/service identity を維持してください. 更新前にスクリプトと重要なアプリデータをバックアップしてください. Android が署名不一致を示した場合, ホストのアンインストールやデータ消去で回避しないでください.
+- AutoJs6 build 5270 以上 (`runtime.loadJar()` 用); `runtime.loadJarWithClasspath()` にはより新しいペアのホストビルドが必要です (検証では build 5274 を使用).
+- ホストとプラグインは同一の信頼できる提供元から入手し, 署名が一致している必要があります. 署名が一致しない場合プラグインは選択できません; ペアで公開されたパッケージを使うか両方を自分でビルドしてください. ホストのアンインストールやデータ消去で回避しないでください.
+- 自分でビルドする場合は, 下記の固定パッケージ名とサービスコンポーネントを変更しないでください.
+- アップグレード前にスクリプトと重要なデータのバックアップを推奨します.
+
+関連する識別子は次のとおりです:
 
 ```text
 host package: org.autojs.autojs6
@@ -116,17 +105,27 @@ minimum host build: 5270
 exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
 ```
 
-#### インストールして明示的に有効化
+#### インストールと有効化
 
-最初に互換 AutoJs6 をインストールまたは更新し, 次にプラグイン APK をインストールします. AutoJs6 で 設定 > アプリと開発者について を開き, アプリアイコンを長押しして開発者向けオプションを開きます. DEX compiler > Raw JAR compiler provider で下記の exact component を選び, 確定します. プラグインのインストールだけでは経路は有効にならず, AutoJs6 が発見した provider を自動選択することもありません.
+1. 互換バージョンの AutoJs6 をインストールまたはアップグレードします.
+2. 本プラグインの APK をインストールします.
+3. AutoJs6 を開き, 設定 > アプリと開発者について に進み, アプリアイコンを長押しして開発者オプションに入ります.
+4. DEX compiler > Raw JAR compiler provider に進みます.
+5. 本プラグインのサービスコンポーネント (上記の exact component) を選択して確定します.
 
-#### 状態の確認
+重ねて強調します: プラグインをインストールしただけでは有効になりません. AutoJs6 が発見済み provider を自動選択することもないため, 手順 3 から 5 は必須です.
 
-開発者向けオプションに戻り, raw runtime.loadJar JAR が下記 exact component を優先するという要約が明示されていることを確認します. Built-in D8/dx または候補なしの場合, ホスト build、両 package 名、プラグインの有効状態、署名を確認してください. この要約が証明するのは現在の選択と discovery eligibility だけで, 特定のコンパイルが遠隔だったことは証明しません. R1 マトリクス完了後も要求ごとの identity 再検証、handshake、検証、fallback 規則は維持されます.
+#### 有効化の確認
 
-#### AutoJs6 の例
+開発者オプションのページに戻り, サマリーに本プラグインのサービスコンポーネントが選択済みと表示されていれば有効化は成功です: 以後, スクリプトの `runtime.loadJar()` と `runtime.loadJarWithClasspath()` のコンパイルは優先的にプラグインへ渡されます.
 
-JVM `.class` を含む読み取り可能な JAR をスクリプト横の `lib/example.jar` に置き, サンプルのクラスとメソッドをその JAR に実在する public API に置き換えます. スクリプトは既存の `runtime.loadJar()` 入口から選択済み provider を使います. プラグインは新しい JavaScript global を追加しません.
+一覧に本プラグインが見つからない場合や, サマリーが Built-in D8/dx のままの場合は, 次の順に確認してください: AutoJs6 build が 5270 以上か; ホストとプラグインのパッケージ名が上記と一致するか; プラグインアプリがシステムに無効化されていないか; 両者の署名が一致するか.
+
+注意: このサマリーが示すのは "現在誰が選択されているか" であり, "ある 1 回のコンパイルを実際に誰が行ったか" ではありません; 個々のコンパイルはキャッシュヒットやフォールバックによりプラグインを経由しないことがあります (下記参照).
+
+#### スクリプト例
+
+JVM の `.class` ファイルを含む JAR をスクリプトディレクトリの `lib/example.jar` に置き, いつもどおり `runtime.loadJar()` を呼び出すだけです; プラグインは新しい JavaScript グローバルオブジェクトを一切追加せず, スクリプトの書き方は内蔵コンパイラ使用時とまったく同じです. 例中のクラス名とメソッドは, あなたの JAR に実在する public API に置き換えてください.
 
 ```javascript
 "use strict";
@@ -143,11 +142,43 @@ const Example = Packages.com.example.autojs6.DexPluginExample;
 console.log("DEX compiler example: " + Example.answer());
 ```
 
-この例は raw JAR のみです. `.aar`、コンパイル済み `.dex`、互換 helper、動的 `defineClass()` は常にホスト内蔵経路を使います. 検証しても信頼できない bytecode が安全になるわけではありません. 信頼する JAR だけを読み込んでください.
+実行環境には存在するものの JAR 自体には含まれないクラス (API スタブなど) をコンパイル時に参照する場合は, 明示的なコンパイル時 classpath 入口を使えます:
 
-#### 診断情報の収集
+```javascript
+runtime.loadJarWithClasspath(
+    files.path("./lib/program.jar"),
+    files.path("./lib/compile-api-stubs.jar"),
+);
+```
 
-問題報告には AutoJs6 build/version、プラグイン version、開発者向けオプションの完全な exact-component 要約、端末 model/API/ABI、入力 JAR の byte 数と SHA-256、発生時刻、完全なスクリプト例外、再現手順を含めてください. ADB を使う場合は各コマンドの `<serial>` に許可された一台の端末 ID を明示し, 障害前後の AndroidClassLoader/AndroidRuntime log を取得して, 共有前に private path、スクリプト内容、その他の機密情報を削除してください.
+classpath について知っておくべき 3 点:
+
+- classpath JAR はコンパイル時の参照解決だけに使われ, 出力へは同梱されず, 自動ロードもされません.
+- プログラムが実行時にそれらのクラスを実際に使う場合, それらは最終クラスローダの parent チェーン (Android システムクラスや AutoJs6 同梱クラスなど) に既に存在している必要があります. 依存 JAR を先に `runtime.loadJar()` でロードしても兄弟ローダが作られるだけで, この条件は満たせません.
+- classpath の宣言順序には意味があり, キャッシュ識別子の一部になります; この入口には少なくとも 1 つの classpath JAR が必要です.
+
+なお, `.aar` ファイル, コンパイル済み `.dex`, `defineClass()` などの動的入口は常に AutoJs6 内蔵パスで処理され, 本プラグインとは無関係です. 最後に, コンパイルはセキュリティ審査ではありません: 信頼できる JAR のみをロードしてください.
+
+#### コンパイル失敗時の挙動
+
+プラグインを有効にしても, AutoJs6 は変わらず "スクリプトが動き続けること" を最優先します:
+
+- `runtime.loadJar()`: プラグインが利用不可, コンパイル失敗, タイムアウト, または出力が検証を通らない場合, AutoJs6 は同じ JAR を内蔵 D8/dx で自動的に再コンパイルします (リクエストごとに最大 1 回).
+- `runtime.loadJarWithClasspath()`: フォールバックは同じく最大 1 回で, まったく同一の program と classpath をローカル D8 に渡す必要があります; classpath が破棄されたり, 黙って格下げされたりすることはありません.
+- 意図的なキャンセル (スクリプト停止など) は失敗ではありません: フォールバックは発生せず, その読み込みが終了するだけです.
+- プラグインが BUSY を返す場合 (同時に 1 つのコンパイルセッションのみ), AutoJs6 は上記ルールに従います; 少し待ってスクリプトを再実行してください.
+
+したがって, スクリプトが最終的に成功しても, そのコンパイルがプラグインを経由した証明にはなりません; 確認が必要な場合は下記の診断手順を使ってください.
+
+#### トラブルシューティングと報告
+
+プラグインの動作が疑わしい場合は, まず Built-in D8/dx に切り替えて挙動を比較してください. 問題を報告する際は, 可能な限り以下の情報を添えてください:
+
+- AutoJs6 の build/バージョン, プラグインのバージョン, 開発者オプションのサマリーに表示される完全なコンポーネント名.
+- 端末の機種, Android バージョン (API), CPU アーキテクチャ (ABI).
+- 問題を引き起こす JAR (またはそのバイト数と SHA-256), スクリプトの完全な例外情報, 再現手順.
+
+ADB を使える場合, 以下のコマンドで関連ログを収集できます (`<serial>` は端末のシリアル番号に置き換え, 共有前にログ中の私的パスや機微な内容を削除してください):
 
 ```powershell
 adb -s <serial> shell dumpsys package org.autojs.autojs6
@@ -155,21 +186,117 @@ adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.d
 adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
 ```
 
-#### 無効化と緊急ロールバック
+#### 無効化, ロールバック, アンインストール
 
-開発者向けオプション > Raw JAR compiler provider で Built-in D8/dx を選択して確定し, AutoJs6 を停止して再起動します. 実験経路は無効になりますが, 後で再選択できるよう component 記録は残ります. 緊急時はまず無効化してホストを再起動してください. AutoJs6 のアンインストール、データ消去、スクリプト削除は不要です. 開いた process safety circuit はその AutoJs6 process が終了するまで意図的に開いたままです.
+- 一時的な無効化: 開発者オプションの Raw JAR compiler provider で Built-in D8/dx を選択して確定し, AutoJs6 を完全に終了して再起動します. コンポーネントの選択記録は保持されるため, いつでも再有効化できます.
+- 緊急時: 上記の手順で無効化してホストを再起動すれば十分です. AutoJs6 のアンインストール, データ消去, スクリプト削除は不要です.
+- プラグインのアンインストール: 先に Built-in D8/dx へ切り替え, AutoJs6 を停止してからプラグイン APK をアンインストールします. アンインストールでプラグイン自身のデータと一時ファイルはすべて削除されます; AutoJs6 は内蔵コンパイラで動作し続けます.
+- 再インストール後は再び手動での有効化が必要です; 以前の選択は自動復元されません.
 
-#### fallback の意味
+******
 
-経路が無効、provider が利用不可または非互換、binding/remote 処理の失敗、timeout、無効な出力、検証済み artifact の採用失敗では, 一回の呼び出しにつきホスト内蔵 D8/dx を最大一回だけ試せます. dispatch 済み Binder 処理は自動 retry しません. 呼び出し元の cancel または thread interruption は local fallback なしで伝播します. AAR、loadDex、defineClass は本プラグインを使いません. したがってスクリプトの最終成功だけでは, 許可された経路のどれかが成功したことしか分からず, プラグインがコンパイルした証拠にはなりません.
+### よくある質問
 
-#### アンインストールと復旧
+******
 
-まず Built-in D8/dx を選び, 要約で実験が無効になったことを確認してから AutoJs6 を停止し, プラグインをアンインストールします. アンインストールはプラグイン自身のアプリデータと private temporary workspace を永久削除しますが, ホストは内蔵コンパイラを継続利用できます. 復旧時は互換かつ同一署名のプラグインをインストールし, 開発者向けオプションで exact component を再度明示選択してください. 以前の選択が自動的に有効へ戻ると想定しないでください.
+**Q: プラグインをインストールしたのに何も変わりません. 壊れていますか?**
 
-#### 既知の制限と受け入れ境界
+A: いいえ. プラグインは既定で無効であり, 開発者オプションでの手動有効化が必要です (上記参照); また影響するのは `runtime.loadJar()` と `runtime.loadJarWithClasspath()` のコンパイル工程のみで, スクリプトの他の挙動は変わりません.
 
-V1 は bounded raw JVM JAR から DEX ZIP への変換だけを行います. R8 shrinking/obfuscation、外部 classpath、custom desugared library、network compile、deterministic byte output は提供しません. `DexCompilerMode.RELEASE` は D8 の release compilation mode だけを選択し、R8 を有効化せず、shrinking、optimization、obfuscation、mapping を保証しません. BUSY はホスト fallback につながる場合があり, cancel 後も D8 CPU 処理は cleanup 完了まで isolated process で続くことがあります. 最後の waiter 離脱後の協調キャンセルは R2 のままで, 性能昇格、既定化、ホストコンパイラ依存削除は完了済み R1 の範囲外です.
+**Q: あるコンパイルが本当にプラグインで行われたと確認するには?**
+
+A: 開発者オプションのサマリーは "プラグインが選択されている" ことしか意味しません. 失敗時は自動フォールバックし, 結果はキャッシュされるため, スクリプトの成功からプラグイン経由とは推定できません; "トラブルシューティングと報告" の手順でログを収集して確認してください.
+
+**Q: このプラグインでスクリプトは速くなりますか?**
+
+A: 目的はより新しいコンパイラ, より厳格な入力検証, プロセス隔離であり, 性能ではありません. コンパイル時間は内蔵コンパイラとおおむね同等で, コンパイル結果は AutoJs6 がキャッシュします.
+
+**Q: R8 の圧縮/難読化に対応していますか? RELEASE モードは R8 ですか?**
+
+A: どちらも違います. 本プラグインは D8 コンパイルのみを行います; `RELEASE` は D8 の release コンパイルモードを選ぶだけで, shrinking, obfuscation, mapping は含まれません. R8 の能力は別の独立した provider プラグインの領分です.
+
+**Q: なぜホストとプラグインの署名一致が必要なのですか?**
+
+A: 双方向のセキュリティ検証のためです: 他のアプリが AutoJs6 になりすましてプラグインを呼ぶこと, 改ざんされたプラグインがコンパイルサービスになりすますことを防ぎます. 不一致の場合はペアで公開されたパッケージに切り替えてください. アンインストールやデータ消去での回避はしないでください.
+
+**Q: プラグインはネットワークや私のファイルにアクセスしますか?**
+
+A: しません. プラグインにはネットワーク権限もストレージ権限もなく, AutoJs6 がファイルディスクリプタで渡した内容だけを読み取れます. 一時ファイルはすべて自身の私有ディレクトリ内にあります.
+
+******
+
+### 対応範囲の境界
+
+******
+
+誤解を避けるため, 以下は本プラグインの対応範囲外であることを明示します:
+
+- R8 の shrinking, optimization, obfuscation は行わず, mapping ファイルも生成しません; `RELEASE` は D8 の release コンパイルモードを選ぶだけです.
+- 依存関係のダウンロードや解決は行いません (Maven/Gradle 統合なし); ネットワーク経由のコンパイルもしません.
+- `.aar` ファイル, コンパイル済み `.dex`, 動的な `defineClass()` バイトコードは扱いません; これらは常に AutoJs6 内蔵パスを通ります.
+- V1.1 classpath はコンパイル専用です: 実行時依存を同梱せず, 結合クラスローダも作りません.
+- バイトレベルの決定的出力は保証しません: 同じ入力でもコンパイラバージョンが異なれば, 異なるが等価な DEX になり得ます.
+- AutoJs6 の出力検証の代替にはなりません: ホストは常に DEX 結果を独立に再検証します.
+- 自動的に既定コンパイラになることはありません: 有効化は常にユーザーの明示的な判断です.
+
+******
+
+### 技術リファレンス
+
+******
+
+以下は正確な境界を必要とする開発者と統合担当者向けの内容です; プラグインを使うだけなら通常読む必要はありません.
+
+#### 入力と出力
+
+プロトコル V1.0 は入力ディスクリプタ経由で raw program JAR を 1 つ受け取ります; V1.1 は同じ有界入力バンドル内で program JAR 1 つと順序付きコンパイル時 classpath JAR 1 つ以上を受け取ります. どちらも同じ形式の出力を生成します:
+
+```text
+input: JAR with JVM class files
+output: DEX ZIP with contiguous classes*.dex entries
+compiler: D8 8.13.22
+```
+
+#### プラグイン発見識別子
+
+ホストは以下の識別子でプラグインを発見し呼び出します:
+
+```text
+service action: org.autojs.plugin.DEX_COMPILER
+plugin id: dex-compiler
+protocol provider id: autojs6-d8
+engine: dex-compiler
+variant: d8
+protocol: V1
+required host build: 5270
+```
+
+プラグインは D8 8.13.22, プロトコル範囲 V1.0 から V1.1, JAR 入力, DEX ZIP 出力, DEBUG と RELEASE モード, minApi 24 から 36, multi-dex を宣言します; runtime library model は端末の boot classpath V1 です.
+
+build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspath()` には V1.1 対応のペアホストビルドが必要です (代表的検証では build 5274 を使用). プラグインは native library を含まず, 純 JVM の universal APK 1 つで全端末 ABI をカバーします.
+
+#### セキュリティモデル
+
+プラグインはネットワーク権限もストレージ権限も要求しません. コンパイルサービスは `org.autojs.permission.PLUGIN` 権限で保護され, 呼び出しごとに AutoJs6 のパッケージ名, 呼び出し元 UID, 双方の署名を検証します. 入出力はファイルディスクリプタで受け渡しされ非同期処理前に複製されます; 一時ファイルはプラグインの私有 cache のみに置かれ, コンパイル終了後にクリーンアップされます.
+
+#### リソース上限
+
+悪意ある入力や異常入力から防御するため, プラグインは各段階に固定上限を設けており, 超過するリクエストは即座に拒否されます:
+
+- 入力 JAR: 圧縮後最大 64 MiB, entry 最大 20000 個, 展開後合計最大 256 MiB.
+- V1.1 classpath: 最大 32 個の JAR, 圧縮後 1 個あたり最大 64 MiB, classpath 圧縮合計最大 128 MiB, 入力バンドル全体最大 256 MiB.
+- class データ: 合計最大 128 MiB, 1 class あたり最大 8 MiB; entry ごとと全体の圧縮比にも制限があります.
+- 出力 DEX ZIP: 最大 16 MiB, 連番の DEX entry 最大 64 個; リクエスト側でより低い上限を宣言できます.
+- 並行性: 1 プロセスにつき同時に 1 つのコンパイルセッションのみ; それ以外のリクエストは再試行可能な BUSY エラーを受け取ります.
+- 診断データは最大 64 KiB で, エラーテキストとコールバックキューにも個別の上限があります.
+
+#### 注意事項
+
+- キャンセルやクローズは結果の公開を即座に阻止し worker を中断しますが, D8 内部の CPU 処理は確実には停止できず, 現在のコンパイルが返るまで隔離プロセス内で継続することがあります.
+- キャンセル後のセッションスロットは worker が実際に終了しクリーンアップが完了するまで占有され, その間の新規リクエストは BUSY を受け取ります.
+- プラグインは決定的出力を宣言しません; キャッシュ識別子にはコンパイラバージョンとランタイム指紋が含まれるため, バージョン変更で古い結果が誤用されることはありません.
+- V1.1 はホストが凍結・同梱したコンパイル時 classpath のみを受け付けます; 呼び出し元のファイルパスやカスタム desugared library 設定は受け取りません.
+- 端末の runtime boot classpath はシステムにより異なります; リクエストは provider が報告する runtime 指紋と一致する必要があります.
 
 ******
 
@@ -177,41 +304,9 @@ V1 は bounded raw JVM JAR から DEX ZIP への変換だけを行います. R8 
 
 ******
 
-R1 は完了しました: R1.1 production 7/7、R1.2 automation 4/4、R1.3 実機マトリクス 7/7、終了条件 3/3. API 34 production routing 8/8、host DEX 16 suites/149 tests、wire 4/24、fake-provider 5/25、plugin 48 tests が成功し, lint は 0 error. Canonical campaign f3c2b1af-be93-41e7-b541-f167f90e5cc1 は実 provider 7 cell 全て PASS: API 24/25 CLI、API 26/28/34/36 は x86_64 上の D8Command、API 31 は QV arm64 multi-user 実機. journal head は a5abaf62, runner SHA-256 は ca89ac16 で, 以前の失敗/意図的終了 campaign は保持されています. 経路はデフォルト無効のままで, last-waiter 協調キャンセルと広範な回復作業は R2 で未チェックです.
+開発は段階的に進行し, R0 から R4 までは検証可能な証跡とともに完了しています. R5 は進行中です: ユーザーガイドとアプリ内説明を改訂し, 上限付きで秘匿化された診断とプロセス内だけの直近経路サマリーをローカル実装しました. 性能ベンチマーク, V1.1 の実機受け入れ拡大, 許可済み Android 診断ケース, リリース昇格は未完了です. 各項目の完了定義と証跡はこちら:
 
 - [チェック可能な ROADMAP.md を開く](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
-
-******
-
-### セキュリティ
-
-******
-
-ネットワーク権限とストレージ権限は要求しません. サービスは `org.autojs.permission.PLUGIN` で保護され, AutoJs6 パッケージ名, 呼び出し UID の所有権, 双方の一致する署名を検証します. Descriptor は非同期処理前に複製されます. 一時ファイルはアプリ専用 cache に置かれ, worker 終了後に削除されます.
-
-******
-
-### 動作制限
-
-******
-
-- 圧縮 JAR は 64 MiB と 20000 entries までで, 展開データ合計は 256 MiB までです.
-- Class データは合計 128 MiB, 1 class あたり 8 MiB までです. Entry と全体の圧縮率にも上限があります.
-- DEX ZIP は 16 MiB と連続 index の DEX entries 64 個までです. リクエストはより低い上限を指定できます.
-- プロセス内で有効なコンパイルセッションは 1 つだけです. Busy リクエストには再試行可能な BUSY エラーを返します.
-- 診断データは 64 KiB までです. エラー文字列と callback queue にも個別の上限があります.
-
-******
-
-### 制限と注意事項
-
-******
-
-- Cancel または close は結果公開を直ちに禁止し, descriptor を閉じて worker に割り込みますが, D8 の CPU 処理は確実に中断できません.
-- キャンセル後も D8 worker が実際に終了して cleanup が完了するまでセッション slot を保持します. その間の新規リクエストは BUSY になります.
-- 決定性を宣言せず, 外部 classpath とカスタム desugared library 設定を受け付けません.
-- ホストは完全な DexIndexedZipValidator で出力を再検証します. プラグインの packaging 検査はホスト検証の代わりではありません.
-- 端末 runtime boot classpath はシステムごとに異なる場合があります. リクエストは provider が報告した fingerprint と一致する必要があります.
 
 ******
 
@@ -223,13 +318,15 @@ R1 は完了しました: R1.1 production 7/7、R1.2 automation 4/4、R1.3 実�
 
 ###### 2026/08/08
 
-* `機能` Plugin ID と engine が `dex-compiler`, provider ID が `autojs6-d8`, variant が `d8` の DEX Compiler プロトコル V1 provider
-* `機能` DEBUG, RELEASE, minApi 24 から 36, multi-dex, 端末 runtime boot classpath fingerprint に対応する JAR から DEX ZIP へのコンパイル
-* `機能` JAR サイズ, entry 数, 展開データ, class データ, 診断, 出力の上限と厳密な ZIP framing, 名前, class magic 検証
-* `機能` 連続 `classes*.dex` の packaging と実サイズおよび SHA-256 の報告, ホスト DexIndexedZipValidator による再検証
-* `機能` 単一アクティブセッション, 同一署名 AutoJs6 呼び出し元検証, 専用ワークスペース, API 24 と 25 の CLI fallback, 保守的なキャンセル動作
-* `機能` 純 JVM universal APK と 10 言語の README, changelog, Android UI, プラグイン説明
-* `依存関係` D8 コンパイル用に R8 8.13.17 を追加
+* `ヒント` 初の安定版リリース. インストール後は既定で無効であり, AutoJs6 の開発者オプションで手動有効化が必要です; 手順は README の "インストールと使い方" 章を参照してください
+* `機能` AutoJs6 の外部 DEX コンパイラプラグインとして動作: スクリプトが `runtime.loadJar()` で JAR を読み込む際, 内蔵コンパイラの代わりに本プラグインが JAR から DEX へのコンパイルを実行できます
+* `機能` コンパイルはプラグイン自身のプロセス内の私有サンドボックスで実行され, AutoJs6 から隔離されます; プラグインが失敗または利用不可の場合, AutoJs6 は最大 1 回だけ内蔵コンパイラへフォールバックします
+* `機能` コンパイル前に入力 JAR のサイズ, SHA-256, ZIP 構造, entry 名, class 内容を厳格に検証し, 不正・超過・改ざんされた入力を拒否します
+* `機能` DEBUG と RELEASE のコンパイルモード, multi-dex 出力, minApi 24 から 36 に対応; 出力は連番の `classes*.dex` ZIP で, 実際のサイズと SHA-256 を報告します
+* `機能` Android 7.0 (API 24) 以上の端末に対応; API 26+ は D8Command を使用し, API 24/25 は自動的に D8 CLI 互換パスを使用します
+* `機能` 同一署名の AutoJs6 とのみ通信し (`org.autojs.permission.PLUGIN` 権限で保護), ネットワーク権限もストレージ権限も要求しません
+* `機能` 純 JVM 実装で, 単一の universal APK が全端末アーキテクチャをカバー; 10 言語の UI, README, アプリ内説明を同梱
+* `依存関係` Google R8 ライブラリ 8.13.17 を同梱 (D8 コンパイラを提供)
 
 ##### その他のリリース
 
@@ -251,9 +348,9 @@ R1 は完了しました: R1.1 production 7/7、R1.2 automation 4/4、R1.3 実�
 .\gradlew.bat :app:assembleRelease
 ```
 
-設定は `version.properties` から取得します. 最小 SDK は 24, ターゲット SDK は 36, 最小 JDK は 17 で JDK 21 を推奨します.
+ビルドパラメータは `version.properties` に由来します. 現在の最低 SDK は 24, ターゲット SDK は 36, 最低 JDK は 17 で JDK 21 を推奨します.
 
-プロトコル ABI は `libs` にあるリポジトリローカル AAR から提供されます:
+プロトコル ABI はリポジトリ `libs` ディレクトリのローカル AAR が提供します:
 
 ```text
 common-plugin-api.aar
@@ -261,7 +358,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-コンパイラは Maven の D8 8.13.22 を使用します. ローカル AAR は安定したプロトコル境界だけを提供し, 成果物は native library のない universal APK です.
+コンパイラは Maven 経由で D8 8.13.22 として導入されます. ローカル AAR は安定したプロトコル境界のみを提供し, ビルド成果物は native library を含まない universal APK です.
 
 ******
 
@@ -269,7 +366,7 @@ dex-compiler-api.aar
 
 ******
 
-プロジェクトのソースコードは MPL-2.0 です. R8 とその他のサードパーティコンポーネントには各ライセンスが引き続き適用されます.
+プロジェクトのソースコードは MPL-2.0 を使用します. R8 とその他のサードパーティコンポーネントには引き続き各自のライセンスが適用されます.
 
 ******
 
@@ -285,7 +382,7 @@ app/src/main/assets/doc/CHANGELOG-*.md
 app/src/main/res/values-*/strings.xml
 ```
 
-`.python/generate_markdown.py` は JSON ソースから 10 言語の README とアプリ内 changelog を生成します. Android 文字列は各リソースディレクトリで管理されます.
+`.python/generate_markdown.py` は JSON ソースから全 10 言語の README とアプリ内更新履歴を生成します; ドキュメントを変更する場合は生成済み Markdown ではなく JSON ソースを編集してください. Android の UI 文字列は各リソースディレクトリで管理されます.
 
 ******
 

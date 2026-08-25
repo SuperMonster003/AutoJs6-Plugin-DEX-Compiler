@@ -5,7 +5,7 @@
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
-  <p>獨立 DEX 編譯外掛. 使用 D8 將已驗證的 JAR 編譯為連續 classes*.dex ZIP</p>
+  <p>AutoJs6 獨立 DEX 編譯外掛. 在隔離程序中使用較新的 D8 將腳本 JAR 編譯為 DEX</p>
 
   <p>
     <a href="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/releases"><img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/SuperMonster003/AutoJs6-Plugin-DEX-Compiler?label=Release"/></a>
@@ -39,75 +39,64 @@
 
 ******
 
-DEX Compiler 是 AutoJs6 的獨立 DEX Compiler 協定 V1 provider. 它在應用程式私人工作區中使用 D8 編譯經過嚴格驗證的 JVM JAR, 並透過主程式提供的輸出描述元回傳規範 DEX ZIP.
+AutoJs6 的腳本可以透過 `runtime.loadJar()` 載入 JAR 並呼叫其中的 Java 類別. 由於 Android 無法直接執行 JVM 位元組碼, 這些 JAR 必須先被編譯為 DEX; 預設情況下, 這一步由 AutoJs6 內建的編譯器完成.
+
+本外掛提供另一種選擇: 它是一個獨立安裝的應用程式, 在自己的隔離程序中使用較新版本的 Google D8 編譯器完成這步編譯. AutoJs6 把 JAR 交給外掛編譯, 取回 DEX 結果後自行驗證, 快取並載入; 外掛出現任何問題時, AutoJs6 會自動退回內建編譯器, 腳本通常不受影響.
+
+適合安裝本外掛的情況: 希望使用比 AutoJs6 內建版本更新的 D8; 希望編譯過程執行於與 AutoJs6 隔離的程序中; 或希望在不升級 AutoJs6 的情況下單獨升級編譯器.
 
 ******
 
-### 功能
+### 運作原理
 
 ******
 
-- 接受 JAR 輸入及 DEBUG 或 RELEASE 模式, 支援 minApi 24 至 36 和 multi-dex 輸出.
-- 在編譯前核驗宣告的大小和 SHA-256, ZIP framing, entry 名稱, class magic, 重複項和解壓邊界.
-- 使用裝置 runtime boot classpath 及其指紋編譯, 不接受外部 classpath.
-- 僅封裝連續的 `classes.dex`, `classes2.dex` 等 DEX 檔案, 並回傳實際 ZIP 大小和 SHA-256.
-- Android API 26 及更高版本使用 D8Command, API 24 和 25 使用 D8 CLI fallback.
-
-******
-
-### 輸入和輸出格式
-
-******
-
-版本 1 僅宣告以下編譯範圍:
+啟用外掛後, 一次 `runtime.loadJar()` 呼叫大致經歷以下步驟:
 
 ```text
-input: JAR with JVM class files
-output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.22
+1. script     calls runtime.loadJar() or runtime.loadJarWithClasspath()
+2. AutoJs6    validates and freezes the input JAR, records its size and SHA-256
+3. plugin     re-verifies the input, then compiles it with D8 in a private sandboxed process
+4. plugin     returns a DEX ZIP (classes.dex, classes2.dex, ...)
+5. AutoJs6    independently re-validates the result, caches it, and loads the classes
+*  fallback   if anything fails, AutoJs6 retries once with its built-in compiler
 ```
 
-******
-
-### 外掛介面
+外掛只負責第 3 和第 4 步, 即 "編譯" 本身; 輸入的固定, 結果的驗證, 快取與最終載入始終由 AutoJs6 完成. 雙方透過 Binder 只傳遞檔案描述元, 外掛不會讀取腳本目錄, 也不知道檔案的原始路徑. 編譯結果按輸入內容與編譯參數快取, 相同輸入的重複載入會直接命中快取, 不必再次編譯.
 
 ******
 
-主程式透過以下識別發現並呼叫外掛:
-
-```text
-service action: org.autojs.plugin.DEX_COMPILER
-plugin id: dex-compiler
-protocol provider id: autojs6-d8
-engine: dex-compiler
-variant: d8
-protocol: V1
-required host build: 5270
-```
-
-外掛宣告 D8 8.13.22, JAR 輸入, DEX ZIP 輸出, DEBUG 和 RELEASE 模式, minApi 24 至 36 及 multi-dex. Runtime library model 為裝置 boot classpath V1.
-
-需要主程式建置版本 5270 或更高版本. 外掛不含 native library, 因而透過一個純 JVM universal APK 支援所有裝置 ABI.
+### 功能特性
 
 ******
 
-### 主程式整合狀態
+- 編譯由 D8 8.13.22 完成, 外掛可獨立於 AutoJs6 更新編譯器版本.
+- 編譯執行於外掛自己的獨立程序與私人工作區中, 當機或失敗不影響 AutoJs6 主程序.
+- 雙重核驗: 外掛在編譯前核對 JAR 的大小, SHA-256, ZIP 結構與 class 內容; AutoJs6 在編譯後獨立複驗 DEX 輸出.
+- 支援 DEBUG 與 RELEASE 編譯模式, multi-dex 輸出, 以及 minApi 24 至 36 的編譯參數.
+- 支援 Android 7.0 (API 24) 及以上的所有裝置; API 26+ 使用 D8Command, API 24/25 自動切換至 D8 CLI 相容路徑.
+- V1.1 協定支援有序的編譯期 classpath (`runtime.loadJarWithClasspath()`), 用於編譯引用了外部 API 的 JAR.
+- 任何失敗都會讓 AutoJs6 至多自動回退一次至內建編譯器, 不會讓腳本卡死在外掛上.
 
 ******
 
-> raw runtime.loadJar 路由仍預設關閉, 且要求明確選取同簽章 exact component. R1 已閉環: R1.1 為 7/7、R1.2 為 4/4、canonical 真實 provider 矩陣為 7/7. production Runtime single-flight 在驗證並最終確定 key 後使用有界持久語意快取. 任一 waiter（包括最後一個）中斷都只分離該呼叫端且不執行本機降級; producer 可在背景完成並寫入快取. last-waiter 協同取消留到 R2, 安全熔斷在目前程序生命週期內維持保守.
+### 安裝與使用
 
 ******
 
-### R1 安裝與使用指南
+啟用外掛共三步: 安裝相容的 AutoJs6, 安裝本外掛 APK, 然後在 AutoJs6 開發者選項中手動選擇本外掛. 有兩點需要提前了解:
 
-******
-
-這是預設關閉的 R1 明確 opt-in 路徑, 並非安裝後自動生效的替代編譯器. R1 驗收現已包含 API 24/25/26/28/31/34/36 的真實 provider 執行, 涵蓋 x86_64 模擬器與 arm64 實體裝置. 這只關閉固定 R1 門禁, 不會自動啟用路由、把外掛設為預設編譯器或擴大有界 V1 協定範圍.
+- 外掛預設不生效. 僅安裝不會改變 AutoJs6 的任何行為, 必須按下文手動啟用.
+- 隨時可以撤銷. 在開發者選項中切回 Built-in D8/dx 即可回復原狀, 不必解除安裝任何應用程式.
 
 #### 安裝前提
 
-只從可信且配對發佈的來源取得 AutoJs6 與外掛. AutoJs6 必須為 build 5270 或以上, 而主程式與外掛的完整目前簽章憑證集合必須相同; 自行建置時也須保留下列固定套件與服務身分. 升級前請備份腳本與重要應用程式資料. 若 Android 顯示簽章不符, 不要以解除安裝主程式或清除資料繞過.
+- AutoJs6 build 5270 或更高 (對應 `runtime.loadJar()`); `runtime.loadJarWithClasspath()` 需要更新的配對主程式建置 (驗證時使用 build 5274).
+- 主程式與外掛必須來自同一可信來源且簽章一致. 簽章不一致時外掛無法被選中; 請改用成對發布的安裝包或成對自行建置, 不要以解除安裝主程式或清除資料的方式繞過.
+- 自行建置時保持下方固定的套件名稱與服務元件不變.
+- 升級前建議備份腳本與重要資料.
+
+相關標識如下:
 
 ```text
 host package: org.autojs.autojs6
@@ -116,17 +105,27 @@ minimum host build: 5270
 exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
 ```
 
-#### 安裝並明確啟用
+#### 安裝並啟用
 
-先安裝或升級相容的 AutoJs6, 再安裝外掛 APK. 在 AutoJs6 開啟 設定 > 關於應用程式與開發者, 長按應用程式圖示進入開發者選項; 然後開啟 DEX compiler > Raw JAR compiler provider, 選擇下列 exact component 並確認. 只安裝外掛不會啟用路由, AutoJs6 也不會自動選擇已發現的 provider.
+1. 安裝或升級至相容版本的 AutoJs6.
+2. 安裝本外掛 APK.
+3. 開啟 AutoJs6, 進入 設定 > 關於應用程式與開發者, 長按應用程式圖示進入開發者選項.
+4. 開啟 DEX compiler > Raw JAR compiler provider.
+5. 選取本外掛的服務元件 (即上方 exact component) 並確認.
 
-#### 確認狀態
+再次強調: 僅安裝外掛不會自動啟用, AutoJs6 也不會自動選擇它發現的任何 provider; 第 3 至 5 步是必需的.
 
-返回開發者選項, 確認摘要明確顯示 raw runtime.loadJar JAR 優先使用下列 exact component. 如只顯示 Built-in D8/dx 或沒有候選項, 請核對主程式 build、兩個套件名稱、外掛啟用狀態與簽章. 摘要只證明目前選擇與發現資格, 不代表某次編譯已使用遠端. R1 矩陣閉環也不會取消每次要求的身分複核、握手、驗證或降級規則.
+#### 確認已生效
 
-#### AutoJs6 範例
+回到開發者選項頁面, 當摘要顯示已選擇本外掛的服務元件時, 表示啟用成功: 此後腳本中 `runtime.loadJar()` 與 `runtime.loadJarWithClasspath()` 的編譯會優先交給外掛處理.
 
-把含 JVM `.class` 的可讀 JAR 放在腳本旁的 `lib/example.jar`, 並把範例類別與方法改為該 JAR 真正存在的 public API. 腳本透過現有 `runtime.loadJar()` 入口使用所選 provider; 外掛不會加入新的 JavaScript global.
+如果清單中找不到本外掛, 或摘要仍顯示 Built-in D8/dx, 請依序檢查: AutoJs6 build 是否不低於 5270; 主程式與外掛的套件名稱是否與上方一致; 外掛應用程式是否被系統停用; 兩者簽章是否一致.
+
+注意: 該摘要表示的是 "目前選擇了誰", 而非 "某次編譯實際由誰完成"; 單次編譯仍可能因快取命中或失敗回退而未經過外掛 (見下文).
+
+#### 腳本範例
+
+把包含 JVM `.class` 檔案的 JAR 放到腳本目錄的 `lib/example.jar`, 然後在腳本中如常呼叫 `runtime.loadJar()` 即可; 外掛不新增任何新的 JavaScript 全域物件, 腳本寫法與使用內建編譯器時完全相同. 範例中的類別名稱和方法請替換為你的 JAR 中真實存在的 public API.
 
 ```javascript
 "use strict";
@@ -143,11 +142,43 @@ const Example = Packages.com.example.autojs6.DexPluginExample;
 console.log("DEX compiler example: " + Example.answer());
 ```
 
-此範例只涵蓋 raw JAR. `.aar`、已編譯 `.dex`、相容輔助路徑與動態 `defineClass()` 一律保留在主程式內建路徑. 驗證不會讓不可信 bytecode 變安全; 只載入你信任的 JAR.
+若 JAR 編譯時引用了執行環境中已存在, 但本身不在該 JAR 內的類別 (例如某些 API stub), 可以使用顯式的編譯期 classpath 入口:
 
-#### 收集診斷
+```javascript
+runtime.loadJarWithClasspath(
+    files.path("./lib/program.jar"),
+    files.path("./lib/compile-api-stubs.jar"),
+);
+```
 
-回報問題時請記錄 AutoJs6 build/版本、外掛版本、開發者選項的完整 exact-component 摘要、裝置型號/API/ABI、輸入 JAR 位元組數與 SHA-256、發生時間、完整腳本例外與重現步驟. 如使用 ADB, 每個指令都要在 `<serial>` 填入唯一已授權裝置, 擷取故障前後的 AndroidClassLoader/AndroidRuntime 日誌, 並在分享前刪除私人路徑、腳本內容與其他敏感資料.
+關於 classpath 的三個要點:
+
+- classpath JAR 只在編譯期用於解析引用, 不會打包進輸出, 也不會被自動載入.
+- 若 program 在執行時確實要使用這些類別, 它們必須已存在於最終類別載入器的 parent 鏈中 (如 Android 系統類別或 AutoJs6 自帶類別). 先用 `runtime.loadJar()` 載入相依 JAR 無法滿足這一點, 那只會建立一個平級的載入器.
+- classpath 的宣告順序有意義並參與快取標識; 該入口至少需要傳入一個 classpath JAR.
+
+另外, `.aar` 檔案, 已編譯的 `.dex`, 以及 `defineClass()` 等動態入口始終由 AutoJs6 內建路徑處理, 與本外掛無關. 最後請牢記: 編譯不等於安全審查, 只載入你信任的 JAR.
+
+#### 編譯失敗時會發生什麼
+
+啟用外掛後, AutoJs6 依然把 "腳本能跑起來" 放在第一位:
+
+- `runtime.loadJar()`: 外掛不可用, 編譯失敗, 逾時或輸出未通過驗證時, AutoJs6 會用同一份 JAR 自動改用內建 D8/dx 編譯, 每次請求至多回退一次.
+- `runtime.loadJarWithClasspath()`: 回退同樣至多一次, 且必須帶著完全相同的 program 與 classpath 交給本地 D8 重新編譯; 不會丟棄 classpath, 也不會靜默降級.
+- 你主動取消 (例如停止腳本) 不屬於失敗, 不會觸發回退, 而是直接結束本次載入.
+- 外掛回傳 BUSY (同一時刻只允許一個編譯工作階段) 時, AutoJs6 按上述規則處理, 稍後重試腳本即可.
+
+因此腳本最終成功執行並不能證明那次編譯經過了外掛; 需要確認時請參考下文的排查方法.
+
+#### 排查問題與回報
+
+懷疑外掛運作不正常時, 可先切回 Built-in D8/dx 對比行為是否變化. 回報問題時請盡量附上以下資訊:
+
+- AutoJs6 build/版本, 外掛版本, 以及開發者選項摘要中的完整元件名稱.
+- 裝置型號, Android 版本 (API) 與 CPU 架構 (ABI).
+- 觸發問題的 JAR (或其位元組數與 SHA-256), 完整腳本異常資訊與重現步驟.
+
+如果會使用 ADB, 以下命令可收集相關記錄 (`<serial>` 替換為你的裝置序號; 分享前請刪去記錄中的私人路徑與敏感內容):
 
 ```powershell
 adb -s <serial> shell dumpsys package org.autojs.autojs6
@@ -155,21 +186,117 @@ adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.d
 adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
 ```
 
-#### 停用與緊急回復
+#### 停用, 回復與解除安裝
 
-在開發者選項的 Raw JAR compiler provider 選擇 Built-in D8/dx 並確認, 然後停止與重新啟動 AutoJs6. 這會關閉實驗路由, 但保留已選元件記錄以供日後重新選擇. 緊急回復應先停用並重啟主程式; 不必解除安裝 AutoJs6、清除其資料或刪除腳本. 已開啟的程序安全熔斷會保守地維持至該 AutoJs6 程序結束.
+- 暫時停用: 在開發者選項的 Raw JAR compiler provider 中選擇 Built-in D8/dx 並確認, 然後完全結束並重新啟動 AutoJs6. 元件選擇記錄會被保留, 之後可以隨時重新啟用.
+- 遇到緊急問題: 按上述方式停用並重啟主程式即可, 不必解除安裝 AutoJs6, 清除其資料或刪除腳本.
+- 解除安裝外掛: 先切回 Built-in D8/dx, 再停止 AutoJs6 並解除安裝外掛 APK. 解除安裝會清除外掛自己的全部資料與暫存檔案; AutoJs6 繼續使用內建編譯器, 不受影響.
+- 重新安裝後需要重新手動啟用, 舊的選擇不會自動回復.
 
-#### 理解 fallback
+******
 
-路由關閉、provider 不可用或不相容、繫結或遠端失敗、逾時、輸出無效或已驗證產物載入失敗時, 每次呼叫最多嘗試一次主程式內建 D8/dx; 已 dispatch 的 Binder 工作不會自動重試. 呼叫方取消或 thread interruption 會直接傳播, 不作本機 fallback. AAR、loadDex 與 defineClass 從不使用本外掛. 因此腳本最終成功只表示某條允許路徑成功, 不能單獨證明外掛完成編譯.
+### 常見問題
 
-#### 解除安裝與恢復
+******
 
-先選 Built-in D8/dx, 確認摘要顯示實驗已關閉, 再停止 AutoJs6 並解除安裝外掛. 解除安裝會永久刪除外掛本身的應用程式資料與私人暫存工作區, 主程式則可繼續使用內建編譯器. 恢復時安裝相容且同簽章外掛, 重新開啟開發者選項並再次明確選擇 exact component; 不要假設舊選擇會自動重新啟用.
+**問: 安裝外掛後腳本沒有任何變化, 是壞了嗎?**
 
-#### 已知限制與驗收邊界
+答: 不是. 外掛預設關閉, 需要在開發者選項中手動啟用 (見上文); 且它只影響 `runtime.loadJar()` 與 `runtime.loadJarWithClasspath()` 的編譯環節, 不改變腳本的其他行為.
 
-V1 只進行有界 raw JVM JAR 到 DEX ZIP 轉換, 不提供 R8 shrinking/obfuscation、外部 classpath、自訂 desugared library、網路編譯或確定性位元組輸出. `DexCompilerMode.RELEASE` 只會選取 D8 的 release compilation mode; 它不會啟用 R8, 也不承諾 shrinking、optimization、obfuscation 或 mapping. BUSY 可觸發主程式 fallback, 取消後 D8 CPU 工作可能在隔離程序繼續至清理完成. 最後 waiter 離開後的協同取消仍屬 R2; 效能晉級、預設啟用及移除主程式編譯器相依性均不在已完成的 R1 範圍內.
+**問: 如何確認某次編譯真的由外掛完成?**
+
+答: 開發者選項摘要只表示 "已選擇外掛". 由於失敗會自動回退且結果會被快取, 腳本成功不能反推編譯經過外掛; 可按 "排查問題與回報" 一節收集記錄確認.
+
+**問: 這個外掛能讓腳本跑得更快嗎?**
+
+答: 它的目標是更新的編譯器, 更嚴格的輸入核驗與程序隔離, 而不是效能. 編譯耗時與內建編譯器大致相當, 且已編譯結果會被 AutoJs6 快取.
+
+**問: 外掛支援 R8 壓縮/混淆嗎? RELEASE 模式是不是 R8?**
+
+答: 不支援, 也不是. 本外掛只做 D8 編譯; `RELEASE` 只是 D8 的 release 編譯模式, 不包含 shrinking, obfuscation 或 mapping. R8 能力屬於另一個獨立的 provider 外掛, 不在本外掛範圍內.
+
+**問: 為什麼要求主程式與外掛簽章一致?**
+
+答: 這是雙向的安全核驗: 防止其他應用程式冒充 AutoJs6 呼叫外掛, 也防止被竄改的外掛冒充編譯服務. 簽章不一致時請更換成對發布的安裝包, 不要以解除安裝或清除資料繞過.
+
+**問: 外掛會連接網路或讀取我的檔案嗎?**
+
+答: 不會. 外掛沒有網路與儲存權限, 只能透過 AutoJs6 遞來的檔案描述元讀取待編譯內容, 暫存檔案全部位於自己的私人目錄.
+
+******
+
+### 能力邊界
+
+******
+
+為避免誤解, 以下事項明確不屬於本外掛的功能範圍:
+
+- 不做 R8 shrinking, optimization, obfuscation, 也不產生 mapping 檔案; `RELEASE` 僅代表 D8 的 release 編譯模式.
+- 不下載或解析相依性 (沒有 Maven/Gradle 整合), 不進行網路編譯.
+- 不處理 `.aar`, 已編譯的 `.dex` 與 `defineClass()` 動態位元組碼, 它們始終走 AutoJs6 內建路徑.
+- V1.1 classpath 僅用於編譯, 不打包執行時相依性, 也不建立組合類別載入器.
+- 不承諾位元組級確定性輸出: 相同輸入在不同編譯器版本下可能產生不同但等價的 DEX.
+- 不取代 AutoJs6 的輸出驗證: 主程式始終對 DEX 結果作獨立複驗.
+- 不會自動成為預設編譯器: 是否啟用始終由使用者顯式控制.
+
+******
+
+### 技術參考
+
+******
+
+以下內容面向需要精確邊界的開發者與整合方; 僅使用外掛時通常不必閱讀.
+
+#### 輸入與輸出
+
+協定 V1.0 透過輸入描述元接收一個 raw program JAR; V1.1 在同一個有界輸入包中接收一個 program JAR 與至少一個有序的編譯期 classpath JAR. 兩者產生相同形式的輸出:
+
+```text
+input: JAR with JVM class files
+output: DEX ZIP with contiguous classes*.dex entries
+compiler: D8 8.13.22
+```
+
+#### 外掛發現標識
+
+主程式透過以下標識發現並呼叫外掛:
+
+```text
+service action: org.autojs.plugin.DEX_COMPILER
+plugin id: dex-compiler
+protocol provider id: autojs6-d8
+engine: dex-compiler
+variant: d8
+protocol: V1
+required host build: 5270
+```
+
+外掛聲明 D8 8.13.22, 協定範圍 V1.0 至 V1.1, JAR 輸入, DEX ZIP 輸出, DEBUG 與 RELEASE 模式, minApi 24 至 36 及 multi-dex; runtime library model 為裝置 boot classpath V1.
+
+build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` 需要包含 V1.1 支援的配對主程式建置 (代表性驗證使用 build 5274). 外掛不含 native library, 以一個純 JVM universal APK 覆蓋所有裝置 ABI.
+
+#### 安全模型
+
+外掛不要求網路與儲存權限. 編譯服務受 `org.autojs.permission.PLUGIN` 權限保護, 每次呼叫都會核驗 AutoJs6 的套件名稱, 呼叫方 UID 歸屬與雙方簽章. 輸入輸出均透過檔案描述元傳遞並在非同步處理前複製, 暫存檔案僅位於外掛私人 cache 且會在編譯結束後清理.
+
+#### 資源上限
+
+為防禦惡意或異常輸入, 外掛對各環節設置了硬性上限, 超限請求會被直接拒絕:
+
+- 輸入 JAR: 壓縮後最大 64 MiB, 最多 20000 個 entry, 解壓總量最大 256 MiB.
+- V1.1 classpath: 最多 32 個 JAR, 單個壓縮後最大 64 MiB, classpath 壓縮總量最大 128 MiB, 整個輸入包最大 256 MiB.
+- class 資料: 總量最大 128 MiB, 單個 class 最大 8 MiB; entry 與整體壓縮比另有限制.
+- 輸出 DEX ZIP: 最大 16 MiB, 最多 64 個連續編號的 DEX entry; 請求可聲明更低的上限.
+- 並行: 同一程序同時只處理一個編譯工作階段, 其餘請求收到可重試的 BUSY 錯誤.
+- 診斷資料最多 64 KiB, 錯誤文字與回呼佇列亦有獨立上限.
+
+#### 注意事項
+
+- 取消或關閉會立即阻止結果發布並中斷 worker, 但 D8 內部的 CPU 計算無法保證立刻停止, 可能在隔離程序中繼續至本次編譯返回.
+- 取消後的工作階段槽會保留至 worker 實際結束並完成清理, 期間新請求仍會收到 BUSY.
+- 外掛不聲明確定性輸出; 快取標識包含編譯器版本與執行時指紋, 版本變化不會誤用舊結果.
+- V1.1 只接受主程式凍結打包的編譯期 classpath, 不接收呼叫方檔案路徑或自訂 desugared library 配置.
+- 裝置 runtime boot classpath 因系統而異, 請求必須與 provider 報告的 runtime 指紋一致.
 
 ******
 
@@ -177,41 +304,9 @@ V1 只進行有界 raw JVM JAR 到 DEX ZIP 轉換, 不提供 R8 shrinking/obfusc
 
 ******
 
-R1 已閉環: R1.1 生產載入鏈路 7/7、R1.2 自動化 4/4、R1.3 真實裝置矩陣 7/7, 三項退出條件全數勾選. API 34 production routing 8/8, 主程式 DEX 16 suites/149 tests、wire 4/24、fake-provider 5/25 及外掛 48 tests 全數通過, lint 為 0 error. Canonical campaign f3c2b1af-be93-41e7-b541-f167f90e5cc1 的七個真實 provider 單元全數 PASS: API 24/25 使用 CLI, API 26/28/34/36 在 x86_64 使用 D8Command, API 31 使用 QV arm64 多使用者實體裝置. journal head 為 a5abaf62, runner SHA-256 為 ca89ac16; 較早失敗或主動終止的 campaign 繼續原樣保留. 路由仍預設關閉, last-waiter 協同取消與更廣泛復原工作仍屬未勾選的 R2.
+開發按階段推進, R0 至 R4 均已完成並留有可複核證據. R5 正在進行: 使用者指南與應用程式內說明已重寫, 有界且經脫敏的診斷及僅存於行程內的最近路徑摘要已完成本機實作. 效能基準, 更大範圍的 V1.1 裝置驗收, 獲授權 Android 真實診斷案例及版本發布仍待完成. 各條目的完成定義與證據見:
 
 - [查看可勾選的 ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
-
-******
-
-### 安全性
-
-******
-
-外掛不要求網路或儲存權限. 編譯服務受 `org.autojs.permission.PLUGIN` 保護, 並核驗 AutoJs6 套件名稱, 呼叫 UID 歸屬及雙方簽章. 輸入輸出描述元在非同步處理前複製, 暫存檔案僅位於應用程式私人 cache 並在 worker 結束後清理.
-
-******
-
-### 執行限制
-
-******
-
-- 壓縮 JAR 最大 64 MiB, 最多 20000 個 entry, 解壓總量最大 256 MiB.
-- Class 資料總量最大 128 MiB, 單一 class 最大 8 MiB. Entry 和整體壓縮比均受限制.
-- DEX ZIP 最大 16 MiB, 最多 64 個連續編號的 DEX entry. 請求可宣告更低的輸出上限.
-- 同一程序最多有一個作用中編譯工作階段. 忙碌請求會回傳可重試的 BUSY 錯誤.
-- 診斷資料最多 64 KiB, 錯誤文字和回呼佇列也有獨立上限.
-
-******
-
-### 限制和注意事項
-
-******
-
-- 取消或關閉會立即阻止結果發布, 關閉描述元並中斷 worker, 但 D8 的 CPU 工作無法可靠中斷.
-- 取消後的工作階段槽會一直保留到 D8 worker 實際結束並完成清理, 期間新請求仍會收到 BUSY.
-- 外掛不宣告確定性, 不接受外部 classpath 或自訂 desugared library 配置.
-- 主程式仍會使用完整的 DexIndexedZipValidator 二次驗證輸出. 外掛的輸出封裝檢查不是主程式驗證的替代品.
-- 裝置 runtime boot classpath 可能因系統而異, 請求必須符合 provider 回報的 runtime 指紋.
 
 ******
 
@@ -223,13 +318,15 @@ R1 已閉環: R1.1 生產載入鏈路 7/7、R1.2 自動化 4/4、R1.3 真實裝�
 
 ###### 2026/08/08
 
-* `新增` DEX Compiler 協定 V1 provider, 外掛 ID 和引擎為 `dex-compiler`, provider ID 為 `autojs6-d8`, 變體為 `d8`
-* `新增` JAR 到 DEX ZIP 編譯, 支援 DEBUG, RELEASE, minApi 24 至 36, multi-dex 及裝置 runtime boot classpath 指紋
-* `新增` 有界 JAR 大小, entry 數量, 解壓資料, class 資料, 診斷和輸出, 並嚴格驗證 ZIP framing, 名稱及 class magic
-* `新增` 僅封裝連續 `classes*.dex`, 回報實際大小和 SHA-256, 且由主程式使用 DexIndexedZipValidator 二次驗證
-* `新增` 單一作用中工作階段, 同簽章 AutoJs6 呼叫端核驗, 私人暫存工作區, API 24 和 25 CLI fallback 及保守取消語意
-* `新增` 純 JVM universal APK, 以及 10 種語言的 README, 更新日誌, Android 介面和外掛說明
-* `相依性` 附加 R8 8.13.17, 用於 D8 編譯
+* `提示` 首個正式版本. 安裝後預設不生效, 需在 AutoJs6 開發者選項中手動啟用; 詳細步驟見 README 的 "安裝與使用" 章節
+* `新增` 作為 AutoJs6 的外部 DEX 編譯外掛: 腳本呼叫 `runtime.loadJar()` 載入 JAR 時, 可由本外掛代替內建編譯器完成 JAR 到 DEX 的編譯
+* `新增` 編譯在外掛獨立程序的私人沙箱中進行, 與 AutoJs6 相互隔離; 外掛失敗或不可用時, AutoJs6 至多自動回退一次至內建編譯器
+* `新增` 編譯前嚴格核驗輸入 JAR 的大小, SHA-256, ZIP 結構, entry 名稱與 class 內容, 拒絕畸形, 超限或被竄改的輸入
+* `新增` 支援 DEBUG 與 RELEASE 編譯模式, multi-dex 輸出與 minApi 24 至 36; 輸出為連續編號的 `classes*.dex` ZIP 並回報實際大小與 SHA-256
+* `新增` 相容 Android 7.0 (API 24) 及以上裝置; API 26+ 使用 D8Command, API 24/25 自動使用 D8 CLI 相容路徑
+* `新增` 僅與同簽章的 AutoJs6 通訊 (受 `org.autojs.permission.PLUGIN` 權限保護), 不要求網路與儲存權限
+* `新增` 純 JVM 實作, 單個 universal APK 覆蓋所有裝置架構; 附帶 10 種語言的介面, README 與應用程式內說明
+* `相依性` 附帶 Google R8 程式庫 8.13.17 (提供 D8 編譯器)
 
 ##### 更多版本
 
@@ -253,7 +350,7 @@ R1 已閉環: R1.1 生產載入鏈路 7/7、R1.2 自動化 4/4、R1.3 真實裝�
 
 建置參數來自 `version.properties`. 目前最低 SDK 為 24, 目標 SDK 為 36, 最低 JDK 為 17 且建議 JDK 21.
 
-協定 ABI 由儲存庫 `libs` 目錄中的本機 AAR 提供:
+協定 ABI 由儲存庫 `libs` 目錄中的本地 AAR 提供:
 
 ```text
 common-plugin-api.aar
@@ -261,7 +358,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-編譯器透過 Maven 使用 D8 8.13.22. 本機 AAR 只提供穩定協定邊界, 產生的外掛是無 native library 的 universal APK.
+編譯器透過 Maven 引入 D8 8.13.22. 本地 AAR 只提供穩定的協定邊界, 建置產物是不含 native library 的 universal APK.
 
 ******
 
@@ -285,7 +382,7 @@ app/src/main/assets/doc/CHANGELOG-*.md
 app/src/main/res/values-*/strings.xml
 ```
 
-`.python/generate_markdown.py` 從 JSON 來源產生 10 種語言的 README 和應用程式內更新日誌. Android 字串由各自資源目錄管理.
+`.python/generate_markdown.py` 從 JSON 來源產生全部 10 種語言的 README 與應用程式內更新記錄; 修改文件請編輯 JSON 來源而非產生的 Markdown. Android 介面字串由各自的資源目錄管理.
 
 ******
 

@@ -7,16 +7,20 @@
   "$data": {
     "v1.0.0": {
       "released_date": "2026/08/08",
+      "hint": [
+        "Première version stable. Inactive par défaut après installation ; elle doit être activée manuellement dans les options développeur d'AutoJs6, voir la section « Installation et utilisation » du README"
+      ],
       "feature": [
-        "Provider DEX Compiler V1 avec ID et moteur `dex-compiler`, provider ID `autojs6-d8` et variante `d8`",
-        "Compilation JAR vers DEX ZIP avec DEBUG, RELEASE, minApi de 24 à 36, multi-dex et empreinte du runtime boot classpath de l'appareil",
-        "Limites pour la taille JAR, les entries, les données décompressées, les classes, les diagnostics et la sortie avec validation stricte du framing ZIP, des noms et du magic des classes",
-        "Empaquetage de `classes*.dex` sans rupture avec taille et SHA-256 réels et revalidation par DexIndexedZipValidator dans l'hôte",
-        "Une session active, contrôle de l'appelant AutoJs6 signé, espace privé, fallback CLI sur API 24 et 25 et annulation prudente",
-        "Un APK universal pur JVM avec README, changelog, interface Android et instructions du plugin en 10 langues"
+        "Agit comme plugin de compilation DEX externe pour AutoJs6 : quand un script charge un JAR via `runtime.loadJar()`, ce plugin peut effectuer la compilation JAR vers DEX à la place du compilateur intégré",
+        "La compilation s'exécute dans un bac à sable privé au sein du processus du plugin, isolé d'AutoJs6 ; si le plugin échoue ou est indisponible, AutoJs6 revient au compilateur intégré au plus une fois",
+        "Valide strictement la taille, le SHA-256, la structure ZIP, les noms d'entrées et le contenu des classes du JAR avant compilation, en rejetant les entrées malformées, trop volumineuses ou falsifiées",
+        "Prend en charge les modes de compilation DEBUG et RELEASE, la sortie multi-dex et minApi 24 à 36 ; la sortie est un ZIP `classes*.dex` numéroté consécutivement, rapporté avec sa taille réelle et son SHA-256",
+        "Compatible avec les appareils sous Android 7.0 (API 24) et supérieur ; l'API 26+ utilise D8Command tandis que les API 24/25 utilisent automatiquement un chemin de compatibilité D8 CLI",
+        "Communique uniquement avec un AutoJs6 de signature identique (protégé par la permission `org.autojs.permission.PLUGIN`) et ne demande aucune permission réseau ni stockage",
+        "Implémentation pure JVM avec un unique APK universel couvrant toutes les architectures ; livré avec interface, README et instructions intégrées en 10 langues"
       ],
       "dependency": [
-        "Ajout de R8 8.13.17 pour la compilation D8"
+        "Embarque la bibliothèque Google R8 8.13.17 (fournissant le compilateur D8)"
       ]
     }
   }

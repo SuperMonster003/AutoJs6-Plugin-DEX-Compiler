@@ -5,7 +5,7 @@
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
-  <p>Independent DEX compiler plugin. Compile validated JARs into a contiguous classes*.dex ZIP with D8</p>
+  <p>Standalone DEX compiler plugin for AutoJs6. Compiles script JARs into DEX with an up-to-date D8 in an isolated process</p>
 
   <p>
     <a href="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/releases"><img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/SuperMonster003/AutoJs6-Plugin-DEX-Compiler?label=Release"/></a>
@@ -20,7 +20,7 @@
 
 ******
 
-The current README.md supports the following languages:
+The README.md file is currently available in the following languages:
 
 - [简体中文 [zh-Hans]](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/.readme/README-zh-Hans.md)
 - [繁體中文 (香港) [zh-Hant-HK]](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/.readme/README-zh-Hant-HK.md)
@@ -39,7 +39,30 @@ The current README.md supports the following languages:
 
 ******
 
-DEX Compiler is an independent provider for version 1 of the AutoJs6 DEX Compiler protocol. It uses D8 in an app-private workspace to compile a strictly validated JVM JAR and returns a canonical DEX ZIP through an output descriptor supplied by the host.
+AutoJs6 scripts can load a JAR with `runtime.loadJar()` and call the Java classes inside it. Since Android cannot run JVM bytecode directly, such JARs must first be compiled into DEX; by default, this step is handled by the compiler built into AutoJs6.
+
+This plugin offers an alternative: it is a separately installed app that performs that compilation with a newer version of Google's D8 compiler, inside its own isolated process. AutoJs6 hands the JAR to the plugin, takes the DEX result back, then validates, caches and loads it on its own; if anything goes wrong with the plugin, AutoJs6 automatically falls back to its built-in compiler, so scripts usually keep working.
+
+Install this plugin if you want a newer D8 than the one bundled with AutoJs6, want compilation to run in a process isolated from AutoJs6, or want to upgrade the compiler independently of AutoJs6 updates.
+
+******
+
+### How it works
+
+******
+
+With the plugin enabled, a `runtime.loadJar()` call roughly goes through the following steps:
+
+```text
+1. script     calls runtime.loadJar() or runtime.loadJarWithClasspath()
+2. AutoJs6    validates and freezes the input JAR, records its size and SHA-256
+3. plugin     re-verifies the input, then compiles it with D8 in a private sandboxed process
+4. plugin     returns a DEX ZIP (classes.dex, classes2.dex, ...)
+5. AutoJs6    independently re-validates the result, caches it, and loads the classes
+*  fallback   if anything fails, AutoJs6 retries once with its built-in compiler
+```
+
+The plugin is only responsible for steps 3 and 4, i.e. the compilation itself; freezing the input, validating the result, caching and the final class loading always stay inside AutoJs6. The two apps exchange nothing but file descriptors over Binder, so the plugin never reads your script directory and never learns the original file paths. Compiled results are cached by input content and compilation parameters, so loading the same JAR again hits the cache without recompiling.
 
 ******
 
@@ -47,67 +70,33 @@ DEX Compiler is an independent provider for version 1 of the AutoJs6 DEX Compile
 
 ******
 
-- Accept JAR input in DEBUG or RELEASE mode with minApi 24 through 36 and multi-dex output.
-- Verify declared size and SHA-256, ZIP framing, entry names, class magic, duplicates, and decompression bounds before compilation.
-- Compile against the device runtime boot classpath and its fingerprint without accepting an external classpath.
-- Package only contiguous `classes.dex`, `classes2.dex`, and later DEX files and report the actual ZIP size and SHA-256.
-- Use D8Command on Android API 26 and later and the D8 CLI fallback on API 24 and 25.
+- Compilation is performed by D8 8.13.22; the plugin can upgrade its compiler independently of AutoJs6.
+- Compilation runs in the plugin's own process and private workspace, so crashes or failures never affect the AutoJs6 main process.
+- Double validation: the plugin checks the JAR's size, SHA-256, ZIP structure and class content before compiling; AutoJs6 independently re-validates the DEX output afterwards.
+- Supports DEBUG and RELEASE compilation modes, multi-dex output, and minApi 24 through 36 as compilation parameters.
+- Supports every device running Android 7.0 (API 24) or higher; API 26+ uses D8Command, while API 24/25 automatically switch to a D8 CLI compatibility path.
+- Protocol V1.1 supports an ordered compile-time classpath (`runtime.loadJarWithClasspath()`) for compiling JARs that reference external APIs.
+- On any failure, AutoJs6 falls back to its built-in compiler at most once, so scripts never get stuck on the plugin.
 
 ******
 
-### Input and output formats
+### Installation and usage
 
 ******
 
-Version 1 declares only the following compilation scope:
+Enabling the plugin takes three steps: install a compatible AutoJs6, install this plugin APK, then manually select the plugin in the AutoJs6 developer options. Two things to know up front:
 
-```text
-input: JAR with JVM class files
-output: DEX ZIP with contiguous classes*.dex entries
-compiler: D8 8.13.22
-```
-
-******
-
-### Plugin interface
-
-******
-
-The host discovers and calls the plugin with the following identities:
-
-```text
-service action: org.autojs.plugin.DEX_COMPILER
-plugin id: dex-compiler
-protocol provider id: autojs6-d8
-engine: dex-compiler
-variant: d8
-protocol: V1
-required host build: 5270
-```
-
-The plugin declares D8 8.13.22, JAR input, DEX ZIP output, DEBUG and RELEASE modes, minApi 24 through 36, and multi-dex. Its runtime library model is device boot classpath V1.
-
-Host build 5270 or later is required. The plugin has no native library, so one pure JVM universal APK supports every device ABI.
-
-******
-
-### Host integration status
-
-******
-
-> The raw runtime.loadJar route remains default-off and requires an explicitly selected same-signed exact component. R1 is closed at R1.1 7/7, R1.2 4/4, and the canonical real-provider matrix 7/7. Production Runtime single-flight coalescing uses the bounded persistent semantic cache after authenticated key finalization. Interrupting any waiter, including the last, detaches only that caller without local fallback; the producer may finish and cache the result. Cooperative last-waiter cancellation remains R2, and an opened safety circuit stays conservative for the process lifetime.
-
-******
-
-### R1 installation and usage guide
-
-******
-
-This is a default-off R1 explicit opt-in path, not a compiler replacement that activates when installed. R1 acceptance now includes real-provider execution on API 24/25/26/28/31/34/36 across x86_64 emulators and an arm64 physical device. That closes the fixed R1 gates; it does not auto-enable the route, make the plugin the default, or expand the bounded V1 protocol.
+- The plugin is inactive by default. Merely installing it changes nothing in AutoJs6; you must enable it manually as described below.
+- It can be reverted at any time. Switching back to Built-in D8/dx in the developer options restores the original behavior without uninstalling anything.
 
 #### Prerequisites
 
-Obtain AutoJs6 and the plugin only from a trusted, paired release source. AutoJs6 must be build 5270 or later, and the complete current signer sets of host and plugin must match; self-built artifacts must also keep the fixed package and service identities below. Back up scripts and important app data before upgrading. If Android reports a signer mismatch, do not work around it by uninstalling the host or clearing its data.
+- AutoJs6 build 5270 or higher (for `runtime.loadJar()`); `runtime.loadJarWithClasspath()` requires a newer paired host build (build 5274 was used for verification).
+- Host and plugin must come from the same trusted source and carry identical signatures. With mismatched signatures the plugin cannot be selected; use paired release packages or build both yourself, and never work around it by uninstalling the host or clearing its data.
+- When building yourself, keep the fixed package names and service component below unchanged.
+- Back up your scripts and important data before upgrading.
+
+The relevant identifiers are:
 
 ```text
 host package: org.autojs.autojs6
@@ -116,17 +105,27 @@ minimum host build: 5270
 exact component: io.github.supermonster003.autojs6.plugin.dexcompiler/io.github.supermonster003.autojs6.plugin.dexcompiler.DexCompilerService
 ```
 
-#### Install and explicitly enable
+#### Install and enable
 
-Install or update the compatible AutoJs6 first, then install the plugin APK. In AutoJs6, open Settings > About app and developer and long-press the app icon to open Developer options. Open DEX compiler > Raw JAR compiler provider, select the exact component below, and confirm. Installing the plugin alone does not enable the route, and AutoJs6 never automatically selects a discovered provider.
+1. Install or upgrade to a compatible AutoJs6.
+2. Install this plugin APK.
+3. Open AutoJs6, go to Settings > About app and developer, and long-press the app icon to enter the developer options.
+4. Go to DEX compiler > Raw JAR compiler provider.
+5. Select this plugin's service component (the exact component shown above) and confirm.
 
-#### Confirm status
+To repeat: installing the plugin alone does not enable it, and AutoJs6 never auto-selects a discovered provider; steps 3 through 5 are required.
 
-Return to Developer options and confirm that the summary explicitly says raw runtime.loadJar JARs prefer the exact component below. If it shows Built-in D8/dx or no candidate, verify the host build, both package names, plugin enabled state, and signatures. The summary proves only current selection and discovery eligibility; it does not prove that a particular compile was remote. Completion of the R1 matrix does not remove per-request identity revalidation, handshake, validation, or fallback rules.
+#### Confirm it is active
 
-#### AutoJs6 example
+Return to the developer options page. When the summary shows this plugin's service component as selected, the plugin is active: from then on, compilation for `runtime.loadJar()` and `runtime.loadJarWithClasspath()` is preferentially handled by the plugin.
 
-Place a readable JAR containing JVM `.class` files at `lib/example.jar` beside the script, then replace the sample class and method with a real public API in that JAR. The script uses the selected provider through the existing `runtime.loadJar()` entry; the plugin adds no new JavaScript global.
+If the plugin does not appear in the list, or the summary still shows Built-in D8/dx, check in order: the AutoJs6 build is at least 5270; the host and plugin package names match the ones above; the plugin app is not disabled by the system; both signatures are identical.
+
+Note: the summary tells you "who is currently selected", not "who actually performed a given compilation"; an individual compilation may still bypass the plugin due to a cache hit or a fallback (see below).
+
+#### Script example
+
+Place a JAR containing JVM `.class` files at `lib/example.jar` in your script directory, then call `runtime.loadJar()` as usual; the plugin adds no new JavaScript globals, and scripts are written exactly as with the built-in compiler. Replace the class name and method in the example with a public API that actually exists in your JAR.
 
 ```javascript
 "use strict";
@@ -143,11 +142,43 @@ const Example = Packages.com.example.autojs6.DexPluginExample;
 console.log("DEX compiler example: " + Example.answer());
 ```
 
-This example covers raw JARs only. `.aar`, precompiled `.dex`, compatibility helpers, and dynamic `defineClass()` always stay on host built-in paths. Validation does not make untrusted bytecode safe; load only JARs you trust.
+If the JAR references classes that exist in the runtime environment but are not part of the JAR itself (for example API stubs), use the explicit compile-time classpath entry point:
 
-#### Collect diagnostics
+```javascript
+runtime.loadJarWithClasspath(
+    files.path("./lib/program.jar"),
+    files.path("./lib/compile-api-stubs.jar"),
+);
+```
 
-For a problem report, record the AutoJs6 build/version, plugin version, full exact-component summary from Developer options, device model/API/ABI, input JAR byte count and SHA-256, event time, complete script exception, and reproduction steps. If using ADB, put the one authorized device ID in `<serial>` on every command, capture AndroidClassLoader/AndroidRuntime logs around the failure, and remove private paths, script content, and other sensitive data before sharing.
+Three things to know about the classpath:
+
+- Classpath JARs are only used to resolve references at compile time; they are neither packaged into the output nor loaded automatically.
+- If the program actually uses those classes at runtime, they must already exist in the parent chain of the final class loader (such as Android system classes or classes shipped with AutoJs6). Loading a dependency JAR with `runtime.loadJar()` first does not achieve this, as it only creates a sibling loader.
+- The declared classpath order matters and is part of the cache identity; this entry point requires at least one classpath JAR.
+
+Separately, `.aar` files, precompiled `.dex` files and dynamic entry points such as `defineClass()` are always handled by AutoJs6's built-in path and never involve this plugin. Finally, remember that compilation is not a security review: only load JARs you trust.
+
+#### What happens when compilation fails
+
+Even with the plugin enabled, AutoJs6 still puts "the script must keep running" first:
+
+- `runtime.loadJar()`: if the plugin is unavailable, compilation fails, times out, or the output fails validation, AutoJs6 automatically recompiles the same JAR with the built-in D8/dx, at most once per request.
+- `runtime.loadJarWithClasspath()`: the fallback is likewise at most once, and must hand the exact same program plus classpath to local D8; the classpath is never dropped and never silently downgraded.
+- A deliberate cancellation (such as stopping the script) is not a failure: it does not trigger a fallback and simply ends the load.
+- When the plugin returns BUSY (only one compilation session at a time), AutoJs6 applies the rules above; just retry the script a moment later.
+
+As a consequence, a script running successfully does not prove that its compilation went through the plugin; when you need certainty, use the troubleshooting steps below.
+
+#### Troubleshooting and reporting
+
+If you suspect the plugin is misbehaving, first switch back to Built-in D8/dx and compare the behavior. When reporting an issue, please include as much of the following as possible:
+
+- AutoJs6 build/version, plugin version, and the full component name from the developer options summary.
+- Device model, Android version (API) and CPU architecture (ABI).
+- The JAR that triggers the issue (or its byte size and SHA-256), the full script exception, and reproduction steps.
+
+If you are comfortable with ADB, the following commands collect the relevant logs (replace `<serial>` with your device serial; strip private paths and sensitive content before sharing):
 
 ```powershell
 adb -s <serial> shell dumpsys package org.autojs.autojs6
@@ -155,21 +186,117 @@ adb -s <serial> shell dumpsys package io.github.supermonster003.autojs6.plugin.d
 adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
 ```
 
-#### Disable and emergency rollback
+#### Disable, roll back and uninstall
 
-In Developer options > Raw JAR compiler provider, select Built-in D8/dx and confirm, then stop and restart AutoJs6. This turns off the experimental route while retaining the selected-component record for later reselection. For an emergency rollback, disable first and restart the host; there is no need to uninstall AutoJs6, clear its data, or delete scripts. An opened process safety circuit intentionally remains open until that AutoJs6 process ends.
+- Temporarily disable: in the developer options under Raw JAR compiler provider, select Built-in D8/dx and confirm, then fully quit and restart AutoJs6. The component selection record is kept, so you can re-enable it at any time.
+- In an emergency: disabling and restarting the host as above is sufficient; there is no need to uninstall AutoJs6, clear its data or delete scripts.
+- Uninstall the plugin: switch back to Built-in D8/dx first, then stop AutoJs6 and uninstall the plugin APK. Uninstalling removes all of the plugin's own data and temporary files; AutoJs6 keeps working with its built-in compiler.
+- After reinstalling, the plugin must be enabled manually again; the previous selection is not restored automatically.
 
-#### Understand fallback
+******
 
-When the route is off, the provider is unavailable or incompatible, binding or remote work fails, a timeout occurs, output is invalid, or adoption of a verified artifact fails, one invocation may make at most one host built-in D8/dx attempt; dispatched Binder work is not automatically retried. Caller cancellation or thread interruption propagates with no local fallback. AAR, loadDex, and defineClass never use this plugin. Therefore, a script that ultimately succeeds proves only that some permitted path succeeded, not that the plugin compiled it.
+### FAQ
 
-#### Uninstall and recover
+******
 
-Select Built-in D8/dx first, confirm that the summary shows the experiment off, then stop AutoJs6 and uninstall the plugin. Uninstall permanently removes the plugin's own app data and private temporary workspaces, while the host can continue with its built-in compiler. To recover, install a compatible same-signed plugin, reopen Developer options, and explicitly select the exact component again; do not assume the old selection automatically becomes enabled.
+**Q: I installed the plugin and nothing changed. Is it broken?**
 
-#### Known limits and acceptance boundary
+A: No. The plugin is disabled by default and must be enabled manually in the developer options (see above); it also only affects the compilation step of `runtime.loadJar()` and `runtime.loadJarWithClasspath()`, nothing else in your scripts.
 
-V1 performs only bounded raw JVM JAR-to-DEX-ZIP conversion. It provides no R8 shrinking or obfuscation, external classpath, custom desugared library, network compilation, or deterministic byte output. `DexCompilerMode.RELEASE` selects only D8's release compilation mode; it does not enable R8 or promise shrinking, optimization, obfuscation, or mapping. BUSY may lead to host fallback, and D8 CPU work may continue in the isolated process until cleanup after cancellation. Cooperative cancellation after the final waiter leaves remains R2; performance promotion, making the route default, and removing host compiler dependencies are outside the completed R1 scope.
+**Q: How can I confirm that a compilation was really done by the plugin?**
+
+A: The developer options summary only means "the plugin is selected". Because failures fall back automatically and results are cached, a successful script does not imply the plugin compiled it; collect logs as described under "Troubleshooting and reporting".
+
+**Q: Will this plugin make my scripts faster?**
+
+A: Its goals are a newer compiler, stricter input validation and process isolation, not performance. Compilation takes roughly as long as with the built-in compiler, and compiled results are cached by AutoJs6.
+
+**Q: Does the plugin support R8 shrinking/obfuscation? Is RELEASE mode R8?**
+
+A: No and no. This plugin only performs D8 compilation; `RELEASE` merely selects D8's release compilation mode and involves no shrinking, obfuscation or mapping. R8 capabilities belong to a separate, independent provider plugin.
+
+**Q: Why must the host and the plugin have identical signatures?**
+
+A: It is a mutual security check: it stops other apps from impersonating AutoJs6 towards the plugin, and stops a tampered plugin from impersonating the compilation service. On a mismatch, switch to paired release packages instead of uninstalling or clearing data.
+
+**Q: Does the plugin access the network or my files?**
+
+A: No. The plugin has no network or storage permissions; it can only read the content handed over by AutoJs6 through file descriptors, and its temporary files live entirely in its own private directory.
+
+******
+
+### Scope boundaries
+
+******
+
+To avoid misunderstandings, the following are explicitly outside this plugin's scope:
+
+- No R8 shrinking, optimization or obfuscation, and no mapping files; `RELEASE` only selects D8's release compilation mode.
+- No dependency downloading or resolution (no Maven/Gradle integration), and no network compilation.
+- No handling of `.aar` files, precompiled `.dex` files or dynamic `defineClass()` bytecode; those always take AutoJs6's built-in path.
+- The V1.1 classpath is compile-only: it does not bundle runtime dependencies and does not create combined class loaders.
+- No byte-level deterministic output guarantee: the same input may produce different but equivalent DEX across compiler versions.
+- No replacement for AutoJs6's output validation: the host always re-validates the DEX result independently.
+- Never becomes the default compiler automatically: enabling it is always an explicit user decision.
+
+******
+
+### Technical reference
+
+******
+
+The following sections target developers and integrators who need precise boundaries; regular plugin users can usually skip them.
+
+#### Input and output
+
+Protocol V1.0 receives one raw program JAR through an input descriptor; V1.1 receives one program JAR plus at least one ordered compile-time classpath JAR inside the same bounded input bundle. Both produce output of the same form:
+
+```text
+input: JAR with JVM class files
+output: DEX ZIP with contiguous classes*.dex entries
+compiler: D8 8.13.22
+```
+
+#### Plugin discovery identifiers
+
+The host discovers and invokes the plugin through the following identifiers:
+
+```text
+service action: org.autojs.plugin.DEX_COMPILER
+plugin id: dex-compiler
+protocol provider id: autojs6-d8
+engine: dex-compiler
+variant: d8
+protocol: V1
+required host build: 5270
+```
+
+The plugin declares D8 8.13.22, protocol range V1.0 through V1.1, JAR input, DEX ZIP output, DEBUG and RELEASE modes, minApi 24 through 36, and multi-dex; the runtime library model is device boot classpath V1.
+
+Build 5270 is the minimum host requirement for V1.0; `runtime.loadJarWithClasspath()` requires a paired host build with V1.1 support (build 5274 was used for representative verification). The plugin contains no native libraries and covers all device ABIs with a single pure-JVM universal APK.
+
+#### Security model
+
+The plugin requests no network or storage permissions. The compilation service is protected by the `org.autojs.permission.PLUGIN` permission, and every call verifies the AutoJs6 package name, the calling UID and both parties' signatures. Inputs and outputs travel as file descriptors and are copied before asynchronous processing; temporary files live only in the plugin's private cache and are cleaned up after compilation ends.
+
+#### Resource limits
+
+To defend against malicious or malformed input, the plugin enforces hard limits at every stage; requests exceeding them are rejected outright:
+
+- Input JAR: at most 64 MiB compressed, 20000 entries, and 256 MiB total decompressed data.
+- V1.1 classpath: at most 32 JARs, 64 MiB per compressed JAR, 128 MiB total compressed classpath, and 256 MiB for the whole input bundle.
+- Class data: at most 128 MiB in total and 8 MiB per class; per-entry and overall compression ratios are also bounded.
+- Output DEX ZIP: at most 16 MiB with at most 64 contiguously numbered DEX entries; requests may declare lower ceilings.
+- Concurrency: only one active compilation session per process; additional requests receive a retryable BUSY error.
+- Diagnostics are capped at 64 KiB, with separate caps on error text and the callback queue.
+
+#### Caveats
+
+- Cancelling or closing immediately blocks result publication and interrupts the worker, but D8's internal CPU work cannot be reliably stopped and may continue in the isolated process until the current compilation returns.
+- After a cancellation, the session slot stays occupied until the worker actually exits and cleanup completes; new requests receive BUSY in the meantime.
+- The plugin claims no deterministic output; the cache identity includes the compiler version and runtime fingerprint, so version changes never reuse stale results.
+- V1.1 only accepts the compile-time classpath frozen and bundled by the host; it accepts no caller file paths and no custom desugared library configuration.
+- The device runtime boot classpath varies across systems; requests must match the runtime fingerprint reported by the provider.
 
 ******
 
@@ -177,41 +304,9 @@ V1 performs only bounded raw JVM JAR-to-DEX-ZIP conversion. It provides no R8 sh
 
 ******
 
-R1 is closed: R1.1 production loading is 7/7, R1.2 automation is 4/4, R1.3 is 7/7, and all three exit conditions are checked. API 34 production routing passed 8/8; host DEX passed 16 suites/149 tests, wire 4/24, fake-provider 5/25, and the plugin 48 tests with lint at 0 errors. Canonical campaign f3c2b1af-be93-41e7-b541-f167f90e5cc1 passed all seven real-provider cells: API 24/25 CLI, API 26/28/34/36 D8Command on x86_64, and API 31 on the QV arm64 multi-user device. Its journal head is a5abaf62 and runner SHA-256 is ca89ac16; failed and intentionally terminated earlier campaigns remain preserved. The route stays default-off, and last-waiter cooperative cancellation plus the broader recovery work remain unchecked in R2.
+Development proceeds in stages, and R0 through R4 are complete with reviewable evidence. R5 is now in progress: the user guides and in-app instructions have been rewritten, and bounded privacy-safe diagnostics plus a process-local last-route summary are implemented locally. Performance benchmarks, broader V1.1 device acceptance, the authorized Android diagnostic case and release promotion remain pending. For per-item definitions of done and evidence, see:
 
 - [Open the checkable ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
-
-******
-
-### Security
-
-******
-
-The plugin requests no network or storage permission. The compiler service is protected by `org.autojs.permission.PLUGIN` and verifies the AutoJs6 package name, calling UID ownership, and matching signatures. Input and output descriptors are duplicated before asynchronous work. Temporary files stay in app-private cache and are removed after the worker exits.
-
-******
-
-### Operational limits
-
-******
-
-- Compressed JAR input is limited to 64 MiB and 20000 entries, with 256 MiB of total uncompressed data.
-- Class data is limited to 128 MiB in total and 8 MiB per class. Entry and aggregate compression ratios are bounded.
-- A DEX ZIP is limited to 16 MiB and 64 contiguously indexed DEX entries. A request may choose a lower output ceiling.
-- At most one compilation session is active in the process. Busy requests receive a retryable BUSY error.
-- Diagnostics are limited to 64 KiB. Error text and the callback queue have separate bounds.
-
-******
-
-### Limitations and caveats
-
-******
-
-- Cancel or close immediately prevents result publication, closes descriptors, and interrupts the worker, but D8 CPU work cannot be interrupted reliably.
-- After cancellation, the session slot remains occupied until the D8 worker actually exits and cleanup completes. New requests receive BUSY meanwhile.
-- The plugin makes no determinism claim and accepts neither an external classpath nor a custom desugared library configuration.
-- The host still revalidates output with its complete DexIndexedZipValidator. Plugin packaging checks do not replace host validation.
-- The device runtime boot classpath may vary by system. A request must match the runtime fingerprint reported by the provider.
 
 ******
 
@@ -223,13 +318,15 @@ The plugin requests no network or storage permission. The compiler service is pr
 
 ###### 2026/08/08
 
-* `Feature` DEX Compiler protocol V1 provider with plugin ID and engine `dex-compiler`, provider ID `autojs6-d8`, and variant `d8`
-* `Feature` JAR to DEX ZIP compilation with DEBUG, RELEASE, minApi 24 through 36, multi-dex, and a device runtime boot classpath fingerprint
-* `Feature` Bounded JAR size, entry count, decompressed data, class data, diagnostics, and output with strict ZIP framing, name, and class magic validation
-* `Feature` Contiguous `classes*.dex` packaging with actual size and SHA-256 reporting plus host revalidation through DexIndexedZipValidator
-* `Feature` One active session, same-signature AutoJs6 caller checks, a private workspace, API 24 and 25 CLI fallback, and conservative cancellation semantics
-* `Feature` One pure JVM universal APK plus README, changelog, Android UI, and plugin instructions in 10 languages
-* `Dependency` Added R8 8.13.17 for D8 compilation
+* `Hint` First stable release. Inactive after installation by default; it must be enabled manually in the AutoJs6 developer options, see the "Installation and usage" section of the README for the steps
+* `Feature` Acts as an external DEX compiler plugin for AutoJs6: when scripts load a JAR via `runtime.loadJar()`, this plugin can perform the JAR-to-DEX compilation in place of the built-in compiler
+* `Feature` Compilation runs in a private sandbox inside the plugin's own process, isolated from AutoJs6; if the plugin fails or is unavailable, AutoJs6 falls back to its built-in compiler at most once
+* `Feature` Strictly validates the input JAR's size, SHA-256, ZIP structure, entry names and class content before compiling, rejecting malformed, oversized or tampered input
+* `Feature` Supports DEBUG and RELEASE compilation modes, multi-dex output and minApi 24 through 36; the output is a contiguously numbered `classes*.dex` ZIP reported with its actual size and SHA-256
+* `Feature` Compatible with devices on Android 7.0 (API 24) and higher; API 26+ uses D8Command while API 24/25 automatically use a D8 CLI compatibility path
+* `Feature` Communicates only with an identically signed AutoJs6 (protected by the `org.autojs.permission.PLUGIN` permission) and requests no network or storage permissions
+* `Feature` Pure JVM implementation with a single universal APK covering all device architectures; ships with UI, README and in-app instructions in 10 languages
+* `Dependency` Bundles the Google R8 library 8.13.17 (providing the D8 compiler)
 
 ##### For more releases
 
@@ -251,9 +348,9 @@ Release build:
 .\gradlew.bat :app:assembleRelease
 ```
 
-Build parameters come from `version.properties`. The current minimum SDK is 24, the target SDK is 36, JDK 17 is the minimum, and JDK 21 is recommended.
+Build parameters come from `version.properties`. The current minimum SDK is 24, the target SDK is 36, the minimum JDK is 17 and JDK 21 is recommended.
 
-The protocol ABI is supplied by repository-local AARs in `libs`:
+The protocol ABI is provided by local AARs in the repository `libs` directory:
 
 ```text
 common-plugin-api.aar
@@ -261,7 +358,7 @@ protocol-wire-api.aar
 dex-compiler-api.aar
 ```
 
-The compiler uses D8 8.13.22 from Maven. Local AARs provide only the stable protocol boundary, and the resulting plugin is a universal APK without native libraries.
+The compiler is pulled in through Maven as D8 8.13.22. The local AARs only provide the stable protocol boundary, and the build output is a universal APK without native libraries.
 
 ******
 
@@ -269,7 +366,7 @@ The compiler uses D8 8.13.22 from Maven. Local AARs provide only the stable prot
 
 ******
 
-Project source is licensed under MPL-2.0. R8 and other third-party components remain under their respective licenses.
+The project source code is licensed under MPL-2.0. R8 and other third-party components remain subject to their own licenses.
 
 ******
 
@@ -285,7 +382,7 @@ app/src/main/assets/doc/CHANGELOG-*.md
 app/src/main/res/values-*/strings.xml
 ```
 
-`.python/generate_markdown.py` generates README files and in-app changelogs in 10 languages from JSON sources. Android strings are maintained in their own resource directories.
+`.python/generate_markdown.py` generates the README and in-app changelog for all 10 languages from the JSON sources; to change the documentation, edit the JSON sources rather than the generated Markdown. Android UI strings are managed in their respective resource directories.
 
 ******
 

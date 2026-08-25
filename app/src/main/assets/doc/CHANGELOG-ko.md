@@ -8,10 +8,12 @@
 
 ###### 2026/08/08
 
-* `기능` 플러그인 ID 및 엔진 `dex-compiler`, provider ID `autojs6-d8`, 변형 `d8`인 DEX Compiler 프로토콜 V1 provider
-* `기능` DEBUG, RELEASE, minApi 24부터 36, multi-dex 및 기기 runtime boot classpath fingerprint를 지원하는 JAR에서 DEX ZIP 컴파일
-* `기능` JAR 크기, entry 수, 압축 해제 데이터, class 데이터, 진단 및 출력 상한과 엄격한 ZIP framing, 이름 및 class magic 검증
-* `기능` 연속 `classes*.dex` packaging과 실제 크기 및 SHA-256 보고, 호스트 DexIndexedZipValidator 재검증
-* `기능` 단일 활성 세션, 동일 서명 AutoJs6 호출자 검사, 전용 작업 공간, API 24와 25 CLI fallback 및 보수적 취소 동작
-* `기능` 순수 JVM universal APK 하나와 10개 언어 README, changelog, Android UI 및 플러그인 안내
-* `의존성` D8 컴파일을 위해 R8 8.13.17 추가
+* `힌트` 첫 안정 릴리스. 설치 후 기본적으로 비활성 상태이며, AutoJs6 개발자 옵션에서 수동으로 활성화해야 합니다; 절차는 README의 "설치 및 사용" 장을 참조하세요
+* `기능` AutoJs6의 외부 DEX 컴파일러 플러그인으로 동작: 스크립트가 `runtime.loadJar()`로 JAR을 로드할 때, 내장 컴파일러 대신 이 플러그인이 JAR에서 DEX로의 컴파일을 수행할 수 있습니다
+* `기능` 컴파일은 플러그인 자체 프로세스 안의 사설 샌드박스에서 실행되어 AutoJs6와 격리됩니다; 플러그인이 실패하거나 사용 불가하면 AutoJs6가 최대 1회 내장 컴파일러로 폴백합니다
+* `기능` 컴파일 전에 입력 JAR의 크기, SHA-256, ZIP 구조, entry 이름, class 내용을 엄격히 검증하여 비정상적이거나 한도를 초과하거나 변조된 입력을 거부합니다
+* `기능` DEBUG 및 RELEASE 컴파일 모드, multi-dex 출력, minApi 24~36을 지원; 출력은 연속 번호의 `classes*.dex` ZIP이며 실제 크기와 SHA-256을 보고합니다
+* `기능` Android 7.0 (API 24) 이상 기기와 호환; API 26+는 D8Command를 사용하고 API 24/25는 자동으로 D8 CLI 호환 경로를 사용합니다
+* `기능` 동일 서명의 AutoJs6와만 통신하며 (`org.autojs.permission.PLUGIN` 권한으로 보호), 네트워크 및 저장소 권한을 요청하지 않습니다
+* `기능` 순수 JVM 구현으로 단일 universal APK가 모든 기기 아키텍처를 지원; 10개 언어의 UI, README, 앱 내 설명 포함
+* `의존성` Google R8 라이브러리 8.13.17 동봉 (D8 컴파일러 제공)

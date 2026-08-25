@@ -178,8 +178,8 @@ function Read-R4OtherCapabilitiesContract {
     Assert-R4OtherCapabilitiesExactProperties -Value $contract.apiAar -Expected @(
         'byteLength', 'sha256', 'inputFormats', 'inputRoles', 'outputFormats'
     ) -Label 'contract apiAar'
-    if ([long] $contract.apiAar.byteLength -ne 154988 -or
-        $contract.apiAar.sha256 -cne '4766af19ea414400177ba8541f753737c8bf40624cbfc866bb5442cc4b07fea5' -or
+    if ([long] $contract.apiAar.byteLength -ne 163690 -or
+        $contract.apiAar.sha256 -cne '6beea0450017956ec9a5469083142529dc5f893c4e6450848a8a9dd5e1526b7c' -or
         (@($contract.apiAar.inputFormats) -join ',') -cne 'JAR' -or
         (@($contract.apiAar.inputRoles) -join ',') -cne 'PROGRAM,CLASSPATH' -or
         (@($contract.apiAar.outputFormats) -join ',') -cne 'DEX_ZIP') {

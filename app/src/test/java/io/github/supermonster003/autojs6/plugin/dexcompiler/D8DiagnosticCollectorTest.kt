@@ -2,8 +2,12 @@ package io.github.supermonster003.autojs6.plugin.dexcompiler
 
 import com.android.tools.r8.CompilationFailedException
 import com.android.tools.r8.Diagnostic
+import com.android.tools.r8.origin.ArchiveEntryOrigin
 import com.android.tools.r8.origin.Origin
+import com.android.tools.r8.origin.PathOrigin
 import com.android.tools.r8.position.Position
+import com.android.tools.r8.position.TextPosition
+import com.android.tools.r8.position.TextRange
 import org.autojs.plugin.dexcompiler.api.DexCompilerContract
 import org.autojs.plugin.dexcompiler.api.DexCompileError
 import org.autojs.plugin.dexcompiler.api.DexCompilerCodec
@@ -23,7 +27,7 @@ import java.util.UUID
 
 class D8DiagnosticCollectorTest {
     @Test
-    fun retainsOnlyStableErrorSeverity() {
+    fun retainsCompleteStableSeverityStream() {
         val collector = D8DiagnosticCollector(DexCompilerContract.MAX_DIAGNOSTIC_BYTES)
 
         collector.info(TestDiagnostic("plain info"))
@@ -35,12 +39,17 @@ class D8DiagnosticCollectorTest {
         DexCompilerValidation.validateDiagnostics(diagnostics)
         assertEquals(
             listOf(
+                DexCompilerDiagnosticSeverity.INFO,
+                DexCompilerDiagnosticSeverity.WARNING,
                 DexCompilerDiagnosticSeverity.ERROR,
                 DexCompilerDiagnosticSeverity.ERROR,
             ),
             diagnostics.map { it.severity },
         )
-        assertEquals(listOf("D8.ERROR", "D8.ERROR"), diagnostics.map { it.code })
+        assertEquals(
+            listOf("D8.INFO", "D8.WARNING", "D8.ERROR", "D8.ERROR"),
+            diagnostics.map { it.code },
+        )
     }
 
     @Test
@@ -134,11 +143,169 @@ class D8DiagnosticCollectorTest {
             assertEquals(DexCompilerFailurePhase.COMPILATION, failure.phase)
             DexCompilerValidation.validateDiagnostics(failure.diagnostics)
             assertEquals(
-                listOf("D8.COMPILATION_FAILED"),
+                listOf("D8.COMPILATION_FAILED", "D8.DIAGNOSTICS_TRUNCATED"),
                 failure.diagnostics.map { it.code },
             )
-            assertEquals("D8 compilation failed", failure.diagnostics.single().message)
+            assertEquals("D8 compilation failed", failure.diagnostics.first().message)
             assertTrue(retainedUtf8Bytes(failure.diagnostics) <= request.diagnosticByteLimit)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun prioritizesErrorsOverEarlierInfoAndWarnings() {
+        val collector = D8DiagnosticCollector(96)
+        collector.info(TestDiagnostic("info ".repeat(100)))
+        collector.warning(TestDiagnostic("warning ".repeat(100)))
+        collector.error(TestDiagnostic("actionable error"))
+
+        val diagnostics = collector.snapshot()
+        DexCompilerValidation.validateDiagnostics(diagnostics)
+        assertTrue(diagnostics.any { it.severity == DexCompilerDiagnosticSeverity.ERROR })
+        assertEquals("actionable error", diagnostics.first { it.severity == DexCompilerDiagnosticSeverity.ERROR }.message)
+        assertTrue(retainedUtf8Bytes(diagnostics) <= 96)
+    }
+
+    @Test
+    fun countLimitRetainsLaterErrorAheadOfInfoDiagnostics() {
+        val collector = D8DiagnosticCollector(DexCompilerContract.MAX_DIAGNOSTIC_BYTES)
+        repeat(512) { collector.info(TestDiagnostic("info")) }
+
+        collector.error(TestDiagnostic("actionable error"))
+
+        val diagnostics = collector.snapshot()
+        DexCompilerValidation.validateDiagnostics(diagnostics)
+        assertEquals(512, diagnostics.size)
+        assertTrue(diagnostics.any { it.severity == DexCompilerDiagnosticSeverity.ERROR })
+        assertEquals("D8.DIAGNOSTICS_TRUNCATED", diagnostics.last().code)
+    }
+
+    @Test
+    fun emitsLogicalOriginEntryAndTextRangeWithoutPrivatePaths() {
+        val root = Files.createTempDirectory("d8-diagnostic-origin-test").toFile()
+        try {
+            val program = root.resolve("program.jar").apply { writeBytes(byteArrayOf(1)) }
+            val output = root.resolve("d8").apply { mkdir() }
+            val resolver = D8DiagnosticOriginResolver.create(
+                programJar = program,
+                classpathJars = emptyList(),
+                runtimeLibraries = emptyList(),
+                outputDirectory = output,
+            )
+            val collector = D8DiagnosticCollector(DexCompilerContract.MAX_DIAGNOSTIC_BYTES, resolver)
+            collector.error(
+                TestDiagnostic(
+                    message = "Duplicate type in ${program.absolutePath}, C:\\private\\secret.jar, and /secret.jar",
+                    origin = ArchiveEntryOrigin(
+                        "com/example/Duplicate.class",
+                        PathOrigin(program.toPath()),
+                    ),
+                    position = TextRange(
+                        TextPosition(42L, 7, 11),
+                        TextPosition(50L, 7, 19),
+                    ),
+                ),
+            )
+
+            val diagnostic = collector.snapshot().first()
+            assertEquals("program", diagnostic.origin)
+            assertEquals("com/example/Duplicate.class", diagnostic.entry)
+            assertEquals(
+                org.autojs.plugin.dexcompiler.api.DexCompilerDiagnosticPosition(
+                    line = 7,
+                    column = 11,
+                    offset = 42L,
+                    endLine = 7,
+                    endColumn = 19,
+                    endOffset = 50L,
+                ),
+                diagnostic.position,
+            )
+            assertTrue(diagnostic.message.contains("<program>"))
+            assertEquals(2, "<redacted-path>".toRegex().findAll(diagnostic.message).count())
+            assertFalse(diagnostic.message.contains(root.absolutePath, ignoreCase = true))
+            assertFalse(diagnostic.message.contains("private", ignoreCase = true))
+            DexCompilerValidation.validateDiagnostics(listOf(diagnostic))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun successfulCompilationReturnsInfoAndWarningDiagnostics() {
+        val root = Files.createTempDirectory("d8-success-diagnostics-test").toFile()
+        try {
+            val runtimeFile = root.resolve("runtime.jar").apply { writeBytes(byteArrayOf(1)) }
+            val runtime = RuntimeLibrarySet.fromFiles(listOf(runtimeFile))
+            val program = root.resolve("program.jar").apply { writeBytes(byteArrayOf(2)) }
+            val output = root.resolve("d8").apply { mkdir() }
+            val request = TestData.request(program.readBytes(), runtime)
+            val runner = D8CommandRunner { _, _, outputDirectory, _, handler ->
+                handler.info(TestDiagnostic("compiler info"))
+                handler.warning(TestDiagnostic("compiler warning"))
+                outputDirectory.resolve("classes.dex").writeBytes(byteArrayOf(0x64, 0x65, 0x78))
+            }
+
+            val artifact = D8DexCompilerEngine(
+                runtimeLibraries = runtime,
+                sdkInt = { 26 },
+                commandRunner = runner,
+            ).compile(
+                request = request,
+                programJar = program,
+                outputDirectory = output,
+                artifactZip = root.resolve("artifact.zip"),
+                ensureActive = {},
+                beforePackaging = {},
+            )
+
+            assertEquals(
+                listOf(DexCompilerDiagnosticSeverity.INFO, DexCompilerDiagnosticSeverity.WARNING),
+                artifact.diagnostics.map { it.severity },
+            )
+            DexCompilerValidation.validateDiagnostics(artifact.diagnostics)
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun api25CliHandlerReturnsInfoAndWarningDiagnostics() {
+        val root = Files.createTempDirectory("d8-cli-success-diagnostics-test").toFile()
+        try {
+            val runtimeFile = root.resolve("runtime.jar").apply { writeBytes(byteArrayOf(1)) }
+            val runtime = RuntimeLibrarySet.fromFiles(listOf(runtimeFile))
+            val program = root.resolve("program.jar").apply { writeBytes(byteArrayOf(2)) }
+            val output = root.resolve("d8").apply { mkdir() }
+            val request = TestData.request(program.readBytes(), runtime)
+            val runner = D8CliRunner { _, handler ->
+                handler.info(TestDiagnostic("CLI compiler info"))
+                handler.warning(TestDiagnostic("CLI compiler warning"))
+                output.resolve("classes.dex").writeBytes(byteArrayOf(0x64, 0x65, 0x78))
+            }
+
+            val artifact = D8DexCompilerEngine(
+                runtimeLibraries = runtime,
+                sdkInt = { 25 },
+                commandRunner = D8CommandRunner { _, _, _, _, _ ->
+                    throw AssertionError("API 25 must not use the command runner")
+                },
+                cliRunner = runner,
+            ).compile(
+                request = request,
+                programJar = program,
+                outputDirectory = output,
+                artifactZip = root.resolve("artifact.zip"),
+                ensureActive = {},
+                beforePackaging = {},
+            )
+
+            assertEquals(
+                listOf(DexCompilerDiagnosticSeverity.INFO, DexCompilerDiagnosticSeverity.WARNING),
+                artifact.diagnostics.map { it.severity },
+            )
+            DexCompilerValidation.validateDiagnostics(artifact.diagnostics)
         } finally {
             root.deleteRecursively()
         }
@@ -182,13 +349,25 @@ class D8DiagnosticCollectorTest {
     }
 
     private fun retainedUtf8Bytes(diagnostics: Collection<DexCompilerDiagnostic>): Int = diagnostics.sumOf {
-        it.code.toByteArray(Charsets.UTF_8).size + it.message.toByteArray(Charsets.UTF_8).size
+        it.code.toByteArray(Charsets.UTF_8).size +
+            it.message.toByteArray(Charsets.UTF_8).size +
+            (it.origin?.toByteArray(Charsets.UTF_8)?.size ?: 0) +
+            (it.entry?.toByteArray(Charsets.UTF_8)?.size ?: 0) +
+            (it.position?.let { position ->
+                listOf(position.line, position.column, position.endLine, position.endColumn)
+                    .count { value -> value != null } * Int.SIZE_BYTES +
+                    listOf(position.offset, position.endOffset).count { value -> value != null } * Long.SIZE_BYTES
+            } ?: 0)
     }
 
-    private open class TestDiagnostic(private val message: String) : Diagnostic {
-        override fun getOrigin(): Origin = Origin.unknown()
+    private open class TestDiagnostic(
+        private val message: String,
+        private val origin: Origin = Origin.unknown(),
+        private val position: Position = Position.UNKNOWN,
+    ) : Diagnostic {
+        override fun getOrigin(): Origin = origin
 
-        override fun getPosition(): Position = Position.UNKNOWN
+        override fun getPosition(): Position = position
 
         override fun getDiagnosticMessage(): String = message
     }

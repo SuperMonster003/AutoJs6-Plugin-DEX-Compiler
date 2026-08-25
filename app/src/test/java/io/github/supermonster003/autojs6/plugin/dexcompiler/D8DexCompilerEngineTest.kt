@@ -10,7 +10,7 @@ import javax.tools.ToolProvider
 
 class D8DexCompilerEngineTest {
     @Test
-    fun realD8ProducesDexIndexedZip() {
+    fun realD8ProducesDexIndexedZipOnCommandAndCliCompatiblePaths() {
         val root = Files.createTempDirectory("d8-engine-test").toFile()
         try {
             val source = root.resolve("Hello.java").apply {
@@ -32,23 +32,25 @@ class D8DexCompilerEngineTest {
             TestData.writeStoredJar(runtimeJar, "java/lang/Object.class", objectClass)
             val runtime = RuntimeLibrarySet.fromFiles(listOf(runtimeJar))
             val request = TestData.request(program.readBytes(), runtime)
-            val d8Output = root.resolve("d8-output").apply { mkdir() }
-            val artifact = D8DexCompilerEngine(runtime).compile(
-                request = request,
-                programJar = program,
-                outputDirectory = d8Output,
-                artifactZip = root.resolve("artifact.zip"),
-                ensureActive = {},
-                beforePackaging = {},
-            )
+            listOf(25, 26).forEach { sdk ->
+                val d8Output = root.resolve("d8-output-$sdk").apply { mkdir() }
+                val artifact = D8DexCompilerEngine(runtime, sdkInt = { sdk }).compile(
+                    request = request,
+                    programJar = program,
+                    outputDirectory = d8Output,
+                    artifactZip = root.resolve("artifact-$sdk.zip"),
+                    ensureActive = {},
+                    beforePackaging = {},
+                )
 
-            ZipFile(artifact.file).use { zip ->
-                val entry = requireNotNull(zip.getEntry("classes.dex"))
-                val magic = zip.getInputStream(entry).use { it.readNBytes(8) }
-                assertTrue(magic.copyOfRange(0, 4).contentEquals("dex\n".toByteArray(Charsets.US_ASCII)))
+                ZipFile(artifact.file).use { zip ->
+                    val entry = requireNotNull(zip.getEntry("classes.dex"))
+                    val magic = zip.getInputStream(entry).use { it.readNBytes(8) }
+                    assertTrue(magic.copyOfRange(0, 4).contentEquals("dex\n".toByteArray(Charsets.US_ASCII)))
+                }
+                assertEquals(1, artifact.dexEntryCount)
+                assertEquals(artifact.file.length(), artifact.outputSizeBytes)
             }
-            assertEquals(1, artifact.dexEntryCount)
-            assertEquals(artifact.file.length(), artifact.outputSizeBytes)
         } finally {
             root.deleteRecursively()
         }
@@ -174,7 +176,7 @@ class D8DexCompilerEngineTest {
                     assertEquals(runtime.files, libraries)
                     outputDirectory.resolve("classes.dex").writeBytes(byteArrayOf(0x64, 0x65, 0x78))
                 },
-                cliRunner = D8CliRunner { throw AssertionError("API 26 must not use the CLI runner") },
+                cliRunner = D8CliRunner { _, _ -> throw AssertionError("API 26 must not use the CLI runner") },
             ).compile(
                 request = request,
                 programJar = program,
@@ -212,7 +214,7 @@ class D8DexCompilerEngineTest {
                 commandRunner = D8CommandRunner { _, _, _, _, _ ->
                     throw AssertionError("API 25 must not use the command runner")
                 },
-                cliRunner = D8CliRunner { arguments ->
+                cliRunner = D8CliRunner { arguments, _ ->
                     capturedArguments = arguments.toList()
                     output.resolve("classes.dex").writeBytes(byteArrayOf(0x64, 0x65, 0x78))
                 },

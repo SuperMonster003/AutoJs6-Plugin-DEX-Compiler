@@ -34,6 +34,25 @@
 
 ******
 
+### {{ h3_how_it_works }}
+
+******
+
+{{ p_how_it_works }}:
+
+```text
+1. script     calls runtime.loadJar() or runtime.loadJarWithClasspath()
+2. AutoJs6    validates and freezes the input JAR, records its size and SHA-256
+3. plugin     re-verifies the input, then compiles it with D8 in a private sandboxed process
+4. plugin     returns a DEX ZIP (classes.dex, classes2.dex, ...)
+5. AutoJs6    independently re-validates the result, caches it, and loads the classes
+*  fallback   if anything fails, AutoJs6 retries once with its built-in compiler
+```
+
+{{ p_how_it_works_note }}
+
+******
+
 ### {{ h3_functions }}
 
 ******
@@ -42,55 +61,11 @@
 
 ******
 
-### {{ h3_formats }}
-
-******
-
-{{ p_formats }}:
-
-```text
-input: {{ input_format }}
-output: {{ output_format }}
-compiler: {{ compiler_dependency }}
-```
-
-******
-
-### {{ h3_plugin_interface }}
-
-******
-
-{{ p_plugin_interface }}:
-
-```text
-service action: {{ plugin_action }}
-plugin id: {{ plugin_id }}
-protocol provider id: {{ protocol_provider_id }}
-engine: {{ plugin_engine }}
-variant: {{ plugin_variant }}
-protocol: {{ protocol_version }}
-required host build: {{ required_host_build }}
-```
-
-{{ p_plugin_scope }}
-
-{{ p_plugin_packaging }}
-
-******
-
-### {{ h3_host_integration_status }}
-
-******
-
-> {{ p_host_integration_status }}
-
-******
-
 ### {{ h3_user_guide }}
 
 ******
 
-{{ p_user_guide_r1_boundary }}
+{{ p_user_guide_overview }}
 
 #### {{ h4_user_guide_prerequisites }}
 
@@ -132,9 +107,13 @@ console.log("DEX compiler example: " + Example.answer());
 
 {{ p_user_guide_example_note }}
 
-#### {{ h4_user_guide_diagnostics }}
+#### {{ h4_user_guide_fallback }}
 
-{{ p_user_guide_diagnostics }}
+{{ p_user_guide_fallback }}
+
+#### {{ h4_user_guide_troubleshooting }}
+
+{{ p_user_guide_troubleshooting }}
 
 ```powershell
 adb -s <serial> shell dumpsys package {{ host_package }}
@@ -142,21 +121,77 @@ adb -s <serial> shell dumpsys package {{ plugin_package }}
 adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:S
 ```
 
-#### {{ h4_user_guide_disable_rollback }}
+#### {{ h4_user_guide_disable_uninstall }}
 
-{{ p_user_guide_disable_rollback }}
+{{ p_user_guide_disable_uninstall }}
 
-#### {{ h4_user_guide_fallback }}
+******
 
-{{ p_user_guide_fallback }}
+### {{ h3_faq }}
 
-#### {{ h4_user_guide_uninstall_recovery }}
+******
 
-{{ p_user_guide_uninstall_recovery }}
+{{ p_faq }}
 
-#### {{ h4_user_guide_known_limits }}
+******
 
-{{ p_user_guide_known_limits }}
+### {{ h3_boundaries }}
+
+******
+
+{{ p_boundaries_intro }}:
+
+{{ placeholder_boundaries }}
+
+******
+
+### {{ h3_reference }}
+
+******
+
+{{ p_reference_intro }}
+
+#### {{ h4_reference_formats }}
+
+{{ p_formats }}:
+
+```text
+input: {{ input_format }}
+output: {{ output_format }}
+compiler: {{ compiler_dependency }}
+```
+
+#### {{ h4_reference_interface }}
+
+{{ p_plugin_interface }}:
+
+```text
+service action: {{ plugin_action }}
+plugin id: {{ plugin_id }}
+protocol provider id: {{ protocol_provider_id }}
+engine: {{ plugin_engine }}
+variant: {{ plugin_variant }}
+protocol: {{ protocol_version }}
+required host build: {{ required_host_build }}
+```
+
+{{ p_plugin_scope }}
+
+{{ p_plugin_packaging }}
+
+#### {{ h4_reference_security }}
+
+{{ p_security }}
+
+#### {{ h4_reference_limits }}
+
+{{ p_reference_limits_intro }}:
+
+{{ placeholder_security_limits }}
+
+#### {{ h4_reference_caveats }}
+
+{{ placeholder_caveats }}
 
 ******
 
@@ -167,30 +202,6 @@ adb -s <serial> logcat -d -v threadtime AndroidClassLoader:D AndroidRuntime:E *:
 {{ p_roadmap_status }}
 
 - [{{ text_open_roadmap }}]({{ repo_url }}/blob/master/ROADMAP.md)
-
-******
-
-### {{ h3_security }}
-
-******
-
-{{ p_security }}
-
-******
-
-### {{ h3_security_limits }}
-
-******
-
-{{ placeholder_security_limits }}
-
-******
-
-### {{ h3_caveats }}
-
-******
-
-{{ placeholder_caveats }}
 
 ******
 

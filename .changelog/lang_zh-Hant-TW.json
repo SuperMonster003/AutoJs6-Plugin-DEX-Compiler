@@ -7,16 +7,20 @@
   "$data": {
     "v1.0.0": {
       "released_date": "2026/08/08",
+      "hint": [
+        "首個正式版本. 安裝後預設不生效, 需在 AutoJs6 開發者選項中手動啟用; 詳細步驟見 README 的 \"安裝與使用\" 章節"
+      ],
       "feature": [
-        "DEX Compiler 協定 V1 provider, 外掛 ID 和引擎為 `dex-compiler`, provider ID 為 `autojs6-d8`, 變體為 `d8`",
-        "JAR 到 DEX ZIP 編譯, 支援 DEBUG, RELEASE, minApi 24 至 36, multi-dex 及裝置 runtime boot classpath 指紋",
-        "有界 JAR 大小, entry 數量, 解壓資料, class 資料, 診斷和輸出, 並嚴格驗證 ZIP framing, 名稱及 class magic",
-        "僅封裝連續 `classes*.dex`, 回報實際大小和 SHA-256, 且由主程式使用 DexIndexedZipValidator 二次驗證",
-        "單一作用中工作階段, 同簽章 AutoJs6 呼叫端核驗, 私人暫存工作區, API 24 和 25 CLI fallback 及保守取消語意",
-        "純 JVM universal APK, 以及 10 種語言的 README, 更新日誌, Android 介面和外掛說明"
+        "作為 AutoJs6 的外部 DEX 編譯外掛: 腳本呼叫 `runtime.loadJar()` 載入 JAR 時, 可由本外掛代替內建編譯器完成 JAR 到 DEX 的編譯",
+        "編譯在外掛獨立程序的私人沙箱中進行, 與 AutoJs6 相互隔離; 外掛失敗或不可用時, AutoJs6 至多自動回退一次至內建編譯器",
+        "編譯前嚴格核驗輸入 JAR 的大小, SHA-256, ZIP 結構, entry 名稱與 class 內容, 拒絕畸形, 超限或被竄改的輸入",
+        "支援 DEBUG 與 RELEASE 編譯模式, multi-dex 輸出與 minApi 24 至 36; 輸出為連續編號的 `classes*.dex` ZIP 並回報實際大小與 SHA-256",
+        "相容 Android 7.0 (API 24) 及以上裝置; API 26+ 使用 D8Command, API 24/25 自動使用 D8 CLI 相容路徑",
+        "僅與同簽章的 AutoJs6 通訊 (受 `org.autojs.permission.PLUGIN` 權限保護), 不要求網路與儲存權限",
+        "純 JVM 實作, 單個 universal APK 覆蓋所有裝置架構; 附帶 10 種語言的介面, README 與應用程式內說明"
       ],
       "dependency": [
-        "附加 R8 8.13.17, 用於 D8 編譯"
+        "附帶 Google R8 程式庫 8.13.17 (提供 D8 編譯器)"
       ]
     }
   }
