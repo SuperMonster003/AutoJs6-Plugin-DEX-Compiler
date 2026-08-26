@@ -304,7 +304,7 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 
 ******
 
-開發按階段推進, R0 至 R4 均已完成並留有可複核證據. R5 正在進行: 使用者指南與應用程式內說明已重寫, 有界且經脫敏的診斷及僅存於行程內的最近路徑摘要已完成本機實作. 效能基準, 更大範圍的 V1.1 裝置驗收, 獲授權 Android 真實診斷案例及版本發布仍待完成. 各條目的完成定義與證據見:
+開發按階段推進, R0 至 R4 均已完成並留有可複核證據. R5 正在進行: 使用者指南與應用程式內說明已重寫, 有界脫敏診斷, 程序內最近路徑摘要及獲授權 Android 失敗/復原案例均已閉環; 獨立測試者也已完成「安裝 → 啟用 → 執行範例腳本」走查且沒有卡點. 效能基準, 更大範圍的 V1.1 裝置驗收及版本發布仍待完成. 各條目的完成定義與證據見:
 
 - [查看可勾選的 ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
@@ -326,6 +326,8 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 * `新增` 相容 Android 7.0 (API 24) 及以上裝置; API 26+ 使用 D8Command, API 24/25 自動使用 D8 CLI 相容路徑
 * `新增` 僅與同簽章的 AutoJs6 通訊 (受 `org.autojs.permission.PLUGIN` 權限保護), 不要求網路與儲存權限
 * `新增` 純 JVM 實作, 單個 universal APK 覆蓋所有裝置架構; 附帶 10 種語言的介面, README 與應用程式內說明
+* `修復` 相容長度宣告一致且在檔案邊界精確結束的標準 ZIP/JAR archive comment, 同時繼續拒絕歧義 EOCD, 長度不一致與尾隨資料
+* `修復` 在 Release 壓縮建置中完整保留內嵌 D8 引擎及其服務提供者, 讓正式 APK 可以正常編譯 JAR
 * `相依性` 附帶 Google R8 程式庫 8.13.17 (提供 D8 編譯器)
 
 ##### 更多版本

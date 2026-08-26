@@ -16,4 +16,6 @@
 * `Feature` Compatible with devices on Android 7.0 (API 24) and higher; API 26+ uses D8Command while API 24/25 automatically use a D8 CLI compatibility path
 * `Feature` Communicates only with an identically signed AutoJs6 (protected by the `org.autojs.permission.PLUGIN` permission) and requests no network or storage permissions
 * `Feature` Pure JVM implementation with a single universal APK covering all device architectures; ships with UI, README and in-app instructions in 10 languages
+* `Fix` Accepts standard bounded ZIP/JAR archive comments when the declared length ends exactly at the file boundary, while still rejecting ambiguous EOCD records, inconsistent lengths and trailing data
+* `Fix` Keeps the embedded D8 engine and its service providers intact in minified Release builds so production APKs can compile JAR inputs
 * `Dependency` Bundles the Google R8 library 8.13.17 (providing the D8 compiler)

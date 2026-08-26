@@ -22,7 +22,7 @@
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 已完成（交付 4/4，退出 1/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 已完成（R4.1 4/4；R4.2 5/5；R4.3 2/2；退出 2/2） | D8 已完成默认晋升、旧 pin 回滚与再晋升；独立 R8 provider 已完成宿主显式选择、跨 APK Binder/PFD、设备/ART/JNI/Retrace、append-only 本地发布及 Private prerelease；源码编译与 AAR/APK 职责继续隔离 | 本插件 + AutoJs6 + 独立 R8 provider |
-| R5 | 进行中（R5.0 5/6；R5.1 4/4 已完成；R5.2 前置 2/7） | 用户文档与应用内说明已重构；有界脱敏诊断、optional wire 元数据、进程内最近路由及授权设备失败/恢复证据已闭环，性能基准、V1.1 classpath 矩阵扩面与发布仍待办 | 本插件 + AutoJs6 |
+| R5 | 进行中（R5.0 6/6 已完成；R5.1 4/4 已完成；R5.2 前置 3/7） | 用户文档与应用内说明已重构，独立用户走查已完成；有界脱敏诊断、optional wire 元数据、进程内最近路由及授权设备失败/恢复证据已闭环，性能基准、V1.1 classpath 矩阵扩面与发布仍待办 | 本插件 + AutoJs6 |
 
 依赖顺序:
 
@@ -48,7 +48,7 @@ R4 的设计工作可以提前开展，但不得在 R0-R3 的接口中偷偷引�
 
 - [x] 生产代码不再通过 `File.readBytes()` 或等价方式把完整压缩 JAR 复制到堆内存。
 - [x] ZIP framing 检查改为基于文件的有界随机读取；偏移和长度计算继续使用溢出安全的 `Long` 运算。
-- [x] EOCD、中央目录、本地文件头、extra field 和 data descriptor 的检查保持严格，不放宽 ZIP64、多磁盘、加密、注释、前置/尾随数据或未知压缩方法限制。
+- [x] EOCD、中央目录、本地文件头、extra field 和 data descriptor 的检查保持严格；R0 当时不放宽 ZIP64、多磁盘、加密、archive comment、前置/尾随数据或未知压缩方法限制。R5 的受控兼容后续仅接受长度声明一致、在文件边界精确结束且 EOCD 唯一无歧义的标准 archive comment。
 - [x] entry 内容仍以固定大小缓冲区流式解压，并继续执行单项、累计、class 总量、class magic 和压缩比限制。
 - [x] 保留输入复制阶段的大小与 SHA-256 同步核验，失败时删除未完成的私有临时文件。
 - [x] 正常 JAR 的 `ValidatedJar` 统计结果与改造前保持一致。
@@ -58,7 +58,7 @@ R4 的设计工作可以提前开展，但不得在 R0-R3 的接口中偷偷引�
 
 - [x] 正向语料覆盖 STORED、DEFLATED、带/不带签名的 data descriptor、目录 entry、多个 class 和非 class 资源。
 - [x] 覆盖恰好等于及超过压缩大小、entry 数、解压总量、单 class、class 总量和压缩比上限的边界。
-- [x] 覆盖 EOCD 缺失/注释、前置/尾随字节、中央目录截断、entry 数或目录大小不一致。
+- [x] 覆盖 EOCD 缺失、前置/尾随字节、中央目录截断、entry 数或目录大小不一致；R0 当时把任意 archive comment 作为拒绝语料，R5 后续改为接受精确声明的标准注释，并继续拒绝长度不一致、歧义 EOCD 与注释后的尾随字节。
 - [x] 覆盖本地头与中央目录之间的名称、flags、method、CRC、压缩大小和解压大小不一致。
 - [x] 覆盖 ZIP64 sentinel/extra field、多磁盘、加密、不支持的压缩方法、记录间空洞、重叠和乱序 offset。
 - [x] 覆盖空名称、绝对路径、`..`、反斜杠、冒号、NUL、非 NFC、重复名称和非规范目录结尾。
@@ -70,7 +70,7 @@ R0.2 的代表性回归切片:
 
 - [x] 接受 STORED JAR，以及带签名 data descriptor 的 DEFLATED JAR，并核对 `ValidatedJar` 统计。
 - [x] 拒绝本地文件头、中央目录和 EOCD 的固定截断变体。
-- [x] 拒绝 archive comment、前置数据和尾随数据。
+- [x] R0 当时拒绝 archive comment、前置数据和尾随数据；R5 后续只把前置/尾随 envelope 及畸形或歧义 comment 保持为拒绝项，精确标准 comment 改为正向兼容语料。
 - [x] 拒绝重复 entry、错误 class magic，以及 7 类危险或非 NFC 名称。
 - [x] 拒绝未知压缩方法、ZIP64 sentinel、畸形 extra field 和错误 data descriptor。
 - [x] 覆盖空输入与注入的复制异常，并核对未完成目标文件的清理行为。
@@ -117,6 +117,12 @@ git diff --exit-code -- README.md .readme app/src/main/assets/doc
 - Lint: error 0、warning 27；报告位于 `app/build/reports/lint-results-debug.html`。
 - 产物: Debug 与 Release APK 均成功生成于 `app/build/outputs/apk/`；本轮没有签名发布、版本号变更或 commit。
 - 边界: R0 阶段的本地门禁当时未运行 ADB、安装、`connected*` 或真实设备测试；后续 R1 的 API 31 真实插件定向方法另行记录，不能倒推为 R0 Binder 或设备验收证据。
+
+### R0 archive comment 策略的 R5 兼容性后续（2026-08-26）
+
+- R0 的“拒绝全部 archive comment”是当时的历史安全快照，不改写为当时已经兼容。R5 根据独立用户的真实 `java-websocket.jar` 样例，在不改变协议、预算、身份或发布 ownership 的前提下实施受控放宽。
+- 当前 framing 只在文件末尾最多 `22 + 65,535` bytes 的有界窗口内反向查找 EOCD；仅当恰好一个自洽 EOCD 的 16-bit comment length 精确落到 EOF 时接受。ZIP64、多磁盘、加密、前置数据、注释后尾随数据、长度不一致及 comment 内伪造出的第二个自洽 EOCD 仍 fail-closed。
+- 正向测试覆盖真实样例同形的 5-byte binary comment 与 65,535-byte 最大标准 comment；反向测试覆盖少报/多报长度、额外尾随字节和 comment 内伪 EOCD。该兼容面属于 R5 用户样例闭环，不倒改 R0 当轮“纯本地、无设备”的历史证据边界。
 
 ## R1: 宿主显式接入与真实 provider 验收
 
@@ -446,7 +452,7 @@ R4.3 本轮实现与证据（2026-08-25）:
 - [x] 生成器保持幂等：`.python/generate_markdown.py` 连续两次运行，第二次对 25 个生成文件零改动；`git diff --check` 无空白错误。
 - [x] 生成产物人工核对：简体中文主 README 逐段核对章节顺序、代码块与列表渲染；其余 locale 由同一模板生成，结构一致。
 - [x] 应用内 `plugin_instruction.md`（10 个 locale）与新 README 口径同步，覆盖默认关闭、手动启用与回退语义。
-- [ ] 邀请至少一名未参与开发的用户按新 README 完成"安装 → 启用 → 运行示例脚本"的完整走查，记录卡点并回填文档。
+- [x] 邀请至少一名未参与开发的用户按新 README 完成"安装 → 启用 → 运行示例脚本"的完整走查，记录卡点并回填文档。
 
 R5.0 本轮证据（2026-08-25）:
 
@@ -458,7 +464,17 @@ R5.0 续推进证据（2026-08-26）:
 
 - `app/src/main/res/raw*/plugin_instruction.md` 共 11 份资源文件，覆盖默认英文资源及 10 个 locale；默认资源与 `raw-en` 字节内容一致。各语言均按“启用前提 → 编号启用步骤 → 正常调用与回退 → 关闭/恢复 → 安全上限 → 问题反馈”组织，并明确安装不自动启用、至多一次同语义内置回退及取消不回退。
 - README 的 10 个 locale 源已把阶段状态更新为“R5 进行中”，不把本地实现写成真机或发布完成；生成器再次连续运行两次，25 个生成文件第二次 SHA-256 零变化。
-- R5.0 当前为 5/6；外部未参与开发用户的完整走查仍未执行，因此本小节尚未关闭。
+- R5.0 当时为 5/6；下述独立走查已补齐最后一项，当前为 6/6，本小节完成。
+
+R5.0 独立走查与真实样例兼容性闭环证据（2026-08-26）:
+
+- 独立走查: 未参与开发的测试者明确确认已按 README 完成“安装 → 启用 → 运行示例脚本”的完整流程，测试者身份与使用过程均无卡点，因此本轮没有需要回填的文档障碍；这关闭 R5.0 第 6 项及默认启用前置清单的“可用性”，不代表 R5.2 性能或 R5.3 发布完成。
+- 真实输入: 测试者使用 Java-WebSocket 1.6.0 JAR；设备原件为 292,542 bytes、SHA-256 `7e5f73600c7d88f9cd28a63f7c0c9cd64efb5490601fa6f1a26963830cbba664`，共 91 entries / 87 classes，ZIP 完整性正常。EOCD 携带合法 5-byte binary archive comment `04 f7 41 04 00`。测试者最初观察到脚本 26.647 秒成功，但只读日志复核证明当次 provider 在 `INPUT_VALIDATION/INVALID_ARCHIVE` 后由宿主内置编译器回退成功，不能冒充插件成功。
+- 插件修复: commit `cec2941e983f6fc406faee8518977779b053d2d6` 实施上述有界 EOCD/comment 兼容，并在 Release shrinker 中完整保留嵌入式 D8 engine 及其 `META-INF/services` provider。设备验证用非调试 Release APK 为 6,633,402 bytes、SHA-256 `e67123636ca649aaef0ec25da2033b714aa9adc62829d039ca87ea7146406e45`，保留 service provider `com.android.tools.r8.internal.xp1`，signer certificate SHA-256 为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`。
+- 宿主根因与修复: D8 生成的 118,628-byte DEX ZIP（SHA-256 `c475d9daaee09995833c6ad35f7ea715297be30acb9f208d8c46127b0587bc7a`）含一个 118,508-byte `classes.dex`、DEX 039 与 87 个 class definitions，`7-Zip`/`dexdump` 均可完整解析。旧宿主错误要求 `class_idx` 单调递增，因而以 `INVALID_DEX_SECTION` 拒绝合法的依赖拓扑；[Android DEX 格式](https://source.android.com/docs/core/runtime/dex-format)要求本地 superclass/interface definition 先于引用者，而不是按 `class_idx` 排序。宿主 commit `959817a72b81b6f64556983aadaa2fb297742b20` 改为预扫描唯一 class indices，再验证本地 superclass/interface 的先行关系；同一捕获产物由旧 validator 拒绝、由新 validator 接受。
+- 最终设备闭环: 在获授权的 `BH900ASK9E`（Sony G8441、API 28、arm64-v8a）安装 AutoJs6 6.8.0 build 5276 与上述非调试 Release 插件；两者 signer 一致且 opt-in/exact component 保持。清空进程后的真实脚本经插件编译、宿主复验并由 `DexClassLoader` 加载 `org.java_websocket.WebSocket`，设备验证包的脚本为 16.812 秒，日志无 `DEX compiler provider fallback`；宿主私有 cache 发布同一 118,628-byte verified ZIP。相同脚本随后为 0.364 秒，宿主与插件双进程冷启动后的脚本本体为 1.025 秒；冷命中只刷新索引访问时间，DEX ZIP 写入时间仍为首次发布的 16:09:56。更新 changelog/README 资产后又覆盖安装最终工作树 Release `9b1a9c1666d703ba82b33fcd6d1c3ca3de3a321ff815badac8554bb2648dfc9e`；provider 身份更新触发一次新的真实 D8 编译，脚本 17.029 秒成功且无 fallback/拒绝/崩溃，紧随其后的同包 cache hit 为 0.328 秒且未启动 provider 进程。该单样例时长仅证明路由/缓存，不作为 R5.2 性能基准。
+- 失败记录: Sony API 28 上首次使用 debuggable 插件进程时，ART 的 JDWP/CheckJNI 路径在 `ADB-JDWP Connec` 线程发生原生 SIGSEGV；当前 IDE 项目又不包含宿主源码，无法建立宿主 catch-point 调试会话。后续用同签名、`debuggable=false` 的 Release 隔离该环境问题，并以受控的一次性输出副本定位宿主 validator 根因；副本源码随即移除，设备副本也已删除。初始未完整保留 D8 的 minified Release 则稳定返回 `COMPILATION_FAILED`，据此补齐上述 keep 规则。最终拟验证包不含捕获代码，未把 Debug/JDWP 失败隐藏为成功。
+- 本地门禁: 插件 `:app:testDebugUnitTest --rerun-tasks` 为 15 suites / 90 tests，failure/error/skipped 均为 0；Debug lint 为 0 error / 27 warning，Debug 与 Release assemble 均成功。生成更新后的 changelog/README 资产后，最终工作树 Debug APK 为 9,548,924 bytes / SHA-256 `6fac47cd25d8517fab06bdd8f37a19b8a47dbfe4f2ea8f13e883486426b2ac98`，Release APK 为 6,636,134 bytes / `9b1a9c1666d703ba82b33fcd6d1c3ca3de3a321ff815badac8554bb2648dfc9e`，Release 仍为 `debuggable=false`、保留 `com.android.tools.r8.internal.xp1` 且 signer 不变；它与设备验证包的字节差异只来自随后生成的文档资产，运行时代码与 shrinker 规则未变。隔离宿主 worktree 的 DEX 全命名空间加 R8 DEX ZIP validator 回归为 20 suites / 187 tests 全绿，`:app:assembleAppDebug` 成功；安装的 arm64-v8a 宿主 APK 为 42,401,145 bytes、SHA-256 `375ace8c991454ec7c113d08c9d46693356c5e0898b39d8c1613437d1c26c979`。
 
 ### R5.1 诊断与可观测性增强
 
@@ -491,14 +507,14 @@ R5.1 设备闭环证据（2026-08-26）:
 - [ ] 基于基准数据定义"性能晋级"的数字门槛；达标并留证前，用户文档不得声明性能优势（当前 README 已明确"目标不是性能"）。
 - [x] 建立默认启用（opt-out）的前置条件清单（稳定性、诊断覆盖、矩阵覆盖、回退演练、回滚路径），并逐项挂接证据目标；清单闭环前路由保持默认关闭。
 
-默认启用前置条件清单（建立于 2026-08-26，当前 2/7）:
+默认启用前置条件清单（建立于 2026-08-26，当前 3/7）:
 
 - [x] 诊断覆盖: R5.1 的获授权 Android 真实失败/恢复用例已在 API 24/25 x86 AVD 与 API 31 arm64 真机通过；设备断言覆盖脱敏与预算，当前构建的独立真机门禁覆盖 BUSY、取消终态与取消不回退，用户可见提示映射由宿主 JVM 本地化测试覆盖。
 - [ ] 性能与资源: R5.2 固定语料报告覆盖插件/内置/缓存路径，并以实测数据确定且通过耗时、内存、命中率门槛。
 - [ ] 矩阵覆盖: R5.3 至少 3 个代表格通过，包含一台获授权 arm64 真机及 API 24/25 CLI-compatible 路径。
 - [ ] 回退演练: 用拟发布宿主/插件配对验证 BUSY、超时、远端失败、无效输出、采用失败与取消，且每项满足至多一次同语义回退或取消不回退。
 - [x] 回滚路径: README 与 10 个 locale 的应用内说明均记录“选择 Built-in D8/dx 并重启 AutoJs6”，无需卸载宿主或清除数据。
-- [ ] 可用性: 至少一名未参与开发的用户完成 R5.0 安装、启用与示例脚本走查，卡点已回填文档。
+- [x] 可用性: 一名未参与开发的测试者已完成 R5.0 的安装、启用与示例脚本完整走查，并明确确认测试者身份与流程均无卡点；真实 `java-websocket.jar` 样例随后触发并闭环了受控 JAR comment、Release D8 保留及宿主 DEX topology 三项兼容修复。
 - [ ] 发布治理: R5.3 固定拟发布版本、配对宿主 build 与 APK/AAR 摘要，并完成发布前回归和可复核证据包。
 
 该清单的“建立”不代表默认启用获批；未勾选项存在期间，安装后默认关闭和显式选择语义保持不变。
@@ -530,4 +546,5 @@ R5.1 设备闭环证据（2026-08-26）:
 | R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 已完成（交付 4/4，退出 1/1） | plugin 65/65、host DEX 166/166、lint 0 error；API 34 canonical closeout 三类真实 provider 场景全部 PASS，52 commands / 61 hashed files，pre/post clean；run `dab3f857-650d-4107-a3b9-941a1f7e02c2` |
 | R3 | 2026-08-11 | host `c0b833a54`, `4d2b7dfed`, `a540e0f90`, `2e439a973`; plugin `ab08f08`, `8ebd7ff`, `e0f9470` | 已完成（交付 4/4，退出 1/1） | V1.0/V1.1 contract、provider bundle、同语义 D8-only fallback 与显式 Rhino 入口已通过正式门禁；run `fa6c21a7-7dda-4bee-9485-bf78906ed83c` 在单 API 34/x86_64 真实 provider 场景 PASS，非设备矩阵 |
 | R4 | 2026-08-25 | DEX 本地收口提交；host integration `4a9718d63923834c9a99fd70e0cd58c898e138f6`；R8 `277ce8a05faa9566abcf474fcb0d3e6f928737ff` | 已完成（R4.1 4/4，R4.2 5/5，R4.3 2/2，退出 2/2） | D8 v2/v3 promotion→rollback→re-promotion 三套 60/60；R8 G2-G8 独立 identity/contract/host/Binder-PFD/device/ART-JNI-Retrace/local.5/Private prerelease 完整闭环；R4.3 20-source static Gate、13/13 mutation、15 suites / 81 JVM tests 全绿；DEX 仅本地提交且不推送 |
+| R5.0 | 2026-08-26 | host `959817a72b81b6f64556983aadaa2fb297742b20`; plugin `cec2941e983f6fc406faee8518977779b053d2d6`; docs 本提交 | 已完成（6/6） | 独立测试者完整走通 README 且无卡点；真实 Java-WebSocket 1.6.0 样例闭环标准 JAR comment、Release D8 service 保留及宿主合法 class_defs 依赖拓扑；Sony API 28 arm64 最终插件路由与持久 cache 命中均无 fallback |
 | R5.1 | 2026-08-26 | host implementation `4e58791238427c309ae5d4bbad07b9bc9d2a23d4`; host device gate `2d9192716620bc4aa0c19462f22d224db2886f77`; plugin implementation `4d08a612ae1d87059c28de98a66b8d3020763ac9` | 已完成（实现 4/4，最小设备证据 1/1） | 协议 44、插件 86、宿主 DEX 180 项本地测试全绿；API 24/25 x86 AVD 与 API 31 arm64 真机的真实失败/恢复 3/3 PASS，真机 BUSY/取消及取消不回退补充门禁 PASS；每轮配对签名一致并完成 3/3 包清理 |

@@ -304,7 +304,7 @@ Para defenderse de entradas maliciosas o malformadas, el plugin impone límites 
 
 ******
 
-El desarrollo avanza por etapas, y de R0 a R4 están completadas con evidencia revisable. R5 está en curso: se reescribieron las guías de usuario y las instrucciones integradas, y ya están implementados localmente los diagnósticos acotados y redactados junto con un resumen en memoria de la última ruta. Quedan pendientes los benchmarks de rendimiento, la aceptación V1.1 ampliada en dispositivos, el caso de diagnóstico Android autorizado y la promoción de la versión. Para las definiciones de completitud y la evidencia de cada punto, ver:
+El desarrollo avanza por etapas, y de R0 a R4 están completadas con evidencia revisable. R5 está en curso: se reescribieron las guías de usuario y las instrucciones integradas; los diagnósticos acotados y redactados, el resumen de la última ruta conservado en el proceso y los casos Android autorizados de fallo/recuperación están cerrados; y un probador independiente completó «instalar → habilitar → ejecutar el script de ejemplo» sin bloqueos. Quedan pendientes los benchmarks de rendimiento, la aceptación V1.1 ampliada en dispositivos y la promoción de la versión. Para las definiciones de completitud y la evidencia de cada punto, ver:
 
 - [Abrir el ROADMAP.md verificable](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
@@ -326,6 +326,8 @@ El desarrollo avanza por etapas, y de R0 a R4 están completadas con evidencia r
 * `Función` Compatible con dispositivos con Android 7.0 (API 24) o superior; API 26+ usa D8Command mientras que API 24/25 usan automáticamente una ruta de compatibilidad D8 CLI
 * `Función` Se comunica solo con un AutoJs6 de firma idéntica (protegido por el permiso `org.autojs.permission.PLUGIN`) y no solicita permisos de red ni de almacenamiento
 * `Función` Implementación JVM pura con un único APK universal que cubre todas las arquitecturas; incluye interfaz, README e instrucciones integradas en 10 idiomas
+* `Corrección` Acepta comentarios de archivo ZIP/JAR estándar y acotados cuando la longitud declarada termina exactamente en el límite del archivo, y sigue rechazando registros EOCD ambiguos, longitudes incoherentes y datos finales
+* `Corrección` Conserva el motor D8 integrado y sus proveedores de servicio en las compilaciones Release minificadas para que los APK de producción puedan compilar entradas JAR
 * `Dependencia` Incluye la biblioteca Google R8 8.13.17 (que proporciona el compilador D8)
 
 ##### Más versiones

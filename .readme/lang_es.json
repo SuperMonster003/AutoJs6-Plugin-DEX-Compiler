@@ -78,7 +78,7 @@
     "El boot classpath del runtime varía entre sistemas; las peticiones deben coincidir con la huella de runtime que reporta el provider."
   ],
   "h3_roadmap": "Hoja de ruta de desarrollo",
-  "p_roadmap_status": "El desarrollo avanza por etapas, y de R0 a R4 están completadas con evidencia revisable. R5 está en curso: se reescribieron las guías de usuario y las instrucciones integradas, y ya están implementados localmente los diagnósticos acotados y redactados junto con un resumen en memoria de la última ruta. Quedan pendientes los benchmarks de rendimiento, la aceptación V1.1 ampliada en dispositivos, el caso de diagnóstico Android autorizado y la promoción de la versión. Para las definiciones de completitud y la evidencia de cada punto, ver:",
+  "p_roadmap_status": "El desarrollo avanza por etapas, y de R0 a R4 están completadas con evidencia revisable. R5 está en curso: se reescribieron las guías de usuario y las instrucciones integradas; los diagnósticos acotados y redactados, el resumen de la última ruta conservado en el proceso y los casos Android autorizados de fallo/recuperación están cerrados; y un probador independiente completó «instalar → habilitar → ejecutar el script de ejemplo» sin bloqueos. Quedan pendientes los benchmarks de rendimiento, la aceptación V1.1 ampliada en dispositivos y la promoción de la versión. Para las definiciones de completitud y la evidencia de cada punto, ver:",
   "text_open_roadmap": "Abrir el ROADMAP.md verificable",
   "h3_release_history": "Historial de versiones",
   "h5_for_more_release_history": "Más versiones",

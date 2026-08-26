@@ -19,6 +19,10 @@
         "僅與同簽章的 AutoJs6 通訊 (受 `org.autojs.permission.PLUGIN` 權限保護), 不要求網路與儲存權限",
         "純 JVM 實作, 單個 universal APK 覆蓋所有裝置架構; 附帶 10 種語言的介面, README 與應用程式內說明"
       ],
+      "fix": [
+        "相容長度宣告一致且在檔案邊界精確結束的標準 ZIP/JAR archive comment, 同時繼續拒絕歧義 EOCD, 長度不一致與尾隨資料",
+        "在 Release 壓縮建置中完整保留內嵌 D8 引擎及其服務提供者, 讓正式 APK 可以正常編譯 JAR"
+      ],
       "dependency": [
         "附帶 Google R8 程式庫 8.13.17 (提供 D8 編譯器)"
       ]

@@ -304,7 +304,7 @@ To defend against malicious or malformed input, the plugin enforces hard limits 
 
 ******
 
-Development proceeds in stages, and R0 through R4 are complete with reviewable evidence. R5 is now in progress: the user guides and in-app instructions have been rewritten, and bounded privacy-safe diagnostics plus a process-local last-route summary are implemented locally. Performance benchmarks, broader V1.1 device acceptance, the authorized Android diagnostic case and release promotion remain pending. For per-item definitions of done and evidence, see:
+Development proceeds in stages, and R0 through R4 are complete with reviewable evidence. R5 is now in progress: the user guides and in-app instructions have been rewritten; bounded privacy-safe diagnostics, the process-local last-route summary and authorized Android failure/recovery cases are complete; and an independent tester finished the install → enable → example-script walkthrough without blockers. Performance benchmarks, broader V1.1 device acceptance and release promotion remain pending. For per-item definitions of done and evidence, see:
 
 - [Open the checkable ROADMAP.md](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
@@ -326,6 +326,8 @@ Development proceeds in stages, and R0 through R4 are complete with reviewable e
 * `Feature` Compatible with devices on Android 7.0 (API 24) and higher; API 26+ uses D8Command while API 24/25 automatically use a D8 CLI compatibility path
 * `Feature` Communicates only with an identically signed AutoJs6 (protected by the `org.autojs.permission.PLUGIN` permission) and requests no network or storage permissions
 * `Feature` Pure JVM implementation with a single universal APK covering all device architectures; ships with UI, README and in-app instructions in 10 languages
+* `Fix` Accepts standard bounded ZIP/JAR archive comments when the declared length ends exactly at the file boundary, while still rejecting ambiguous EOCD records, inconsistent lengths and trailing data
+* `Fix` Keeps the embedded D8 engine and its service providers intact in minified Release builds so production APKs can compile JAR inputs
 * `Dependency` Bundles the Google R8 library 8.13.17 (providing the D8 compiler)
 
 ##### For more releases

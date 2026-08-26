@@ -16,4 +16,6 @@
 * `기능` Android 7.0 (API 24) 이상 기기와 호환; API 26+는 D8Command를 사용하고 API 24/25는 자동으로 D8 CLI 호환 경로를 사용합니다
 * `기능` 동일 서명의 AutoJs6와만 통신하며 (`org.autojs.permission.PLUGIN` 권한으로 보호), 네트워크 및 저장소 권한을 요청하지 않습니다
 * `기능` 순수 JVM 구현으로 단일 universal APK가 모든 기기 아키텍처를 지원; 10개 언어의 UI, README, 앱 내 설명 포함
+* `수정` 선언된 길이가 파일 경계에서 정확히 끝나는 표준 제한형 ZIP/JAR archive comment를 허용하면서 모호한 EOCD, 불일치 길이 및 후행 데이터는 계속 거부
+* `수정` 축소된 Release 빌드에서도 내장 D8 엔진과 서비스 제공자를 유지하여 프로덕션 APK가 JAR 입력을 컴파일할 수 있도록 수정
 * `의존성` Google R8 라이브러리 8.13.17 동봉 (D8 컴파일러 제공)

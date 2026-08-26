@@ -16,4 +16,6 @@
 * `新增` 相容 Android 7.0 (API 24) 及以上裝置; API 26+ 使用 D8Command, API 24/25 自動使用 D8 CLI 相容路徑
 * `新增` 僅與同簽名的 AutoJs6 通訊 (受 `org.autojs.permission.PLUGIN` 權限保護), 不要求網絡與儲存權限
 * `新增` 純 JVM 實現, 單個 universal APK 覆蓋所有裝置架構; 附帶 10 種語言的介面, README 與應用程式內說明
+* `修復` 相容長度宣告一致且在檔案邊界精確結束的標準 ZIP/JAR archive comment, 同時繼續拒絕歧義 EOCD, 長度不一致及尾隨資料
+* `修復` 在 Release 壓縮建置中完整保留內嵌 D8 引擎及其服務提供者, 讓正式 APK 可以正常編譯 JAR
 * `依賴` 附帶 Google R8 庫 8.13.17 (提供 D8 編譯器)
