@@ -22,7 +22,7 @@
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 已完成（交付 4/4，退出 1/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 已完成（R4.1 4/4；R4.2 5/5；R4.3 2/2；退出 2/2） | D8 已完成默认晋升、旧 pin 回滚与再晋升；独立 R8 provider 已完成宿主显式选择、跨 APK Binder/PFD、设备/ART/JNI/Retrace、append-only 本地发布及 Private prerelease；源码编译与 AAR/APK 职责继续隔离 | 本插件 + AutoJs6 + 独立 R8 provider |
-| R5 | 进行中（R5.0 5/6；R5.1 本地实现 4/4、真机证据待补） | 用户文档与应用内说明已重构；有界脱敏诊断、optional wire 元数据及进程内最近路由已完成本地实现，性能基准、授权真机证据、V1.1 矩阵扩面与发布仍待办 | 本插件 + AutoJs6 |
+| R5 | 进行中（R5.0 5/6；R5.1 4/4 已完成；R5.2 前置 2/7） | 用户文档与应用内说明已重构；有界脱敏诊断、optional wire 元数据、进程内最近路由及授权设备失败/恢复证据已闭环，性能基准、V1.1 classpath 矩阵扩面与发布仍待办 | 本插件 + AutoJs6 |
 
 依赖顺序:
 
@@ -475,7 +475,15 @@ R5.1 本地实现证据（2026-08-26）:
 - 插件: API 26+ `D8Command` 与 API 24/25 CLI-compatible 参数路径均把 INFO/WARNING/ERROR 回调交给同一 collector；错误可逐出 warning/info，warning 可逐出 info，count 与 byte ceiling 共用 64 KiB 预算。私有工作区路径映射为 `program`、`classpath:n`、`runtime-library:n`、`output` 或 `<redacted-path>`，公共 collector 路径不调用 API 26 `java.nio.file.Path`。插件 15 suites / 86 tests 全通过；Debug lint 为 0 error / 27 warning，本阶段不把 warning=0 冒充为完成条件。
 - 宿主: 请求级诊断预算包含 code/message/origin/entry/位置的全部保留字节；最近路由只在最终 classloader 采用成功后写入独立的 `AtomicReference`，取消与加载失败不会生成虚假的成功路径。R2 的最近 provider 失败仍由共享 producer 写入另一份进程内快照，不会被后续路线更新或非远端回退覆盖。开发者选项显示本地化路径/提示及有界稳定失败枚举、计数与 code 摘要；它不显示 request id、文件路径、输入输出摘要、原始 provider message 或时间戳。3 个新增/关键定向 suites / 72 tests 全通过，随后 `org.autojs.autojs.core.plugin.dex.*` 全命名空间回归为 19 suites / 180 tests 全通过。
 - 配对 AAR: `libs/dex-compiler-api.aar` 为 163,690 bytes，SHA-256 `6beea0450017956ec9a5469083142529dc5f893c4e6450848a8a9dd5e1526b7c`；R4.3 责任边界 mutation 自测 13/13，并由 `:app:verifyR4OtherCapabilities` 产出 PASS invocation `e40c07af-3f5f-4150-ad12-cb4a2d171c34`，继续锁定唯一 `JAR` 输入、`PROGRAM/CLASSPATH` 角色与 `DEX_ZIP` 输出。
-- 阶段边界: 本轮未运行 ADB、`connected*`、安装或设备任务，也没有获授权 Android 目标上的真实失败诊断证据。因此四项源码/资源实现虽已完成，R5.1 阶段仍未关闭；尤其 API 24/25 的真实回调行为仍需设备验证。
+- 当轮边界: 上述本地实现提交当轮未运行 ADB、`connected*`、安装或设备任务；后续设备闭环单独留证，不倒改该历史事实。
+
+R5.1 设备闭环证据（2026-08-26）:
+
+- 配对产物: x86 宿主 APK 为 46,177,867 bytes / SHA-256 `a07e69e20f9a14fafe1c35c1db03604b3103f5a5f4b9894c2b88f5cf666dba69`，arm64-v8a 宿主 APK 为 46,219,429 bytes / `fca09ff81ba528d7f1b45803a0e1ee38a484ef779c6b008ae20790aa70a05b2c`，androidTest APK 为 1,852,928 bytes / `327cc8c5c97f90fde92c2c7a8188e67c4e45d63114785f59aed13f371b47af57`，插件 Debug APK 为 11,009,748 bytes / `1cf2b74de1ab9ae387171a31073830872c0ac4c693f349a40e403d4d7d1c782b`；四者 V2 signer certificate SHA-256 均为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`。
+- 真实失败/恢复: `DexCompilerRealProviderAndroidTest#realProviderFailureCarriesR5DiagnosticsAndNextProductionLoadRecordsRoute` 分别在 `AVD_API_24`（API 24/x86）、`AVD_API_25`（API 25/x86）和首选物理机 `QV710AF65F`（Sony XQ-AT72，API 31/arm64-v8a）执行；三格均为 `OK (1 test)`、0 skipped、`INSTRUMENTATION_STATUS_CODE: 0`。API 24/25 覆盖 CLI-compatible D8 回调路径，API 31 覆盖 `D8Command` 路径。
+- 诊断断言: 三格均得到 1 条 ERROR、117 retained bytes、origin=`program`、entry=`org/autojs/fixture/dexcompiler/Broken.class`，消息不含输入绝对路径、Android 私有路径或控制字符；失败不会伪造成功路线，随后生产 `AndroidClassLoader` 加载返回 42、记录 `route=PLUGIN` 且重复请求命中 exact cache。该 malformed fixture 没有产生位置，`positions=0` 不冒充位置型 D8 回调；位置 optional tag 仍由 JVM codec/provider 测试覆盖。
+- 取消与 BUSY: 同一首选真机上的真实 lifecycle 用例单独通过，锁定 blocked session 的单一 retryable `BUSY/QUEUE` 终态、取消终态、EOF、gate 释放与会话复用；生产加载器取消用例也以独立 `OK (1 test)` 通过，确认只到达 decision boundary 一次且不会启动内置编译器回退。用户可见提示映射继续由 R5.1 宿主 JVM 本地化测试覆盖。
+- 清理与边界: 每个接受结果之后均确认宿主、androidTest、插件包 `PACKAGES_ABSENT=3/3`；两个 AVD 已关闭且未保存快照；真机 user 0/10 拓扑前后一致。详细报告在 AutoJs6 `docs/dev/dex-compiler-r5-diagnostic-device-evidence-2026-08-26.md`，宿主门禁提交为 `2d9192716620bc4aa0c19462f22d224db2886f77`。这关闭 R5.1 的 4/4 实现与最小设备证据，但不替代 R5.3 V1.1 classpath 矩阵、性能基准或拟发布配对验收。
 
 ### R5.2 性能基准与晋升评估
 
@@ -483,9 +491,9 @@ R5.1 本地实现证据（2026-08-26）:
 - [ ] 基于基准数据定义"性能晋级"的数字门槛；达标并留证前，用户文档不得声明性能优势（当前 README 已明确"目标不是性能"）。
 - [x] 建立默认启用（opt-out）的前置条件清单（稳定性、诊断覆盖、矩阵覆盖、回退演练、回滚路径），并逐项挂接证据目标；清单闭环前路由保持默认关闭。
 
-默认启用前置条件清单（建立于 2026-08-26，当前 1/7）:
+默认启用前置条件清单（建立于 2026-08-26，当前 2/7）:
 
-- [ ] 诊断覆盖: 完成 R5.1 的获授权 Android 真实失败用例，并验证用户可见提示、脱敏、预算与取消不回退。
+- [x] 诊断覆盖: R5.1 的获授权 Android 真实失败/恢复用例已在 API 24/25 x86 AVD 与 API 31 arm64 真机通过；设备断言覆盖脱敏与预算，当前构建的独立真机门禁覆盖 BUSY、取消终态与取消不回退，用户可见提示映射由宿主 JVM 本地化测试覆盖。
 - [ ] 性能与资源: R5.2 固定语料报告覆盖插件/内置/缓存路径，并以实测数据确定且通过耗时、内存、命中率门槛。
 - [ ] 矩阵覆盖: R5.3 至少 3 个代表格通过，包含一台获授权 arm64 真机及 API 24/25 CLI-compatible 路径。
 - [ ] 回退演练: 用拟发布宿主/插件配对验证 BUSY、超时、远端失败、无效输出、采用失败与取消，且每项满足至多一次同语义回退或取消不回退。
@@ -522,3 +530,4 @@ R5.1 本地实现证据（2026-08-26）:
 | R2 | 2026-08-11 | plugin `6e716af`; host `e65bef44d` | 已完成（交付 4/4，退出 1/1） | plugin 65/65、host DEX 166/166、lint 0 error；API 34 canonical closeout 三类真实 provider 场景全部 PASS，52 commands / 61 hashed files，pre/post clean；run `dab3f857-650d-4107-a3b9-941a1f7e02c2` |
 | R3 | 2026-08-11 | host `c0b833a54`, `4d2b7dfed`, `a540e0f90`, `2e439a973`; plugin `ab08f08`, `8ebd7ff`, `e0f9470` | 已完成（交付 4/4，退出 1/1） | V1.0/V1.1 contract、provider bundle、同语义 D8-only fallback 与显式 Rhino 入口已通过正式门禁；run `fa6c21a7-7dda-4bee-9485-bf78906ed83c` 在单 API 34/x86_64 真实 provider 场景 PASS，非设备矩阵 |
 | R4 | 2026-08-25 | DEX 本地收口提交；host integration `4a9718d63923834c9a99fd70e0cd58c898e138f6`；R8 `277ce8a05faa9566abcf474fcb0d3e6f928737ff` | 已完成（R4.1 4/4，R4.2 5/5，R4.3 2/2，退出 2/2） | D8 v2/v3 promotion→rollback→re-promotion 三套 60/60；R8 G2-G8 独立 identity/contract/host/Binder-PFD/device/ART-JNI-Retrace/local.5/Private prerelease 完整闭环；R4.3 20-source static Gate、13/13 mutation、15 suites / 81 JVM tests 全绿；DEX 仅本地提交且不推送 |
+| R5.1 | 2026-08-26 | host implementation `4e58791238427c309ae5d4bbad07b9bc9d2a23d4`; host device gate `2d9192716620bc4aa0c19462f22d224db2886f77`; plugin implementation `4d08a612ae1d87059c28de98a66b8d3020763ac9` | 已完成（实现 4/4，最小设备证据 1/1） | 协议 44、插件 86、宿主 DEX 180 项本地测试全绿；API 24/25 x86 AVD 与 API 31 arm64 真机的真实失败/恢复 3/3 PASS，真机 BUSY/取消及取消不回退补充门禁 PASS；每轮配对签名一致并完成 3/3 包清理 |
