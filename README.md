@@ -328,6 +328,7 @@ build 5270 是 V1.0 的最低宿主要求; `runtime.loadJarWithClasspath()` 需�
 * `新增` 纯 JVM 实现, 单个 universal APK 覆盖所有设备架构; 附带 10 种语言的界面, README 与应用内说明
 * `修复` 兼容长度声明一致且在文件边界精确结束的标准 ZIP/JAR archive comment, 同时继续拒绝歧义 EOCD, 长度不一致和尾随数据
 * `修复` 在 Release 压缩构建中完整保留嵌入式 D8 引擎及其服务提供者, 使生产 APK 可以正常编译 JAR
+* `优化` 将 D8 内部并行编译限制为两个工作线程, 降低大型 JAR 冷编译的峰值内存, 不改变输出与缓存语义
 * `依赖` 附带 Google R8 库 8.13.17 (提供 D8 编译器)
 
 ##### 更多版本

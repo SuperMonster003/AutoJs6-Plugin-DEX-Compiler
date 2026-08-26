@@ -15,6 +15,8 @@ import org.autojs.plugin.dexcompiler.api.DexCompilerFailurePhase
 import org.autojs.plugin.dexcompiler.api.DexCompilerMode
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 internal class D8DexCompilerEngine(
     private val runtimeLibraries: RuntimeLibrarySet,
@@ -156,12 +158,35 @@ private object AndroidD8CommandRunner : D8CommandRunner {
             .setMinApiLevel(request.minApi)
         runtimeLibraries.forEach { builder.addLibraryFiles(it.toPath()) }
         inputs.classpathJars.forEach { builder.addClasspathFiles(it.toPath()) }
-        D8.run(builder.build())
+        runD8WithBoundedParallelism(builder.build())
     }
 }
 
 private object AndroidD8CliRunner : D8CliRunner {
     override fun run(arguments: Array<String>, diagnosticsHandler: DiagnosticsHandler) {
-        D8.run(D8Command.parse(arguments, Origin.root(), diagnosticsHandler).build())
+        runD8WithBoundedParallelism(
+            D8Command.parse(arguments, Origin.root(), diagnosticsHandler).build(),
+        )
     }
 }
+
+/**
+ * Caps D8's intra-request work after the service-level single-session gate.
+ * The R5.2 fixed-corpus gate showed that D8's device-sized default executor creates a large
+ * cold-compilation PSS tail; two workers retain the latency margin while bounding live work.
+ */
+private fun runD8WithBoundedParallelism(command: D8Command) {
+    val executor = Executors.newFixedThreadPool(MAXIMUM_D8_WORKERS) { runnable ->
+        Thread(runnable, "dex-compiler-d8-${d8ThreadSequence.incrementAndGet()}").apply {
+            isDaemon = true
+        }
+    }
+    try {
+        D8.run(command, executor)
+    } finally {
+        executor.shutdownNow()
+    }
+}
+
+private const val MAXIMUM_D8_WORKERS = 2
+private val d8ThreadSequence = AtomicInteger()

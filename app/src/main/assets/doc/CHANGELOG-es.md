@@ -18,4 +18,5 @@
 * `Función` Implementación JVM pura con un único APK universal que cubre todas las arquitecturas; incluye interfaz, README e instrucciones integradas en 10 idiomas
 * `Corrección` Acepta comentarios de archivo ZIP/JAR estándar y acotados cuando la longitud declarada termina exactamente en el límite del archivo, y sigue rechazando registros EOCD ambiguos, longitudes incoherentes y datos finales
 * `Corrección` Conserva el motor D8 integrado y sus proveedores de servicio en las compilaciones Release minificadas para que los APK de producción puedan compilar entradas JAR
+* `Mejora` Limita la compilación paralela interna de D8 a dos hilos de trabajo para reducir el pico de memoria al compilar en frío JAR grandes, sin cambiar la salida ni la semántica de caché
 * `Dependencia` Incluye la biblioteca Google R8 8.13.17 (que proporciona el compilador D8)

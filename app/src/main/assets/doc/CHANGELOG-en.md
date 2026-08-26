@@ -18,4 +18,5 @@
 * `Feature` Pure JVM implementation with a single universal APK covering all device architectures; ships with UI, README and in-app instructions in 10 languages
 * `Fix` Accepts standard bounded ZIP/JAR archive comments when the declared length ends exactly at the file boundary, while still rejecting ambiguous EOCD records, inconsistent lengths and trailing data
 * `Fix` Keeps the embedded D8 engine and its service providers intact in minified Release builds so production APKs can compile JAR inputs
+* `Improvement` Limits D8's internal parallel compilation to two worker threads to reduce peak memory for large cold JARs without changing output or cache semantics
 * `Dependency` Bundles the Google R8 library 8.13.17 (providing the D8 compiler)
