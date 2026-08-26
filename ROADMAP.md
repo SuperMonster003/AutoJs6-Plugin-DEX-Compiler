@@ -22,7 +22,7 @@
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 已完成（交付 4/4，退出 1/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 已完成（R4.1 4/4；R4.2 5/5；R4.3 2/2；退出 2/2） | D8 已完成默认晋升、旧 pin 回滚与再晋升；独立 R8 provider 已完成宿主显式选择、跨 APK Binder/PFD、设备/ART/JNI/Retrace、append-only 本地发布及 Private prerelease；源码编译与 AAR/APK 职责继续隔离 | 本插件 + AutoJs6 + 独立 R8 provider |
-| R5 | 进行中（R5.0 6/6 已完成；R5.1 4/4 已完成；R5.2 3/3 已完成但候选未晋级；默认启用前置 3/7） | 用户文档、独立走查与诊断闭环已完成；纠正后的固定语料门禁中联合 P95 PSS 6/6 通过，但三个进程冷启动 cache-hit added P95 时延格均超过 100 ms，当前候选仍未晋级；V1.1 classpath 矩阵扩面与发布仍待办 | 本插件 + AutoJs6 |
+| R5 | 进行中（R5.0 6/6、R5.1 4/4、R5.2 3/3、R5.3 3/3 已完成；R5.2 候选未晋级；默认启用前置 3/7） | 用户文档、独立走查与诊断闭环已完成；纠正后的固定语料门禁中联合 P95 PSS 6/6 通过，但三个进程冷启动 cache-hit added P95 时延格均超过 100 ms，当前候选仍未晋级；V1.1 三格矩阵、v1.1.0 发布与双净目录调查已完成，R8 provider Public 转换协同仍待办 | 本插件 + AutoJs6 + 独立 R8 provider |
 
 依赖顺序:
 
@@ -529,9 +529,15 @@ R5.2 基准与晋升评估证据（2026-08-27）:
 
 ### R5.3 V1.1 矩阵扩面与发布节奏
 
-- [ ] 将 V1.1 classpath 验收从单一 API 34/x86_64 纵切扩展到 R1 七格矩阵中至少 3 个代表格，至少含一台获授权 arm64 真机；沿用 R1 的证据与设备授权规则。
-- [ ] 发布携带 D8 8.13.22 默认 pin 的下一个正式版本（建议 v1.1.0），更新 `version.properties`、changelog 与 `releases/`，并记录配对宿主构建号与 APK 摘要。
-- [ ] 确定性调查: 在两台机器或两个干净目录对同一输入重复编译并记录字节差异；得到可复核证据前，`determinismClaim` 保持 `NOT_CLAIMED`。
+- [x] 将 V1.1 classpath 验收从单一 API 34/x86_64 纵切扩展到 R1 七格矩阵中至少 3 个代表格，至少含一台获授权 arm64 真机；沿用 R1 的证据与设备授权规则。
+- [x] 发布携带 D8 8.13.22 默认 pin 的下一个正式版本（建议 v1.1.0），更新 `version.properties`、changelog 与 `releases/`，并记录配对宿主构建号与 APK 摘要。
+- [x] 确定性调查: 在两台机器或两个干净目录对同一输入重复编译并记录字节差异；得到可复核证据前，`determinismClaim` 保持 `NOT_CLAIMED`。
+
+本轮闭环证据（2026-08-27）:
+
+- classpath 最终发布配对: host commit `b276708646b127e64b7f43af4ede94839004d0c9`、plugin release-source commit `e5804757d926d45db219fc2eb4b2b128714b4160`。正式 campaign `d9b97e77-84ad-41dd-a0f2-a8e08eef3fea` 在 `AVD_API_24` API 24/x86、`DEX_R1_API34_X64` API 34/x86_64 与获授权物理设备 `968e9f18` API 35/arm64-v8a 三格均为 exactly-one instrumentation PASS；覆盖公开 Rhino V1.1 入口、真实 provider、ordered compile-only classpath、最终 `DexClassLoader`、V1.1 cache hit 及独立 V1.0 回归。三格分别记录 57/57/56 条 exact-serial 命令，四个范围包 pre/post 均 absent，cleanup failure 0；API 34 AVD 以 no-snapshot-save 启停。聚合 Gate 为 2,378 bytes / `e2f8c722e2c539e08dd119b39d56af7a2d79581c32c3f50136939ebe43e03a24`，宿主稳定证据为 `docs/dev/dex-compiler-r5-classpath-matrix-evidence-2026-08-27.md`（host commit `1c5bee578`）。这是三格代表性扩面，不冒充 R1 canonical 七格重跑；首选 `QV710AF65F` 当时仍未在线。
+- v1.1.0 发布材料与门禁: `version.properties` 已更新为 `VERSION_NAME=1.1.0`、`VERSION_BUILD=5`，10 locale changelog 与全部生成文件同步；D8/R8 默认 pin 为 8.13.22。强制离线执行 `:app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --rerun-tasks` 为 15 suites / 90 tests、failure/error/skipped 0，lint 0 error / 18 warnings，Debug/Release 均成功。非调试 Release 为 6,642,158 bytes / `a8fe8b64723c0bae58c94a3129ce58043ea2cb2ef5a8b168b0a861f8d11b9205`，v2 signer certificate 为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`，D8 service provider `com.android.tools.r8.internal.xp1` 保留；append-only 本地发布副本为 `releases/autojs6-plugin-dex-compiler-v1.1.0-c569dbbe.apk`。正式配对宿主为 AutoJs6 6.8.0 build 5276：host universal 43,975,067 bytes / `24f4ee855174b994d9e37472b48120b2059cc82f3e64507c447799b95dfcaa8f`，androidTest 1,508,760 bytes / `2b82aabf644cc1c2cc2983faf902d57ca93975bfb59197245fca9e34eea2fdcb`，三包 signer 一致。
+- 双净目录调查: 在同一机器的两个独立 detached clean worktree 对 commit `e5804757d926d45db219fc2eb4b2b128714b4160` 分别强制离线执行完整 `:app:verifyR4D8UpgradeMatrix`，producer `66a4f739-ab20-42f4-8db8-5107db033bca` 与 `f3d7cc29-6bcc-4d8c-8011-d4baab52ab2e` 均为 pinned D8 8.13.22、60/60 PASS，Gate SHA-256 分别为 `61066541ad6c6981768083bd147c3b323888faad945464f221cb6735055477e1` 与 `f5e49be819813d3cafc22b4ebc8655cb95da29acb1c4fd3e3b9a5ad6e91475e8`。commit `226c5bf` 的比较器重新验证两套 Gate 后记录：60 格 input/runtime/outcome/status/topology 差异均为 0；54 个产出格的跨目录 output digest、逐 DEX manifest 差异均为 0，且各目录内部双次摘要一致；6 个预期失败格在两侧均无输出。比较报告为 30,752 bytes / `2fa8fdb387782fec76b912ff26b6a1573a3c65f13f2d7f024c0212dfd90bb148`，证据边界固定为单机/双净目录/JVM compiler only，`determinismClaim=NOT_CLAIMED`，不外推到跨机器、文件系统、JDK 或未来编译器。
 
 ### R5.4 R8 provider 公开化协同（跨仓库）
 
@@ -541,7 +547,7 @@ R5.2 基准与晋升评估证据（2026-08-27）:
 #### R5 退出条件
 
 - [ ] R5.0-R5.4 各子项全部完成，或在本文件中明确记录移出原因与去向。
-- [ ] README 10 个 locale 与本路线图的阶段状态描述一致，生成器幂等检查保持通过。
+- [x] README 10 个 locale 与本路线图的阶段状态描述一致，生成器幂等检查保持通过。
 
 ## 阶段证据记录
 
@@ -557,3 +563,4 @@ R5.2 基准与晋升评估证据（2026-08-27）:
 | R5.0 | 2026-08-26 | host `959817a72b81b6f64556983aadaa2fb297742b20`; plugin `cec2941e983f6fc406faee8518977779b053d2d6`; docs 本提交 | 已完成（6/6） | 独立测试者完整走通 README 且无卡点；真实 Java-WebSocket 1.6.0 样例闭环标准 JAR comment、Release D8 service 保留及宿主合法 class_defs 依赖拓扑；Sony API 28 arm64 最终插件路由与持久 cache 命中均无 fallback |
 | R5.1 | 2026-08-26 | host implementation `4e58791238427c309ae5d4bbad07b9bc9d2a23d4`; host device gate `2d9192716620bc4aa0c19462f22d224db2886f77`; plugin implementation `4d08a612ae1d87059c28de98a66b8d3020763ac9` | 已完成（实现 4/4，最小设备证据 1/1） | 协议 44、插件 86、宿主 DEX 180 项本地测试全绿；API 24/25 x86 AVD 与 API 31 arm64 真机的真实失败/恢复 3/3 PASS，真机 BUSY/取消及取消不回退补充门禁 PASS；每轮配对签名一致并完成 3/3 包清理 |
 | R5.2 | 2026-08-27 | host baseline `2a808a299`, quiescence `65c69a95f`, cache correction/evidence `0049a2a63`; plugin optimization `ca4c1cc` | 已完成（3/3；候选未晋级） | 纠正后 API 33/x86_64 正式 144/144、cache/route 120/120；冷时延 3/3、联合 PSS 6/6、cache 6/6、输出 6/6，通过；process-cold cache-hit added P95 0/3（+232.7/+229.2/+268.4 ms > 100 ms），机器门禁 `NOT_PROMOTED`，默认启用前置仍为 3/7 |
+| R5.3 | 2026-08-27 | host matrix `b27670864`, evidence `1c5bee578`; plugin runner `563a9c3`, release `e580475`, comparison `226c5bf` | 已完成（3/3） | v1.1.0/D8 8.13.22 Release 与 AutoJs6 build 5276 配对；最终 campaign `d9b97e77-84ad-41dd-a0f2-a8e08eef3fea` 的 API 24 x86、API 34 x86_64、API 35 arm64 三格 real-provider classpath Gate 全通过且 pre/post clean；双净目录 60/60 + 60/60，54 个产出格跨目录摘要差异 0，仍保持 `determinismClaim=NOT_CLAIMED` |
