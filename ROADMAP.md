@@ -544,6 +544,8 @@ R5.2 基准与晋升评估证据（2026-08-27）:
 - [ ] 独立 R8 provider 完成从 Private prerelease 到 Public 的转换 Gate（含公开文档与配对宿主说明）；该 Gate 属于 R8 仓库，本条目仅跟踪其完成状态，不代办其验收。
 - [ ] Public 转换完成后，本仓库 README 的"常见问题"与"能力边界"增补指向 R8 provider 的链接，并保持"D8 = 编译，R8 = 压缩/混淆"的分工口径。
 
+2026-08-27 零写入预检: GitHub API 仍返回 `SuperMonster003/AutoJs6-Plugin-R8-Compiler` 为 `PRIVATE`，远端 `master` 为 `277ce8a05faa9566abcf474fcb0d3e6f928737ff`，现有 `v0.1.0-provider-dev-private.1` 为非草稿 prerelease；独立仓库的 G9 Public checklist 仍为 0/5，且本地还有未提交的多语言文档/Roadmap 工作需要先由其 owner 归并。公开 AutoJs6 最新 Release 仍为 v6.7.0（2026-03-14），尚无与 R8 验证配对的 AutoJs6 6.8.0 build 5276 公开产物；`SuperMonster003/AutoJs6-Official-Plugins-Index` 已是 Public，但在 provider 与配对宿主公开前不能完成注册。由于 Private→Public、正式 GitHub Release、宿主发布与索引登记均是显著外部状态变更，本轮未执行任何远端写入；R5.4 等待 owner 对完整公开范围的明确授权。
+
 #### R5 退出条件
 
 - [ ] R5.0-R5.4 各子项全部完成，或在本文件中明确记录移出原因与去向。
