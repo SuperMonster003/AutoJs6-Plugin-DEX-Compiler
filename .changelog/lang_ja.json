@@ -5,6 +5,26 @@
   "changelog_label_improvement": "改善",
   "changelog_label_dependency": "依存関係",
   "$data": {
+    "v1.1.0": {
+      "released_date": "2026/08/27",
+      "hint": [
+        "`runtime.loadJarWithClasspath()` には対応する AutoJs6 build 5274 以降が必要です; 通常の `runtime.loadJar()` は引き続き build 5270 以降と互換です"
+      ],
+      "feature": [
+        "V1.1 の順序付きコンパイル時 classpath に対応: program JAR から外部 API JAR を参照でき, classpath 入力はコンパイルだけに使われて DEX への梱包や自動読み込みは行われません"
+      ],
+      "fix": [
+        "宣言された長さでファイル末尾に正確に終わる標準の上限付き ZIP/JAR archive comment を受け入れつつ, 曖昧な EOCD, 不整合な長さ, 末尾データは引き続き拒否",
+        "難読化された Release ビルドでも組み込み D8 エンジンとサービスプロバイダーを保持し, 本番 APK で JAR 入力をコンパイルできるよう修正"
+      ],
+      "improvement": [
+        "利用可能な source, archive entry, 位置メタデータを含む, 上限付きで機密情報を除去した D8 info/warning/error 診断を提供し, プラグインのコンパイル失敗を調査しやすくしました",
+        "D8 の内部並列コンパイルを 2 ワーカースレッドに制限し, 出力とキャッシュの意味を変えずに大規模 JAR のコールドコンパイル時ピークメモリを削減"
+      ],
+      "dependency": [
+        "同梱の Google R8 ライブラリを 8.13.22 に更新 (D8 コンパイラを提供)"
+      ]
+    },
     "v1.0.0": {
       "released_date": "2026/08/08",
       "hint": [
@@ -18,13 +38,6 @@
         "Android 7.0 (API 24) 以上の端末に対応; API 26+ は D8Command を使用し, API 24/25 は自動的に D8 CLI 互換パスを使用します",
         "同一署名の AutoJs6 とのみ通信し (`org.autojs.permission.PLUGIN` 権限で保護), ネットワーク権限もストレージ権限も要求しません",
         "純 JVM 実装で, 単一の universal APK が全端末アーキテクチャをカバー; 10 言語の UI, README, アプリ内説明を同梱"
-      ],
-      "fix": [
-        "宣言された長さでファイル末尾に正確に終わる標準の上限付き ZIP/JAR archive comment を受け入れつつ, 曖昧な EOCD, 不整合な長さ, 末尾データは引き続き拒否",
-        "難読化された Release ビルドでも組み込み D8 エンジンとサービスプロバイダーを保持し, 本番 APK で JAR 入力をコンパイルできるよう修正"
-      ],
-      "improvement": [
-        "D8 の内部並列コンパイルを 2 ワーカースレッドに制限し, 出力とキャッシュの意味を変えずに大規模 JAR のコールドコンパイル時ピークメモリを削減"
       ],
       "dependency": [
         "Google R8 ライブラリ 8.13.17 を同梱 (D8 コンパイラを提供)"

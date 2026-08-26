@@ -4,6 +4,18 @@
 
 ******
 
+# v1.1.0
+
+###### 2026/08/27
+
+* `提示` `runtime.loadJarWithClasspath()` 需要配对的 AutoJs6 build 5274 或更高版本; 普通 `runtime.loadJar()` 继续兼容 build 5270 或更高版本
+* `新增` 支持 V1.1 有序编译期 classpath: program JAR 可引用外部 API JAR, classpath 只参与编译, 不会打包进 DEX 或自动加载
+* `修复` 兼容长度声明一致且在文件边界精确结束的标准 ZIP/JAR archive comment, 同时继续拒绝歧义 EOCD, 长度不一致和尾随数据
+* `修复` 在 Release 压缩构建中完整保留嵌入式 D8 引擎及其服务提供者, 使生产 APK 可以正常编译 JAR
+* `优化` 提供有界且脱敏的 D8 info/warning/error 诊断, 包含可用的来源, archive entry 与位置元数据, 便于定位插件编译失败
+* `优化` 将 D8 内部并行编译限制为两个工作线程, 降低大型 JAR 冷编译的峰值内存, 不改变输出与缓存语义
+* `依赖` 升级 Google R8 库至 8.13.22 (提供 D8 编译器)
+
 # v1.0.0
 
 ###### 2026/08/08
@@ -16,7 +28,4 @@
 * `新增` 兼容 Android 7.0 (API 24) 及以上设备; API 26+ 使用 D8Command, API 24/25 自动使用 D8 CLI 兼容路径
 * `新增` 仅与同签名的 AutoJs6 通信 (受 `org.autojs.permission.PLUGIN` 权限保护), 不申请网络与存储权限
 * `新增` 纯 JVM 实现, 单个 universal APK 覆盖所有设备架构; 附带 10 种语言的界面, README 与应用内说明
-* `修复` 兼容长度声明一致且在文件边界精确结束的标准 ZIP/JAR archive comment, 同时继续拒绝歧义 EOCD, 长度不一致和尾随数据
-* `修复` 在 Release 压缩构建中完整保留嵌入式 D8 引擎及其服务提供者, 使生产 APK 可以正常编译 JAR
-* `优化` 将 D8 内部并行编译限制为两个工作线程, 降低大型 JAR 冷编译的峰值内存, 不改变输出与缓存语义
 * `依赖` 附带 Google R8 库 8.13.17 (提供 D8 编译器)

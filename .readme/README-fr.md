@@ -314,6 +314,18 @@ Le développement avance par étapes, et R0 à R4 sont terminées avec des preuv
 
 ******
 
+# v1.1.0
+
+###### 2026/08/27
+
+* `Conseil` `runtime.loadJarWithClasspath()` exige un build AutoJs6 associé 5274 ou ultérieur; `runtime.loadJar()` reste compatible avec le build 5270 ou ultérieur
+* `Fonction` Ajoute le classpath ordonné de compilation V1.1: un JAR de programme peut référencer des JAR d'API externes, tandis que les entrées du classpath servent uniquement à la compilation et ne sont ni intégrées au DEX ni chargées automatiquement
+* `Correction` Accepte les commentaires d'archive ZIP/JAR standard et bornés lorsque la longueur déclarée se termine exactement à la fin du fichier, tout en rejetant les enregistrements EOCD ambigus, les longueurs incohérentes et les données finales
+* `Correction` Préserve le moteur D8 embarqué et ses fournisseurs de services dans les builds Release minifiés afin que les APK de production puissent compiler les entrées JAR
+* `Amélioration` Fournit des diagnostics D8 info/warning/error bornés et respectueux de la confidentialité, avec les métadonnées disponibles de source, d'archive entry et de position, afin de faciliter l'analyse des échecs de compilation du plugin
+* `Amélioration` Limite la compilation parallèle interne de D8 à deux threads de travail afin de réduire le pic mémoire des grands JAR compilés à froid, sans modifier la sortie ni la sémantique du cache
+* `Dépendance` Met à niveau la bibliothèque Google R8 intégrée vers la version 8.13.22 (qui fournit le compilateur D8)
+
 # v1.0.0
 
 ###### 2026/08/08
@@ -326,9 +338,6 @@ Le développement avance par étapes, et R0 à R4 sont terminées avec des preuv
 * `Fonction` Compatible avec les appareils sous Android 7.0 (API 24) et supérieur ; l'API 26+ utilise D8Command tandis que les API 24/25 utilisent automatiquement un chemin de compatibilité D8 CLI
 * `Fonction` Communique uniquement avec un AutoJs6 de signature identique (protégé par la permission `org.autojs.permission.PLUGIN`) et ne demande aucune permission réseau ni stockage
 * `Fonction` Implémentation pure JVM avec un unique APK universel couvrant toutes les architectures ; livré avec interface, README et instructions intégrées en 10 langues
-* `Correction` Accepte les commentaires d'archive ZIP/JAR standard et bornés lorsque la longueur déclarée se termine exactement à la fin du fichier, tout en rejetant les enregistrements EOCD ambigus, les longueurs incohérentes et les données finales
-* `Correction` Préserve le moteur D8 embarqué et ses fournisseurs de services dans les builds Release minifiés afin que les APK de production puissent compiler les entrées JAR
-* `Amélioration` Limite la compilation parallèle interne de D8 à deux threads de travail afin de réduire le pic mémoire des grands JAR compilés à froid, sans modifier la sortie ni la sémantique du cache
 * `Dépendance` Embarque la bibliothèque Google R8 8.13.17 (fournissant le compilateur D8)
 
 ##### Autres versions

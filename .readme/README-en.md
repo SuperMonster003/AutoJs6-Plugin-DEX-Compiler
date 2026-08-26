@@ -314,6 +314,18 @@ Development proceeds in stages, and R0 through R4 are complete with reviewable e
 
 ******
 
+# v1.1.0
+
+###### 2026/08/27
+
+* `Hint` `runtime.loadJarWithClasspath()` requires a paired AutoJs6 build 5274 or newer; ordinary `runtime.loadJar()` remains compatible with build 5270 or newer
+* `Feature` Adds V1.1 ordered compile-time classpath support: a program JAR may reference external API JARs, while classpath inputs are used only for compilation and are neither packaged into DEX nor loaded automatically
+* `Fix` Accepts standard bounded ZIP/JAR archive comments when the declared length ends exactly at the file boundary, while still rejecting ambiguous EOCD records, inconsistent lengths and trailing data
+* `Fix` Keeps the embedded D8 engine and its service providers intact in minified Release builds so production APKs can compile JAR inputs
+* `Improvement` Reports bounded, privacy-safe D8 info/warning/error diagnostics with available source, archive entry and position metadata to make plugin compilation failures easier to investigate
+* `Improvement` Limits D8's internal parallel compilation to two worker threads to reduce peak memory for large cold JARs without changing output or cache semantics
+* `Dependency` Upgrades the bundled Google R8 library to 8.13.22 (providing the D8 compiler)
+
 # v1.0.0
 
 ###### 2026/08/08
@@ -326,9 +338,6 @@ Development proceeds in stages, and R0 through R4 are complete with reviewable e
 * `Feature` Compatible with devices on Android 7.0 (API 24) and higher; API 26+ uses D8Command while API 24/25 automatically use a D8 CLI compatibility path
 * `Feature` Communicates only with an identically signed AutoJs6 (protected by the `org.autojs.permission.PLUGIN` permission) and requests no network or storage permissions
 * `Feature` Pure JVM implementation with a single universal APK covering all device architectures; ships with UI, README and in-app instructions in 10 languages
-* `Fix` Accepts standard bounded ZIP/JAR archive comments when the declared length ends exactly at the file boundary, while still rejecting ambiguous EOCD records, inconsistent lengths and trailing data
-* `Fix` Keeps the embedded D8 engine and its service providers intact in minified Release builds so production APKs can compile JAR inputs
-* `Improvement` Limits D8's internal parallel compilation to two worker threads to reduce peak memory for large cold JARs without changing output or cache semantics
 * `Dependency` Bundles the Google R8 library 8.13.17 (providing the D8 compiler)
 
 ##### For more releases
