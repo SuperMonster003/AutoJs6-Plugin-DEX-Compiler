@@ -55,10 +55,30 @@ class BoundedJarValidatorTest {
         }
 
     @Test
-    fun ambiguousZipEnvelopesAreRejected() = withFixture("dex-jar-envelope-test") { root, runtime ->
+    fun javaWebSocketStyleBinaryArchiveCommentIsCopiedAndMeasured() =
+        withFixture("dex-jar-comment-valid-test") { root, runtime ->
+            val comment = byteArrayOf(0x04, 0xf7.toByte(), 0x41, 0x04, 0x00)
+            val program = TestData.programJar()
+                .patchU16(ZIP_EOCD_SIGNATURE, relativeOffset = 20, value = comment.size) + comment
+            val destination = root.resolve("program.jar")
+
+            val result = BoundedJarValidator.copyAndValidate(
+                TestData.request(program, runtime),
+                ByteArrayInputStream(program),
+                destination,
+                DexCompilerRuntime.capabilities(runtime).limits,
+            )
+
+            assertEquals(program.size.toLong(), result.compressedSizeBytes)
+            assertEquals(1, result.archiveEntryCount)
+            assertEquals(1, result.classEntryCount)
+            assertArrayEquals(program, destination.readBytes())
+        }
+
+    @Test
+    fun leadingAndTrailingZipEnvelopeDataAreRejected() = withFixture("dex-jar-envelope-test") { root, runtime ->
         val valid = TestData.programJar()
         val cases = listOf(
-            "comment" to TestData.programJar(archiveComment = "forbidden"),
             "trailing-data" to (valid + byteArrayOf(1, 2, 3)),
             "leading-data" to (byteArrayOf(1, 2, 3) + valid),
         )
@@ -326,4 +346,5 @@ private val VALID_CLASS_BYTES = byteArrayOf(
 )
 private val ZIP_LOCAL_SIGNATURE = byteArrayOf(0x50, 0x4b, 0x03, 0x04)
 private val ZIP_CENTRAL_SIGNATURE = byteArrayOf(0x50, 0x4b, 0x01, 0x02)
+private val ZIP_EOCD_SIGNATURE = byteArrayOf(0x50, 0x4b, 0x05, 0x06)
 private val ZIP_DATA_DESCRIPTOR_SIGNATURE = byteArrayOf(0x50, 0x4b, 0x07, 0x08)

@@ -11,6 +11,45 @@ import java.util.Random
 
 class StrictJarZipFramingAdversarialTest {
     @Test
+    fun maximumLengthArchiveCommentIsAccepted() = withArchiveFile("dex-zip-max-comment") { file ->
+        val archive = TestData.programJar().withRawArchiveComment(ByteArray(TEST_MAX_COMMENT_LENGTH) { 0x41 })
+        file.writeBytes(archive)
+
+        assertEquals(1, StrictJarZipFraming.validate(file, TEST_MAXIMUM_ENTRIES))
+    }
+
+    @Test
+    fun archiveCommentLengthMustEndExactlyAtTheContainerBoundary() =
+        withArchiveFile("dex-zip-comment-length") { file ->
+            val comment = byteArrayOf(0x04, 0xf7.toByte(), 0x41, 0x04, 0x00)
+            val valid = TestData.programJar().withRawArchiveComment(comment)
+            val eocd = valid.size - TEST_ZIP_EOCD_SIZE - comment.size
+            val cases = listOf(
+                "short-comment-length" to valid.patchU16(eocd + 20, comment.size - 1),
+                "long-comment-length" to valid.patchU16(eocd + 20, comment.size + 1),
+                "bytes-after-comment" to (valid + byteArrayOf(0x7f)),
+            )
+
+            cases.forEach { (label, archive) -> assertFramingRejected(label, archive, file) }
+        }
+
+    @Test
+    fun selfConsistentEocdRecordInsideArchiveCommentIsRejectedAsAmbiguous() =
+        withArchiveFile("dex-zip-comment-ambiguous-eocd") { file ->
+            val fakeEocd = ByteArray(TEST_ZIP_EOCD_SIZE).also { record ->
+                TEST_ZIP_EOCD_SIGNATURE.copyInto(record)
+            }
+            val archive = TestData.programJar().withRawArchiveComment(fakeEocd)
+
+            assertFramingRejected(
+                "self-consistent EOCD in comment",
+                archive,
+                file,
+                "JAR end-of-central-directory record is ambiguous",
+            )
+        }
+
+    @Test
     fun eocdCountsAndCentralBoundsMismatchesAreRejected() = withArchiveFile("dex-zip-eocd-matrix") { file ->
         val valid = TestData.programJar()
         val eocd = valid.size - TEST_ZIP_EOCD_SIZE
@@ -221,6 +260,13 @@ private fun ByteArray.patchU32(offset: Int, value: Long): ByteArray {
     }
 }
 
+private fun ByteArray.withRawArchiveComment(comment: ByteArray): ByteArray {
+    require(comment.size <= TEST_MAX_COMMENT_LENGTH)
+    val eocd = size - TEST_ZIP_EOCD_SIZE
+    check(matchesAt(eocd, TEST_ZIP_EOCD_SIGNATURE)) { "Fixture EOCD must end the uncommented archive" }
+    return patchU16(eocd + 20, comment.size) + comment
+}
+
 private fun ByteArray.flipBit(offset: Int, bit: Int): ByteArray {
     require(offset in indices)
     require(bit in 0 until Byte.SIZE_BITS)
@@ -271,6 +317,7 @@ private const val TEST_TRUNCATED_LOCAL_HEADER_SIZE = 16
 private const val TEST_TRUNCATED_CENTRAL_HEADER_SIZE = 20
 private const val TEST_ZIP_METHOD_DEFLATED = 8
 private const val TEST_ZIP64_EXTRA_ID = 0x0001
+private const val TEST_MAX_COMMENT_LENGTH = 0xffff
 private const val TEST_MAXIMUM_ENTRIES = 1_024
 private const val MUTATION_CASES = 256
 private const val MUTATION_SEED = 0x5eed_c0deL

@@ -12,8 +12,9 @@ import java.nio.channels.FileChannel
  * Validates the ZIP records that [java.util.zip.ZipInputStream] deliberately does not require.
  *
  * JAR input must have one canonical, single-disk ZIP framing: local entries start at byte zero,
- * central entries describe those local entries in the same order, and an uncommented EOCD ends the
- * input exactly. ZIP64, encryption, record gaps, comments, and trailing bytes are rejected.
+ * central entries describe those local entries in the same order, and one unambiguous EOCD plus its
+ * declared bounded comment ends the input exactly. ZIP64, encryption, record gaps, and trailing
+ * bytes are rejected.
  *
  * Records are read by file offset so validation memory is independent of the archive size. The
  * central directory is consumed in order and only the preceding entry is retained while its local
@@ -42,13 +43,10 @@ internal object StrictJarZipFraming {
     private fun validate(reader: ArchiveReader, maximumEntries: Int): Int {
         if (reader.size < ZIP_EOCD_SIZE) invalidArchive("JAR end-of-central-directory record is missing")
 
-        val eocdOffset = reader.size - ZIP_EOCD_SIZE
+        val eocdOffset = findEndOfCentralDirectory(reader)
         val eocd = reader.readBytes(eocdOffset, ZIP_EOCD_SIZE, "JAR end-of-central-directory record")
-        if (eocd.leInt(0) != ZIP_EOCD_SIGNATURE) {
-            invalidArchive("JAR end-of-central-directory record is missing or has a comment")
-        }
-        if (eocd.leU16(4) != 0 || eocd.leU16(6) != 0 || eocd.leU16(20) != 0) {
-            invalidArchive("Multi-disk, ZIP64, and commented JARs are forbidden")
+        if (eocd.leU16(4) != 0 || eocd.leU16(6) != 0) {
+            invalidArchive("Multi-disk and ZIP64 JARs are forbidden")
         }
 
         val entriesOnDisk = eocd.leU16(8)
@@ -77,6 +75,32 @@ internal object StrictJarZipFraming {
             invalidArchive("JAR size changed during framing validation")
         }
         return entryCount
+    }
+
+    private fun findEndOfCentralDirectory(reader: ArchiveReader): Long {
+        val searchLength = minOf(
+            reader.size,
+            ZIP_EOCD_SIZE.toLong() + ZIP_MAX_COMMENT_LENGTH,
+        ).toInt()
+        val searchOffset = reader.size - searchLength
+        val tail = reader.readBytes(searchOffset, searchLength, "JAR end-of-central-directory search window")
+        var match: Int? = null
+        for (offset in tail.size - ZIP_EOCD_SIZE downTo 0) {
+            if (tail.leInt(offset) != ZIP_EOCD_SIGNATURE) continue
+            val commentLength = tail.leU16(offset + ZIP_EOCD_COMMENT_LENGTH_OFFSET)
+            if (offset + ZIP_EOCD_SIZE + commentLength != tail.size) continue
+            if (match != null) {
+                invalidArchive("JAR end-of-central-directory record is ambiguous")
+            }
+            match = offset
+        }
+        return checkedAdd(
+            searchOffset,
+            (match ?: invalidArchive(
+                "JAR end-of-central-directory record is missing or has an inconsistent comment",
+            )).toLong(),
+            "end-of-central-directory offset",
+        )
     }
 
     private fun readCentralEntries(
@@ -346,6 +370,8 @@ private const val ZIP_DATA_DESCRIPTOR_SIGNATURE = 0x08074b50
 private const val ZIP_LOCAL_HEADER_SIZE = 30
 private const val ZIP_CENTRAL_HEADER_SIZE = 46
 private const val ZIP_EOCD_SIZE = 22
+private const val ZIP_EOCD_COMMENT_LENGTH_OFFSET = 20
+private const val ZIP_MAX_COMMENT_LENGTH = 0xffffL
 private const val ZIP_METHOD_STORED = 0
 private const val ZIP_METHOD_DEFLATED = 8
 private const val ZIP_FLAG_DATA_DESCRIPTOR = 0x0008
