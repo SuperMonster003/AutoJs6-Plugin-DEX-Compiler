@@ -78,7 +78,7 @@
     "The device runtime boot classpath varies across systems; requests must match the runtime fingerprint reported by the provider."
   ],
   "h3_roadmap": "Development roadmap",
-  "p_roadmap_status": "Development proceeds in stages, and R0 through R4 are complete with reviewable evidence. R5 is now in progress: the user guides and in-app instructions have been rewritten; bounded privacy-safe diagnostics, the process-local last-route summary and authorized Android failure/recovery cases are complete; and an independent tester finished the install → enable → example-script walkthrough without blockers. Performance benchmarks, broader V1.1 device acceptance and release promotion remain pending. For per-item definitions of done and evidence, see:",
+  "p_roadmap_status": "Development proceeds in stages, and R0 through R4 are complete with reviewable evidence. R5 is now in progress: the user guides and in-app instructions have been rewritten; bounded privacy-safe diagnostics, the process-local last-route summary and authorized Android failure/recovery cases are complete; and an independent tester finished the install → enable → example-script walkthrough without blockers. The R5.2 benchmark and numeric promotion policy are complete, but the current candidate is not promoted because the large-corpus cold combined-P95-PSS gate failed. Broader V1.1 device acceptance and release promotion remain pending. For per-item definitions of done and evidence, see:",
   "text_open_roadmap": "Open the checkable ROADMAP.md",
   "h3_release_history": "Release history",
   "h5_for_more_release_history": "For more releases",

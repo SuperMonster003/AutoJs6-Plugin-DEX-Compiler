@@ -1,6 +1,6 @@
 # DEX Compiler Roadmap
 
-更新日期: 2026-08-26
+更新日期: 2026-08-27
 
 本路线图把后续工作拆成可独立验收的 R0-R5。每个复选框只表示对应条目已经有可复核证据，不能用较低层级的测试替代较高层级的验收。例如，JVM 单元测试通过不等于跨 APK Binder 或真实设备加载已经通过。
 
@@ -22,7 +22,7 @@
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 已完成（交付 4/4，退出 1/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 已完成（R4.1 4/4；R4.2 5/5；R4.3 2/2；退出 2/2） | D8 已完成默认晋升、旧 pin 回滚与再晋升；独立 R8 provider 已完成宿主显式选择、跨 APK Binder/PFD、设备/ART/JNI/Retrace、append-only 本地发布及 Private prerelease；源码编译与 AAR/APK 职责继续隔离 | 本插件 + AutoJs6 + 独立 R8 provider |
-| R5 | 进行中（R5.0 6/6 已完成；R5.1 4/4 已完成；R5.2 前置 3/7） | 用户文档与应用内说明已重构，独立用户走查已完成；有界脱敏诊断、optional wire 元数据、进程内最近路由及授权设备失败/恢复证据已闭环，性能基准、V1.1 classpath 矩阵扩面与发布仍待办 | 本插件 + AutoJs6 |
+| R5 | 进行中（R5.0 6/6 已完成；R5.1 4/4 已完成；R5.2 3/3 已完成但候选未晋级；默认启用前置 3/7） | 用户文档、独立走查与诊断闭环已完成；固定语料性能基准和数字门槛已固化，当前候选因大语料冷路径联合 P95 PSS 超过 20% 门槛而未晋级；V1.1 classpath 矩阵扩面与发布仍待办 | 本插件 + AutoJs6 |
 
 依赖顺序:
 
@@ -503,14 +503,14 @@ R5.1 设备闭环证据（2026-08-26）:
 
 ### R5.2 性能基准与晋升评估
 
-- [ ] 建立可重复的本地基准: 固定语料下对比插件路径与宿主内置编译器的耗时、内存与缓存命中率，产出机器可读报告并记录环境（JDK、设备/模拟器、语料摘要）。
-- [ ] 基于基准数据定义"性能晋级"的数字门槛；达标并留证前，用户文档不得声明性能优势（当前 README 已明确"目标不是性能"）。
+- [x] 建立可重复的本地基准: 固定语料下对比插件路径与宿主内置编译器的耗时、内存与缓存命中率，产出机器可读报告并记录环境（JDK、设备/模拟器、语料摘要）。
+- [x] 基于基准数据定义"性能晋级"的数字门槛；达标并留证前，用户文档不得声明性能优势（当前 README 已明确"目标不是性能"）。当前候选已由机器门禁判定为 `NOT_PROMOTED`，该失败结论本身不阻塞门槛定义条目的完成。
 - [x] 建立默认启用（opt-out）的前置条件清单（稳定性、诊断覆盖、矩阵覆盖、回退演练、回滚路径），并逐项挂接证据目标；清单闭环前路由保持默认关闭。
 
 默认启用前置条件清单（建立于 2026-08-26，当前 3/7）:
 
 - [x] 诊断覆盖: R5.1 的获授权 Android 真实失败/恢复用例已在 API 24/25 x86 AVD 与 API 31 arm64 真机通过；设备断言覆盖脱敏与预算，当前构建的独立真机门禁覆盖 BUSY、取消终态与取消不回退，用户可见提示映射由宿主 JVM 本地化测试覆盖。
-- [ ] 性能与资源: R5.2 固定语料报告覆盖插件/内置/缓存路径，并以实测数据确定且通过耗时、内存、命中率门槛。
+- [ ] 性能与资源: R5.2 固定语料报告已覆盖插件/内置/缓存路径；时延 6/6、缓存状态 6/6 通过，但联合 P95 PSS 仅 5/6，通过前保持未勾选。失败格为 `java8-2048x8/COLD`，插件 344,540 KiB 对内置 279,425 KiB，回归 23.30% > 20%。
 - [ ] 矩阵覆盖: R5.3 至少 3 个代表格通过，包含一台获授权 arm64 真机及 API 24/25 CLI-compatible 路径。
 - [ ] 回退演练: 用拟发布宿主/插件配对验证 BUSY、超时、远端失败、无效输出、采用失败与取消，且每项满足至多一次同语义回退或取消不回退。
 - [x] 回滚路径: README 与 10 个 locale 的应用内说明均记录“选择 Built-in D8/dx 并重启 AutoJs6”，无需卸载宿主或清除数据。
@@ -518,6 +518,15 @@ R5.1 设备闭环证据（2026-08-26）:
 - [ ] 发布治理: R5.3 固定拟发布版本、配对宿主 build 与 APK/AAR 摘要，并完成发布前回归和可复核证据包。
 
 该清单的“建立”不代表默认启用获批；未勾选项存在期间，安装后默认关闭和显式选择语义保持不变。
+
+R5.2 基准与晋升评估证据（2026-08-27）:
+
+- 实现与可重复性: AutoJs6 commit `2a808a29953af5c3fe77e522f54f5c87aed7d0f9` 新增获显式 opt-in 的 Android instrumentation 固定语料夹具、显式设备/配对 APK 主机采集器及独立数字门禁评估器。夹具从 `runtime.loadJar` 计时至类解析和静态调用返回 42；每个 timed sample 前强停宿主与 provider，按语料/缓存状态交替首发路由，使用 2 次 warmup + 10 次 measured 及 R7 P95。隔离宿主工作树的 `:app:compileAppDebugAndroidTestKotlin --no-daemon` 成功，PowerShell 7 两套脚本语法与负向退出码门禁均通过。
+- 固定语料: on-device Java 8 classfile generator V1 对 `java8-1x8`、`java8-128x8`、`java8-2048x8` 双次生成并要求逐字节一致；输入分别为 742 / 93,334 / 1,474,582 bytes，声明方法数 9 / 1,152 / 18,432，三份 SHA-256 已固化在机器报告。冷路径和持久 cache-hit 路径均经真实 `DexClassLoader` 解析/执行，不以 compiler callback 成功替代可加载性。
+- 环境与配对产物: 正式 campaign `97192448-3b71-4d42-b180-43c515aae0c6` 在首选真机 `QV710AF65F`（Sony XQ-AT72、API 31、arm64-v8a）执行，前后电量 100%、温度 34.7 C、构建指纹摘要不变。宿主 6.8.0/build 5276 为 42,427,353 bytes / `32b787052c76030ac47a7c601dede8cc4e46b0a4c5d249f506fe57c6b4814419`；androidTest 为 1,711,264 bytes / `03aca02f2785e9cf3f214a2bfd1855a72249cade930ab78a823d7cfd48554677`；非调试插件 Release 1.0.0/build 4 为 6,636,134 bytes / `9b1a9c1666d703ba82b33fcd6d1c3ca3de3a321ff815badac8554bb2648dfc9e`；三者 signer certificate SHA-256 均为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`。
+- 原始结果: 正式报告 schema `autojs.dex-compiler.r5-performance/v1` 为 144/144 timed、120 measured、状态 `PASS`；120/120 requested cache state 与 adopted route 均被证明，cache-hit 子集 60/60，插件 cache-hit 采用 30/30，12 个 summary 的输出尺寸/摘要在重复样本中均唯一。三档冷路径插件相对内置 P95 时延分别 -5.80% / -27.93% / -42.85%，cache-hit 分别 -26.86% / -72.47% / -92.76%；这些是描述性结果，不声明跨设备性能优势或统计推断。
+- 固化门槛与结论: 沿用此前预注册提案，冷路径 added P95 必须不超过 `max(内置 P95 的 25%, 1000 ms)`，cache-hit added P95 不超过 100 ms，所有 measured cache/route 证明率必须为 100%，每格插件联合 host+provider P95 PSS 回归不超过 20%。评估 schema `autojs.dex-compiler.r5-performance-evaluation/v1` 判定 `NOT_PROMOTED`：时延 6/6、缓存 6/6、确定输出 6/6 通过，内存 5/6；唯一失败格 `java8-2048x8/COLD` 为 344,540 KiB 对 279,425 KiB，即 +65,115 KiB / +23.30%。因此 R5.2 的“基准建立”和“门槛定义”完成，但默认启用清单的“性能与资源”仍未完成，README 继续明确目标不是性能。
+- 证据与恢复: AutoJs6 稳定路径 `docs/dev/dex-compiler-r5-performance-evidence-2026-08-27.md` 记录方法、全表、边界与复现命令；原始 JSON 为 454,193 bytes / `af14542972a9979f4170f8edfee6d969bd0334a9cdfb7d86dd8b39d43a7fa371`，评估 JSON 为 9,646 bytes / `8fa28a9c6a011c1ac2faf2cb7601638a1469644b6a6ac823f74ea8dffcc0018f`。accepted campaign 清理 fixture workspace、恢复运行前宿主 APK 精确字节（设备端 SHA-256 `fca09ff81ba528d7f1b45803a0e1ee38a484ef779c6b008ae20790aa70a05b2c`），并确认 androidTest/插件包均不存在；cleanup/restoration error 均为 0。
 
 ### R5.3 V1.1 矩阵扩面与发布节奏
 
@@ -548,3 +557,4 @@ R5.1 设备闭环证据（2026-08-26）:
 | R4 | 2026-08-25 | DEX 本地收口提交；host integration `4a9718d63923834c9a99fd70e0cd58c898e138f6`；R8 `277ce8a05faa9566abcf474fcb0d3e6f928737ff` | 已完成（R4.1 4/4，R4.2 5/5，R4.3 2/2，退出 2/2） | D8 v2/v3 promotion→rollback→re-promotion 三套 60/60；R8 G2-G8 独立 identity/contract/host/Binder-PFD/device/ART-JNI-Retrace/local.5/Private prerelease 完整闭环；R4.3 20-source static Gate、13/13 mutation、15 suites / 81 JVM tests 全绿；DEX 仅本地提交且不推送 |
 | R5.0 | 2026-08-26 | host `959817a72b81b6f64556983aadaa2fb297742b20`; plugin `cec2941e983f6fc406faee8518977779b053d2d6`; docs 本提交 | 已完成（6/6） | 独立测试者完整走通 README 且无卡点；真实 Java-WebSocket 1.6.0 样例闭环标准 JAR comment、Release D8 service 保留及宿主合法 class_defs 依赖拓扑；Sony API 28 arm64 最终插件路由与持久 cache 命中均无 fallback |
 | R5.1 | 2026-08-26 | host implementation `4e58791238427c309ae5d4bbad07b9bc9d2a23d4`; host device gate `2d9192716620bc4aa0c19462f22d224db2886f77`; plugin implementation `4d08a612ae1d87059c28de98a66b8d3020763ac9` | 已完成（实现 4/4，最小设备证据 1/1） | 协议 44、插件 86、宿主 DEX 180 项本地测试全绿；API 24/25 x86 AVD 与 API 31 arm64 真机的真实失败/恢复 3/3 PASS，真机 BUSY/取消及取消不回退补充门禁 PASS；每轮配对签名一致并完成 3/3 包清理 |
+| R5.2 | 2026-08-27 | host `2a808a29953af5c3fe77e522f54f5c87aed7d0f9`; plugin docs 本提交 | 已完成（3/3；候选未晋级） | 3 档固定语料 × 内置/插件 × 冷/命中，2 warmup + 10 measured/cell；正式 144/144、cache/route 120/120；时延 6/6、cache 6/6、联合 PSS 5/6，large cold +23.30% > 20%，机器门禁 `NOT_PROMOTED`，默认启用前置仍为 3/7 |
