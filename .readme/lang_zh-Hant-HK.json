@@ -78,7 +78,7 @@
     "裝置 runtime boot classpath 因系統而異, 請求必須與 provider 報告的 runtime 指紋一致."
   ],
   "h3_roadmap": "開發路線圖",
-  "p_roadmap_status": "開發按階段推進, R0 至 R4 均已完成並留有可複核證據. R5 正在進行: 使用者指南與應用程式內說明已重寫, 有界脫敏診斷, 進程內最近路徑摘要及獲授權 Android 失敗/恢復案例均已閉環; 獨立測試者亦已完成「安裝 → 啟用 → 執行範例腳本」走查且沒有卡點. R5.2 基準與數字晉級門檻已完成. 有界並行候選的聯合 P95 PSS 6/6 通過, 但修正後的三個進程冷啟動快取命中 added P95 延遲格均超過 100 ms, 因此仍未晉級. R5.3 亦已完成: 搭載 D8 8.13.22 的 v1.1.0 已凍結, 最終配對 APK 在 API 24/x86、API 34/x86_64 及 API 35/arm64 的代表性真實 provider classpath 格均通過; 雙乾淨目錄調查中 54 個產出格的跨目錄輸出摘要差異為 0, 同時繼續保持 `determinismClaim=NOT_CLAIMED`. R5.4 的獨立 R8 provider Public 發布協同仍待完成. 各條目的完成定義與證據見:",
+  "p_roadmap_status": "開發按階段推進, R0 至 R5 均已在目前授權邊界內完成並留有可複核證據. R5.2 的有界並行候選仍為 `NOT_PROMOTED`, 因為修正後的三個進程冷啟動快取命中 added P95 延遲格均超過 100 ms. R5.3 凍結了搭載 D8 8.13.22 的 v1.1.0, 並在 API 24/x86、API 34/x86_64 及 API 35/arm64 的代表性真實 provider classpath 格通過; 雙乾淨目錄調查中 54 個產出格的跨目錄輸出摘要差異為 0, 同時維持 `determinismClaim=NOT_CLAIMED`. R5.4 已按 owner 明確決定收口: 獨立 R8 provider 的現有 prerelease 已轉為 non-prerelease Release, 但倉庫繼續保持 Private; 倉庫公開化、配對 AutoJs6 build 5276 的公開發布及官方外掛索引手動登記均未執行, 並整體移交未來獨立 R8 G9 Public Gate. 這不是公開發布, 亦不改變外掛預設關閉狀態. 各條目的完成定義與證據見:",
   "text_open_roadmap": "查看可勾選的 ROADMAP.md",
   "h3_release_history": "版本歷史",
   "h5_for_more_release_history": "更多版本",

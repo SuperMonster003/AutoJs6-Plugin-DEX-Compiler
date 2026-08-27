@@ -22,7 +22,7 @@
 | R2 | 已完成（交付 4/4，退出 1/1） | 有界故障摘要、协作取消、fail-closed 终态与启动恢复 | AutoJs6 + 本插件 |
 | R3 | 已完成（交付 4/4，退出 1/1） | V1.1 有序编译期 classpath、同语义回退与多输入缓存 | 协议 + AutoJs6 + 本插件 |
 | R4 | 已完成（R4.1 4/4；R4.2 5/5；R4.3 2/2；退出 2/2） | D8 已完成默认晋升、旧 pin 回滚与再晋升；独立 R8 provider 已完成宿主显式选择、跨 APK Binder/PFD、设备/ART/JNI/Retrace、append-only 本地发布及 Private prerelease；源码编译与 AAR/APK 职责继续隔离 | 本插件 + AutoJs6 + 独立 R8 provider |
-| R5 | 进行中（R5.0 6/6、R5.1 4/4、R5.2 3/3、R5.3 3/3 已完成；R5.2 候选未晋级；默认启用前置 3/7） | 用户文档、独立走查与诊断闭环已完成；纠正后的固定语料门禁中联合 P95 PSS 6/6 通过，但三个进程冷启动 cache-hit added P95 时延格均超过 100 ms，当前候选仍未晋级；V1.1 三格矩阵、v1.1.0 发布与双净目录调查已完成，R8 provider Public 转换协同仍待办 | 本插件 + AutoJs6 + 独立 R8 provider |
+| R5 | 已完成（R5.0 6/6、R5.1 4/4、R5.2 3/3、R5.3 3/3；R5.4 公开范围已明确移交 R8 G9；退出 2/2） | 用户文档、独立走查、诊断闭环、V1.1 三格矩阵、v1.1.0 发布与双净目录调查均已完成；R5.2 候选未晋级且默认启用前置仍为 3/7。独立 R8 provider 已从 Private prerelease 转为仍在 Private 仓库内的正式 Release；仓库公开化、配对宿主公开发布与索引登记未执行，移交未来独立 R8 G9 Public Gate | 本插件 + AutoJs6 + 独立 R8 provider |
 
 依赖顺序:
 
@@ -31,7 +31,7 @@ R0 ──> R1 ──> R2 ──> R3
                     └──> R4 ──> R5
 ```
 
-R4 的设计工作可以提前开展，但不得在 R0-R3 的接口中偷偷引入 shrinking、obfuscation 或源码编译语义。R5.0 的文档条目是纯本地工作，不依赖设备；R5.1-R5.3 中涉及设备的条目沿用 R1 的授权设备规则。
+R4 的设计工作可以提前开展，但不得在 R0-R3 的接口中偷偷引入 shrinking、obfuscation 或源码编译语义。R5.0 的文档条目是纯本地工作，不依赖设备；R5.1-R5.3 中涉及设备的条目沿用 R1 的授权设备规则。R5 已按当前授权边界关闭，但这不代表性能候选晋级、插件改为默认启用，或独立 R8 provider 已公开。
 
 ## R0: 低内存验证与本地质量门禁
 
@@ -539,16 +539,22 @@ R5.2 基准与晋升评估证据（2026-08-27）:
 - v1.1.0 发布材料与门禁: `version.properties` 已更新为 `VERSION_NAME=1.1.0`、`VERSION_BUILD=5`，10 locale changelog 与全部生成文件同步；D8/R8 默认 pin 为 8.13.22。强制离线执行 `:app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease --rerun-tasks` 为 15 suites / 90 tests、failure/error/skipped 0，lint 0 error / 18 warnings，Debug/Release 均成功。非调试 Release 为 6,642,158 bytes / `a8fe8b64723c0bae58c94a3129ce58043ea2cb2ef5a8b168b0a861f8d11b9205`，v2 signer certificate 为 `31a681fcfffb3e428420cae280ded89292b12a3b0f59e19b7a73e32a8ae4c213`，D8 service provider `com.android.tools.r8.internal.xp1` 保留；append-only 本地发布副本为 `releases/autojs6-plugin-dex-compiler-v1.1.0-c569dbbe.apk`。正式配对宿主为 AutoJs6 6.8.0 build 5276：host universal 43,975,067 bytes / `24f4ee855174b994d9e37472b48120b2059cc82f3e64507c447799b95dfcaa8f`，androidTest 1,508,760 bytes / `2b82aabf644cc1c2cc2983faf902d57ca93975bfb59197245fca9e34eea2fdcb`，三包 signer 一致。
 - 双净目录调查: 在同一机器的两个独立 detached clean worktree 对 commit `e5804757d926d45db219fc2eb4b2b128714b4160` 分别强制离线执行完整 `:app:verifyR4D8UpgradeMatrix`，producer `66a4f739-ab20-42f4-8db8-5107db033bca` 与 `f3d7cc29-6bcc-4d8c-8011-d4baab52ab2e` 均为 pinned D8 8.13.22、60/60 PASS，Gate SHA-256 分别为 `61066541ad6c6981768083bd147c3b323888faad945464f221cb6735055477e1` 与 `f5e49be819813d3cafc22b4ebc8655cb95da29acb1c4fd3e3b9a5ad6e91475e8`。commit `226c5bf` 的比较器重新验证两套 Gate 后记录：60 格 input/runtime/outcome/status/topology 差异均为 0；54 个产出格的跨目录 output digest、逐 DEX manifest 差异均为 0，且各目录内部双次摘要一致；6 个预期失败格在两侧均无输出。比较报告为 30,752 bytes / `2fa8fdb387782fec76b912ff26b6a1573a3c65f13f2d7f024c0212dfd90bb148`；两套 Gate、120 份 cell report、实际 matrix/schema 与比较器已冻结到 `D:\idea-projects\AutoJs6-DEX-R5-Evidence-20260827\determinism-e580475`，132-entry 自排除 manifest 为 24,947 bytes / `1295a6cdde898c52f4d4dc79fa97683e92a0de6b9ac4761ad17c4544a3191b70`。证据边界固定为单机/双净目录/JVM compiler only，`determinismClaim=NOT_CLAIMED`，不外推到跨机器、文件系统、JDK 或未来编译器。
 
-### R5.4 R8 provider 公开化协同（跨仓库）
+### R5.4 R8 provider 公开化协同（跨仓库；公开范围已移出当前 R5）
 
-- [ ] 独立 R8 provider 完成从 Private prerelease 到 Public 的转换 Gate（含公开文档与配对宿主说明）；该 Gate 属于 R8 仓库，本条目仅跟踪其完成状态，不代办其验收。
-- [ ] Public 转换完成后，本仓库 README 的"常见问题"与"能力边界"增补指向 R8 provider 的链接，并保持"D8 = 编译，R8 = 压缩/混淆"的分工口径。
+- [ ] 独立 R8 provider 完成从 Private 到 Public 的转换 Gate（含公开文档与配对宿主说明）。**已移出当前 R5**；原因是 owner 明确要求 R8 仓库及配对宿主继续保持 Private，去向为独立 R8 Roadmap 的 G9 Public Gate，未获新的公开授权前不得勾选。
+- [ ] Public 转换完成后，本仓库 README 的"常见问题"与"能力边界"增补指向可公开访问的 R8 provider，并保持"D8 = 编译，R8 = 压缩/混淆"的分工口径。**已移出当前 R5**；去向同为 R8 G9 的公开发布后联动，当前 Private URL 不写入公开 README。
 
-2026-08-27 零写入预检: GitHub API 仍返回 `SuperMonster003/AutoJs6-Plugin-R8-Compiler` 为 `PRIVATE`，远端 `master` 为 `277ce8a05faa9566abcf474fcb0d3e6f928737ff`，现有 `v0.1.0-provider-dev-private.1` 为非草稿 prerelease；独立仓库的 G9 Public checklist 仍为 0/5，且本地还有未提交的多语言文档/Roadmap 工作需要先由其 owner 归并。公开 AutoJs6 最新 Release 仍为 v6.7.0（2026-03-14），尚无与 R8 验证配对的 AutoJs6 6.8.0 build 5276 公开产物；`SuperMonster003/AutoJs6-Official-Plugins-Index` 已是 Public，但在 provider 与配对宿主公开前不能完成注册。由于 Private→Public、正式 GitHub Release、宿主发布与索引登记均是显著外部状态变更，本轮未执行任何远端写入；R5.4 等待 owner 对完整公开范围的明确授权。
+2026-08-27 写入前预检（历史状态）: GitHub API 返回 `SuperMonster003/AutoJs6-Plugin-R8-Compiler` 为 `PRIVATE`，远端 `master` 为 `277ce8a05faa9566abcf474fcb0d3e6f928737ff`，`v0.1.0-provider-dev-private.1` 当时为非草稿 prerelease；独立仓库的 G9 Public checklist 仍为 0/5。公开 AutoJs6 最新 Release 当时仍为 v6.7.0（2026-03-14），没有与 R8 验证配对的 AutoJs6 6.8.0 build 5276 公开产物；`SuperMonster003/AutoJs6-Official-Plugins-Index` 已是 Public，但在 provider 与配对宿主公开前不能完成注册。该预检没有执行远端写入，随后仅按 owner 新授权执行下述私有 Release 转换。
+
+Owner 授权与范围裁决（2026-08-27）: R8 仓库继续保持 Private；允许创建正式 Release，但不得公开；AutoJs6 build 5276 / 配对宿主继续保持 Private；官方插件索引不得手动干预，等待其未来自动定时更新；R8 本地领先提交暂时保留且不推送、不改写，并发工作树修改也保持原样、不提交、不回滚。基于该边界，现有 Release ID `376144423` / tag `v0.1.0-provider-dev-private.1` 只以单字段 `prerelease=false` 从 Private prerelease 转为 Private non-prerelease；没有新建或移动 tag，没有修改 Release 标题、说明、目标分支、创建/发布时间或资产，也没有改变仓库可见性。
+
+私有正式 Release 证据: campaign `eafd95f0-c8a1-4feb-8cfc-fb4ee8eba18c` 独立回读确认仓库前后均为 `private=true / visibility=private`，目标 Release 前后均为 `draft=false` 且转换后为私有仓库的 latest non-prerelease。5/5 资产的 ID、名称、大小、GitHub `sha256:` digest 与重新下载文件 SHA-256 前后一致，远端 branch/tag 三个真实 refs 不变；未认证访问仓库页面、Release 页面和 repository API 均为 HTTP 404。R8 本地 HEAD `3ba7304d2e565775d8cb072e388cabfa2c9a10d7` 继续领先 `origin/master` 1 个提交且未推送；采集期间出现的并发工作树修改保持原样。本次没有发布 build 5276、没有写官方索引、没有 Public publication。证据根目录为 `D:\idea-projects\AutoJs6-R8-Private-Release-Evidence-20260827\private-stable-release-eafd95f0-c8a1-4feb-8cfc-fb4ee8eba18c`；before/post manifest SHA-256 分别为 `f465dd94e5962f77c54652706137fba49285d7d7791b47d5d552eb5b530666fc` / `ada00f4814a97fbeec9233499a677ef2c2447d2f8ca1fa73322fa9184e512bb6`，1,843-byte receipt 为 `a866303f7435f121aa5e3287e3b35edfede47043ee62c09656a5cc7d95baf386`，26-entry 自排除根 manifest 为 4,914 bytes / `c536160e7ee36f21f34aa5c25cc7b77fb545ed339623ea590498472459878561`，全量重哈希 26/26 通过。
+
+移出决定: 当前 R5 对跨仓库协同的职责已完成到“记录 owner 决策、完成获授权的 Private 正式 Release、固化证据并明确后续去向”。Public 仓库转换、配对宿主公开发布、公开 README 链接与索引可见性仍均为未完成，不得由上述私有 Release 证据冒充；它们整体移交未来独立 R8 G9 Public Gate，待 owner 重新授权公开范围后再独立验收。因此 R5 可依据“全部完成，或明确记录移出原因与去向”的退出规则关闭。
 
 #### R5 退出条件
 
-- [ ] R5.0-R5.4 各子项全部完成，或在本文件中明确记录移出原因与去向。
+- [x] R5.0-R5.3 全部完成；R5.4 的 Private 正式 Release 已完成，未获授权的 Public 仓库/宿主/README/索引范围已记录移出原因并整体移交未来独立 R8 G9 Public Gate。
 - [x] README 10 个 locale 与本路线图的阶段状态描述一致，生成器幂等检查保持通过。
 
 ## 阶段证据记录
@@ -566,3 +572,4 @@ R5.2 基准与晋升评估证据（2026-08-27）:
 | R5.1 | 2026-08-26 | host implementation `4e58791238427c309ae5d4bbad07b9bc9d2a23d4`; host device gate `2d9192716620bc4aa0c19462f22d224db2886f77`; plugin implementation `4d08a612ae1d87059c28de98a66b8d3020763ac9` | 已完成（实现 4/4，最小设备证据 1/1） | 协议 44、插件 86、宿主 DEX 180 项本地测试全绿；API 24/25 x86 AVD 与 API 31 arm64 真机的真实失败/恢复 3/3 PASS，真机 BUSY/取消及取消不回退补充门禁 PASS；每轮配对签名一致并完成 3/3 包清理 |
 | R5.2 | 2026-08-27 | host baseline `2a808a299`, quiescence `65c69a95f`, cache correction/evidence `0049a2a63`; plugin optimization `ca4c1cc` | 已完成（3/3；候选未晋级） | 纠正后 API 33/x86_64 正式 144/144、cache/route 120/120；冷时延 3/3、联合 PSS 6/6、cache 6/6、输出 6/6，通过；process-cold cache-hit added P95 0/3（+232.7/+229.2/+268.4 ms > 100 ms），机器门禁 `NOT_PROMOTED`，默认启用前置仍为 3/7 |
 | R5.3 | 2026-08-27 | host matrix `b27670864`, evidence `1c5bee578`; plugin runner `563a9c3`, release `e580475`, comparison `226c5bf` | 已完成（3/3） | v1.1.0/D8 8.13.22 Release 与 AutoJs6 build 5276 配对；最终 campaign `d9b97e77-84ad-41dd-a0f2-a8e08eef3fea` 的 API 24 x86、API 34 x86_64、API 35 arm64 三格 real-provider classpath Gate 全通过且 pre/post clean；双净目录 60/60 + 60/60，54 个产出格跨目录摘要差异 0，仍保持 `determinismClaim=NOT_CLAIMED` |
+| R5.4 / R5 退出 | 2026-08-27 | R8 private Release ID `376144423`; DEX docs 本提交 | R5 已完成（R5.4 Public 范围移交 R8 G9；退出 2/2） | campaign `eafd95f0-c8a1-4feb-8cfc-fb4ee8eba18c` 将既有 R8 Private prerelease 单字段转换为仍属 Private 的 non-prerelease；5/5 资产与 refs 不变，未认证 3/3 HTTP 404，26/26 证据文件重哈希通过。build 5276 未公开、索引未写、R8 本地领先提交未推送；Public Gate 明确未完成且不由本条冒充 |

@@ -304,7 +304,7 @@ build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspat
 
 ******
 
-開発は段階的に進行し, R0 から R4 までは検証可能な証跡とともに完了しています. R5 は進行中です: ユーザーガイドとアプリ内説明を改訂し, 上限付きで秘匿化された診断, プロセス内だけの直近経路サマリー, 許可済み Android の失敗/復旧ケースまで完了しました; 独立テスターも「インストール → 有効化 → サンプルスクリプト実行」を問題なく完走しました. R5.2 のベンチマークと数値昇格基準は完了しています. 並列数を制限した候補は combined P95 PSS の 6/6 を通過しましたが, 修正後のプロセスコールド cache-hit added P95 レイテンシ 3 セルすべてが 100 ms を超えたため, まだ昇格していません. R5.3 も完了しました: D8 8.13.22 を含む v1.1.0 を固定し, 最終ペア APK は API 24/x86, API 34/x86_64, API 35/arm64 の代表的な実 provider classpath セルを通過しました; 2 つのクリーンディレクトリ調査では出力を生成する 54 セルのディレクトリ間出力ダイジェスト差分が 0 で, `determinismClaim=NOT_CLAIMED` を維持しています. R5.4 の独立 R8 provider 公開リリース連携は未完了です. 各項目の完了定義と証跡はこちら:
+開発は段階的に進行し, R0 から R5 までは現在の許可範囲内で検証可能な証跡とともに完了しています. R5.2 の並列数を制限した候補は, 修正後のプロセスコールド cache-hit added P95 レイテンシ 3 セルすべてが 100 ms を超えたため `NOT_PROMOTED` のままです. R5.3 では D8 8.13.22 を含む v1.1.0 を固定し, API 24/x86, API 34/x86_64, API 35/arm64 の代表的な実 provider classpath セルを通過し, 出力を生成する 54 セルのディレクトリ間出力ダイジェスト差分が 0 であることを確認しつつ `determinismClaim=NOT_CLAIMED` を維持しました. R5.4 は owner の明示判断で閉じています: 独立 R8 provider の既存 prerelease は non-prerelease Release に変換されましたが, リポジトリは Private のままです; リポジトリ公開, ペアとなる AutoJs6 build 5276 の公開, 公式プラグイン索引への手動登録は実施せず, 将来の独立 R8 G9 Public Gate へまとめて移管しました. これは公開リリースではなく, プラグインのデフォルト無効も変わりません. 各項目の完了定義と証跡はこちら:
 
 - [チェック可能な ROADMAP.md を開く](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/ROADMAP.md)
 
