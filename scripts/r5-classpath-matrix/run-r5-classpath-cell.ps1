@@ -29,7 +29,7 @@ param(
     [string] $HostApk = 'D:\idea-projects\AutoJs6-R5-Classpath\app\build\outputs\apk\app\debug\autojs6-v6.8.0-universal.apk',
     [string] $TestApk = 'D:\idea-projects\AutoJs6-R5-Classpath\app\build\outputs\apk\androidTest\app\debug\app-app-debug-androidTest.apk',
     [string] $PluginApk = 'D:\idea-projects\AutoJs6-Plugin-DEX-Compiler\app\build\outputs\apk\release\autojs6-plugin-dex-compiler-v1.0.0.apk',
-    [string] $EvidenceRoot = 'D:\idea-projects\AutoJs6-DEX-R5-Evidence-20260827',
+    [string] $EvidenceRoot = 'D:\idea-projects\.bak\AutoJs6-DEX-R5-Evidence-20260827',
 
     [Parameter(Mandatory)]
     [ValidatePattern('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')]
