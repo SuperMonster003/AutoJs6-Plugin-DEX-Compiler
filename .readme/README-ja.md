@@ -316,7 +316,7 @@ build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspat
 
 # v1.1.0
 
-###### 2026/08/27
+###### 2026/09/11
 
 * `ヒント` `runtime.loadJarWithClasspath()` には対応する AutoJs6 build 5274 以降が必要です; 通常の `runtime.loadJar()` は引き続き build 5270 以降と互換です
 * `機能` V1.1 の順序付きコンパイル時 classpath に対応: program JAR から外部 API JAR を参照でき, classpath 入力はコンパイルだけに使われて DEX への梱包や自動読み込みは行われません
@@ -324,6 +324,7 @@ build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspat
 * `修正` 難読化された Release ビルドでも組み込み D8 エンジンとサービスプロバイダーを保持し, 本番 APK で JAR 入力をコンパイルできるよう修正
 * `改善` 利用可能な source, archive entry, 位置メタデータを含む, 上限付きで機密情報を除去した D8 info/warning/error 診断を提供し, プラグインのコンパイル失敗を調査しやすくしました
 * `改善` D8 の内部並列コンパイルを 2 ワーカースレッドに制限し, 出力とキャッシュの意味を変えずに大規模 JAR のコールドコンパイル時ピークメモリを削減
+* `改善` 意図しないネイティブ依存関係をビルド時に拒否し, JSON レポートを生成
 * `依存関係` 同梱の Google R8 ライブラリを 8.13.22 に更新 (D8 コンパイラを提供)
 
 # v1.0.0
@@ -404,3 +405,6 @@ app/src/main/res/values-*/strings.xml
 
 - AutoJs6 ドキュメント: https://docs.autojs6.com
 - R8 プロジェクト: https://r8.googlesource.com/r8
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/docs/16kb.md)

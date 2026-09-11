@@ -316,7 +316,7 @@ required host build: 5270
 
 # v1.1.0
 
-###### 2026/08/27
+###### 2026/09/11
 
 * `تلميح` يتطلب `runtime.loadJarWithClasspath()` إصدار AutoJs6 مقترنًا يحمل build 5274 أو أحدث; ويظل `runtime.loadJar()` العادي متوافقًا مع build 5270 أو أحدث
 * `ميزة` إضافة دعم classpath مرتب لوقت الترجمة في V1.1: يمكن لـ program JAR الإشارة إلى ملفات API JAR خارجية, بينما تستخدم مدخلات classpath للترجمة فقط ولا تضمن في DEX ولا تحمل تلقائيًا
@@ -324,6 +324,7 @@ required host build: 5270
 * `إصلاح` الحفاظ على محرك D8 المضمّن ومزودي خدماته في إصدارات Release المصغرة كي تتمكن ملفات APK الإنتاجية من ترجمة مدخلات JAR
 * `تحسين` توفير تشخيصات D8 من نوع info/warning/error محدودة ومنزوعة البيانات الحساسة, مع بيانات المصدر و archive entry والموضع المتاحة, لتسهيل التحقيق في إخفاقات ترجمة الملحق
 * `تحسين` يحد التجميع المتوازي الداخلي في D8 بخيطي عمل لتقليل ذروة الذاكرة عند التجميع البارد لملفات JAR الكبيرة دون تغيير المخرجات أو دلالات ذاكرة التخزين المؤقت
+* `تحسين` التحقق أثناء البناء لمنع إدخال تبعيات أصلية غير مقصودة, مع تقرير JSON
 * `تبعية` ترقية مكتبة Google R8 المرفقة إلى 8.13.22 (توفر مترجم D8)
 
 # v1.0.0
@@ -404,3 +405,6 @@ app/src/main/res/values-*/strings.xml
 
 - توثيق AutoJs6: https://docs.autojs6.com
 - مشروع R8: https://r8.googlesource.com/r8
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/docs/16kb.md)

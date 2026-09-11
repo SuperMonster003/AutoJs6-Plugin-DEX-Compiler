@@ -6,7 +6,7 @@
   "changelog_label_dependency": "Dependencia",
   "$data": {
     "v1.1.0": {
-      "released_date": "2026/08/27",
+      "released_date": "2026/09/11",
       "hint": [
         "`runtime.loadJarWithClasspath()` requiere un build emparejado de AutoJs6 5274 o posterior; `runtime.loadJar()` sigue siendo compatible con el build 5270 o posterior"
       ],
@@ -19,7 +19,8 @@
       ],
       "improvement": [
         "Proporciona diagnósticos D8 info/warning/error acotados y sin datos sensibles, con metadatos disponibles de origen, archive entry y posición, para facilitar la investigación de fallos de compilación del plugin",
-        "Limita la compilación paralela interna de D8 a dos hilos de trabajo para reducir el pico de memoria al compilar en frío JAR grandes, sin cambiar la salida ni la semántica de caché"
+        "Limita la compilación paralela interna de D8 a dos hilos de trabajo para reducir el pico de memoria al compilar en frío JAR grandes, sin cambiar la salida ni la semántica de caché",
+        "La verificación de compilación rechaza dependencias nativas accidentales y genera un informe JSON"
       ],
       "dependency": [
         "Actualiza la biblioteca Google R8 incluida a la versión 8.13.22 (que proporciona el compilador D8)"

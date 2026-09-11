@@ -316,7 +316,7 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 
 # v1.1.0
 
-###### 2026/08/27
+###### 2026/09/11
 
 * `提示` `runtime.loadJarWithClasspath()` 需要配對的 AutoJs6 build 5274 或以上版本; 一般 `runtime.loadJar()` 繼續兼容 build 5270 或以上版本
 * `新增` 支援 V1.1 有序編譯期 classpath: program JAR 可引用外部 API JAR, classpath 只參與編譯, 不會封裝進 DEX 或自動載入
@@ -324,6 +324,7 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 * `修復` 在 Release 壓縮建置中完整保留內嵌 D8 引擎及其服務提供者, 讓正式 APK 可以正常編譯 JAR
 * `優化` 提供有界且已脫敏的 D8 info/warning/error 診斷, 包含可用的來源, archive entry 及位置元資料, 方便定位插件編譯失敗
 * `優化` 將 D8 內部並行編譯限制為兩個工作線程, 降低大型 JAR 冷編譯的峰值記憶體, 不改變輸出與快取語義
+* `優化` 建置階段阻止意外引入原生相依套件, 並輸出 JSON 校驗報告
 * `依賴` 升級隨附的 Google R8 程式庫至 8.13.22 (提供 D8 編譯器)
 
 # v1.0.0
@@ -404,3 +405,6 @@ app/src/main/res/values-*/strings.xml
 
 - AutoJs6 文件: https://docs.autojs6.com
 - R8 專案: https://r8.googlesource.com/r8
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/docs/16kb.md)

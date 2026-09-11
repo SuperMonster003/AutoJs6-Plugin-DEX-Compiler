@@ -316,7 +316,7 @@ build 5270는 V1.0의 최소 호스트 요건입니다; `runtime.loadJarWithClas
 
 # v1.1.0
 
-###### 2026/08/27
+###### 2026/09/11
 
 * `힌트` `runtime.loadJarWithClasspath()`에는 페어로 제공되는 AutoJs6 build 5274 이상이 필요합니다; 일반 `runtime.loadJar()`는 계속 build 5270 이상과 호환됩니다
 * `기능` V1.1 순서 지정 컴파일 타임 classpath 지원 추가: program JAR가 외부 API JAR를 참조할 수 있으며, classpath 입력은 컴파일에만 사용되고 DEX에 패키징되거나 자동으로 로드되지 않습니다
@@ -324,6 +324,7 @@ build 5270는 V1.0의 최소 호스트 요건입니다; `runtime.loadJarWithClas
 * `수정` 축소된 Release 빌드에서도 내장 D8 엔진과 서비스 제공자를 유지하여 프로덕션 APK가 JAR 입력을 컴파일할 수 있도록 수정
 * `개선` 사용 가능한 source, archive entry, 위치 메타데이터를 포함한 크기 제한 및 민감 정보 제거 D8 info/warning/error 진단을 제공하여 플러그인 컴파일 실패를 더 쉽게 조사할 수 있습니다
 * `개선` D8 내부 병렬 컴파일을 작업자 스레드 2개로 제한해 출력 및 캐시 의미를 바꾸지 않고 대형 JAR 콜드 컴파일의 최대 메모리를 줄임
+* `개선` 빌드 시 의도하지 않은 네이티브 의존성을 거부하고 JSON 보고서 생성
 * `의존성` 번들 Google R8 라이브러리를 8.13.22로 업그레이드 (D8 컴파일러 제공)
 
 # v1.0.0
@@ -404,3 +405,6 @@ app/src/main/res/values-*/strings.xml
 
 - AutoJs6 문서: https://docs.autojs6.com
 - R8 프로젝트: https://r8.googlesource.com/r8
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/docs/16kb.md)

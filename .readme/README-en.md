@@ -316,7 +316,7 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 
 # v1.1.0
 
-###### 2026/08/27
+###### 2026/09/11
 
 * `Hint` `runtime.loadJarWithClasspath()` requires a paired AutoJs6 build 5274 or newer; ordinary `runtime.loadJar()` remains compatible with build 5270 or newer
 * `Feature` Adds V1.1 ordered compile-time classpath support: a program JAR may reference external API JARs, while classpath inputs are used only for compilation and are neither packaged into DEX nor loaded automatically
@@ -324,6 +324,7 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 * `Fix` Keeps the embedded D8 engine and its service providers intact in minified Release builds so production APKs can compile JAR inputs
 * `Improvement` Reports bounded, privacy-safe D8 info/warning/error diagnostics with available source, archive entry and position metadata to make plugin compilation failures easier to investigate
 * `Improvement` Limits D8's internal parallel compilation to two worker threads to reduce peak memory for large cold JARs without changing output or cache semantics
+* `Improvement` Build verification rejects accidental native dependencies and produces a JSON report
 * `Dependency` Upgrades the bundled Google R8 library to 8.13.22 (providing the D8 compiler)
 
 # v1.0.0
@@ -404,3 +405,6 @@ app/src/main/res/values-*/strings.xml
 
 - AutoJs6 documentation: https://docs.autojs6.com
 - R8 project: https://r8.googlesource.com/r8
+
+
+[16 KB page alignment and build verification](https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/docs/16kb.md)
