@@ -6,22 +6,23 @@
 
 # v1.1.0
 
-###### 2026/09/11
+###### 2026/09/13
 
-* `Consejo` `runtime.loadJarWithClasspath()` requiere un build emparejado de AutoJs6 5274 o posterior; `runtime.loadJar()` sigue siendo compatible con el build 5270 o posterior
+* `Aviso` `runtime.loadJarWithClasspath()` requiere un build emparejado de AutoJs6 5274 o posterior; `runtime.loadJar()` sigue siendo compatible con el build 5270 o posterior
 * `Función` Añade classpath ordenado de tiempo de compilación V1.1: un JAR de programa puede hacer referencia a JAR de API externos, mientras que las entradas de classpath solo se usan para compilar y no se incluyen en el DEX ni se cargan automáticamente
 * `Corrección` Acepta comentarios de archivo ZIP/JAR estándar y acotados cuando la longitud declarada termina exactamente en el límite del archivo, y sigue rechazando registros EOCD ambiguos, longitudes incoherentes y datos finales
 * `Corrección` Conserva el motor D8 integrado y sus proveedores de servicio en las compilaciones Release minificadas para que los APK de producción puedan compilar entradas JAR
 * `Mejora` Proporciona diagnósticos D8 info/warning/error acotados y sin datos sensibles, con metadatos disponibles de origen, archive entry y posición, para facilitar la investigación de fallos de compilación del plugin
 * `Mejora` Limita la compilación paralela interna de D8 a dos hilos de trabajo para reducir el pico de memoria al compilar en frío JAR grandes, sin cambiar la salida ni la semántica de caché
 * `Mejora` La verificación de compilación rechaza dependencias nativas accidentales y genera un informe JSON
+* `Mejora` Recursos traducidos coherentes, activación explícita del complemento y validación de los paquetes de publicación
 * `Dependencia` Actualiza la biblioteca Google R8 incluida a la versión 8.13.22 (que proporciona el compilador D8)
 
 # v1.0.0
 
 ###### 2026/08/08
 
-* `Consejo` Primera versión estable. Inactiva por defecto tras la instalación; debe habilitarse manualmente en las opciones de desarrollador de AutoJs6, ver la sección "Instalación y uso" del README
+* `Aviso` Primera versión estable. Inactiva por defecto tras la instalación; debe habilitarse manualmente en las opciones de desarrollador de AutoJs6, ver la sección "Instalación y uso" del README
 * `Función` Actúa como plugin externo de compilación DEX para AutoJs6: cuando un script carga un JAR con `runtime.loadJar()`, este plugin puede realizar la compilación de JAR a DEX en lugar del compilador integrado
 * `Función` La compilación se ejecuta en un sandbox privado dentro del propio proceso del plugin, aislado de AutoJs6; si el plugin falla o no está disponible, AutoJs6 recurre a su compilador integrado como máximo una vez
 * `Función` Valida estrictamente el tamaño, el SHA-256, la estructura ZIP, los nombres de entrada y el contenido de clases del JAR antes de compilar, rechazando entradas malformadas, sobredimensionadas o manipuladas

@@ -2,7 +2,7 @@
 
 <div align="center">
   <p>
-    <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
+    <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
   <p>AutoJs6 独立 DEX 编译插件. 在隔离进程中使用较新的 D8 将脚本 JAR 编译为 DEX</p>
@@ -316,7 +316,7 @@ build 5270 是 V1.0 的最低宿主要求; `runtime.loadJarWithClasspath()` 需�
 
 # v1.1.0
 
-###### 2026/09/11
+###### 2026/09/13
 
 * `提示` `runtime.loadJarWithClasspath()` 需要配对的 AutoJs6 build 5274 或更高版本; 普通 `runtime.loadJar()` 继续兼容 build 5270 或更高版本
 * `新增` 支持 V1.1 有序编译期 classpath: program JAR 可引用外部 API JAR, classpath 只参与编译, 不会打包进 DEX 或自动加载
@@ -325,6 +325,7 @@ build 5270 是 V1.0 的最低宿主要求; `runtime.loadJarWithClasspath()` 需�
 * `优化` 提供有界且脱敏的 D8 info/warning/error 诊断, 包含可用的来源, archive entry 与位置元数据, 便于定位插件编译失败
 * `优化` 将 D8 内部并行编译限制为两个工作线程, 降低大型 JAR 冷编译的峰值内存, 不改变输出与缓存语义
 * `优化` 构建阶段阻止意外引入原生依赖, 并输出 JSON 校验报告
+* `优化` 统一多语言资源, 明确插件激活契约并校验发布产物
 * `依赖` 升级 Google R8 库至 8.13.22 (提供 D8 编译器)
 
 # v1.0.0

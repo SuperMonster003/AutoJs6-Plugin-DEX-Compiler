@@ -2,7 +2,7 @@
 
 <div align="center">
   <p>
-    <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
+    <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
   <p>ملحق مستقل لمترجم DEX خاص بـ AutoJs6. يترجم ملفات JAR الخاصة بالسكربتات إلى DEX باستخدام D8 حديث داخل عملية معزولة</p>
@@ -316,7 +316,7 @@ required host build: 5270
 
 # v1.1.0
 
-###### 2026/09/11
+###### 2026/09/13
 
 * `تلميح` يتطلب `runtime.loadJarWithClasspath()` إصدار AutoJs6 مقترنًا يحمل build 5274 أو أحدث; ويظل `runtime.loadJar()` العادي متوافقًا مع build 5270 أو أحدث
 * `ميزة` إضافة دعم classpath مرتب لوقت الترجمة في V1.1: يمكن لـ program JAR الإشارة إلى ملفات API JAR خارجية, بينما تستخدم مدخلات classpath للترجمة فقط ولا تضمن في DEX ولا تحمل تلقائيًا
@@ -325,6 +325,7 @@ required host build: 5270
 * `تحسين` توفير تشخيصات D8 من نوع info/warning/error محدودة ومنزوعة البيانات الحساسة, مع بيانات المصدر و archive entry والموضع المتاحة, لتسهيل التحقيق في إخفاقات ترجمة الملحق
 * `تحسين` يحد التجميع المتوازي الداخلي في D8 بخيطي عمل لتقليل ذروة الذاكرة عند التجميع البارد لملفات JAR الكبيرة دون تغيير المخرجات أو دلالات ذاكرة التخزين المؤقت
 * `تحسين` التحقق أثناء البناء لمنع إدخال تبعيات أصلية غير مقصودة, مع تقرير JSON
+* `تحسين` توحيد الموارد المترجمة وتوضيح تفعيل الإضافة والتحقق من حزم الإصدار
 * `تبعية` ترقية مكتبة Google R8 المرفقة إلى 8.13.22 (توفر مترجم D8)
 
 # v1.0.0

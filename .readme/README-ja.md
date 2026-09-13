@@ -2,7 +2,7 @@
 
 <div align="center">
   <p>
-    <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
+    <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
   <p>AutoJs6 向け独立 DEX コンパイラプラグイン. 隔離プロセス内で最新の D8 を使い, スクリプトの JAR を DEX にコンパイル</p>
@@ -316,7 +316,7 @@ build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspat
 
 # v1.1.0
 
-###### 2026/09/11
+###### 2026/09/13
 
 * `ヒント` `runtime.loadJarWithClasspath()` には対応する AutoJs6 build 5274 以降が必要です; 通常の `runtime.loadJar()` は引き続き build 5270 以降と互換です
 * `機能` V1.1 の順序付きコンパイル時 classpath に対応: program JAR から外部 API JAR を参照でき, classpath 入力はコンパイルだけに使われて DEX への梱包や自動読み込みは行われません
@@ -325,6 +325,7 @@ build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspat
 * `改善` 利用可能な source, archive entry, 位置メタデータを含む, 上限付きで機密情報を除去した D8 info/warning/error 診断を提供し, プラグインのコンパイル失敗を調査しやすくしました
 * `改善` D8 の内部並列コンパイルを 2 ワーカースレッドに制限し, 出力とキャッシュの意味を変えずに大規模 JAR のコールドコンパイル時ピークメモリを削減
 * `改善` 意図しないネイティブ依存関係をビルド時に拒否し, JSON レポートを生成
+* `改善` 多言語リソースの統一, プラグイン有効化の明確化, リリース成果物の検証
 * `依存関係` 同梱の Google R8 ライブラリを 8.13.22 に更新 (D8 コンパイラを提供)
 
 # v1.0.0

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">مترجم DEX في AutoJs6</string>
+
     <string name="plugin_description">يترجم مدخلات JAR المحدودة عبر D8 ويحزم مخرجات DEX ZIP المفهرسة</string>
 </resources>

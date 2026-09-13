@@ -91,6 +91,7 @@ android {
 
     defaultConfig {
         applicationId = globalApplicationId
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = versions.sdkVersionMin
         targetSdk = versions.sdkVersionTarget
         versionCode = versions.appVersionCode
@@ -204,6 +205,8 @@ dependencies {
     implementation(files("$rootDir/libs/dex-compiler-api.aar"))
 
     testImplementation(libs.junit)
+    androidTestImplementation(libs.test.ext.junit)
+    androidTestImplementation(libs.test.runner)
     testImplementation(libs.gson)
 }
 
@@ -470,27 +473,7 @@ tasks {
         }
     }
 
-    register<Copy>("appendDigestToReleasedFiles") {
-        description = "Appends CRC32 digest to released DEX Compiler APK files"
-        dependsOn("assembleRelease")
 
-        val ext = utils.FILE_EXTENSION_APK
-        val src = layout.buildDirectory.dir("outputs/apk/$buildTypeRelease")
-        val dst = file("$rootDir/${buildTypeRelease}s")
-
-        from(src)
-        into(dst)
-        include("*.$ext")
-        includeEmptyDirs = false
-        duplicatesStrategy = DuplicatesStrategy.FAIL
-
-        eachFile {
-            val digest = utils.digestCRC32(file)
-            relativePath = RelativePath(true, "${name.removeSuffix(".$ext")}-$digest.$ext")
-        }
-
-        doLast { println("Destination: $dst") }
-    }
 }
 
 afterEvaluate {
@@ -510,3 +493,5 @@ extra {
 
 // Reject accidental native dependencies on every ABI.
 nativeAlignment { expectNoNativeLibraries.set(true) }
+
+apply(from = rootProject.file("gradle/release-archive.gradle"))

@@ -6,7 +6,7 @@
   "changelog_label_dependency": "依存関係",
   "$data": {
     "v1.1.0": {
-      "released_date": "2026/09/11",
+      "released_date": "2026/09/13",
       "hint": [
         "`runtime.loadJarWithClasspath()` には対応する AutoJs6 build 5274 以降が必要です; 通常の `runtime.loadJar()` は引き続き build 5270 以降と互換です"
       ],
@@ -20,7 +20,8 @@
       "improvement": [
         "利用可能な source, archive entry, 位置メタデータを含む, 上限付きで機密情報を除去した D8 info/warning/error 診断を提供し, プラグインのコンパイル失敗を調査しやすくしました",
         "D8 の内部並列コンパイルを 2 ワーカースレッドに制限し, 出力とキャッシュの意味を変えずに大規模 JAR のコールドコンパイル時ピークメモリを削減",
-        "意図しないネイティブ依存関係をビルド時に拒否し, JSON レポートを生成"
+        "意図しないネイティブ依存関係をビルド時に拒否し, JSON レポートを生成",
+        "多言語リソースの統一, プラグイン有効化の明確化, リリース成果物の検証"
       ],
       "dependency": [
         "同梱の Google R8 ライブラリを 8.13.22 に更新 (D8 コンパイラを提供)"

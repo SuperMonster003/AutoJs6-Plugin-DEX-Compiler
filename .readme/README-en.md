@@ -2,7 +2,7 @@
 
 <div align="center">
   <p>
-    <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
+    <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
   <p>Standalone DEX compiler plugin for AutoJs6. Compiles script JARs into DEX with an up-to-date D8 in an isolated process</p>
@@ -316,7 +316,7 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 
 # v1.1.0
 
-###### 2026/09/11
+###### 2026/09/13
 
 * `Hint` `runtime.loadJarWithClasspath()` requires a paired AutoJs6 build 5274 or newer; ordinary `runtime.loadJar()` remains compatible with build 5270 or newer
 * `Feature` Adds V1.1 ordered compile-time classpath support: a program JAR may reference external API JARs, while classpath inputs are used only for compilation and are neither packaged into DEX nor loaded automatically
@@ -325,6 +325,7 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 * `Improvement` Reports bounded, privacy-safe D8 info/warning/error diagnostics with available source, archive entry and position metadata to make plugin compilation failures easier to investigate
 * `Improvement` Limits D8's internal parallel compilation to two worker threads to reduce peak memory for large cold JARs without changing output or cache semantics
 * `Improvement` Build verification rejects accidental native dependencies and produces a JSON report
+* `Improvement` Consistent localized resources, explicit plugin activation and validated release preparation
 * `Dependency` Upgrades the bundled Google R8 library to 8.13.22 (providing the D8 compiler)
 
 # v1.0.0
