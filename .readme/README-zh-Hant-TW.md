@@ -314,9 +314,16 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 
 ******
 
-# v1.1.0
+# v1.1.1
 
 ###### 2026/09/13
+
+* `修復` 外掛版本日期固定使用英文, 不隨建置機器的語言變化
+* `優化` 統一多語言資源, 明確外掛啟用契約並驗證發行產物
+
+# v1.1.0
+
+###### 2026/09/11
 
 * `提示` `runtime.loadJarWithClasspath()` 需要配對的 AutoJs6 build 5274 或更新版本; 一般 `runtime.loadJar()` 繼續相容 build 5270 或更新版本
 * `新增` 支援 V1.1 有序編譯期 classpath: program JAR 可參照外部 API JAR, classpath 只參與編譯, 不會封裝進 DEX 或自動載入
@@ -325,7 +332,6 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 * `優化` 提供有界且已去識別化的 D8 info/warning/error 診斷, 包含可用的來源, archive entry 與位置中繼資料, 方便定位外掛編譯失敗
 * `優化` 將 D8 內部平行編譯限制為兩個工作執行緒, 降低大型 JAR 冷編譯的尖峰記憶體, 不改變輸出與快取語意
 * `優化` 建置階段阻止意外引入原生相依套件, 並輸出 JSON 校驗報告
-* `優化` 統一多語言資源, 明確外掛啟用契約並驗證發行產物
 * `相依性` 升級隨附的 Google R8 程式庫至 8.13.22 (提供 D8 編譯器)
 
 # v1.0.0

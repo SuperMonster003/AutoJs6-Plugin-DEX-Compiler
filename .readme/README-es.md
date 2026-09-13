@@ -314,9 +314,16 @@ El desarrollo avanza por etapas, y de R0 a R5 están completadas dentro del alca
 
 ******
 
-# v1.1.0
+# v1.1.1
 
 ###### 2026/09/13
+
+* `Corrección` Mantener la fecha de versión del complemento en inglés sin depender del idioma del equipo de compilación
+* `Mejora` Recursos traducidos coherentes, activación explícita del complemento y validación de los paquetes de publicación
+
+# v1.1.0
+
+###### 2026/09/11
 
 * `Aviso` `runtime.loadJarWithClasspath()` requiere un build emparejado de AutoJs6 5274 o posterior; `runtime.loadJar()` sigue siendo compatible con el build 5270 o posterior
 * `Función` Añade classpath ordenado de tiempo de compilación V1.1: un JAR de programa puede hacer referencia a JAR de API externos, mientras que las entradas de classpath solo se usan para compilar y no se incluyen en el DEX ni se cargan automáticamente
@@ -325,7 +332,6 @@ El desarrollo avanza por etapas, y de R0 a R5 están completadas dentro del alca
 * `Mejora` Proporciona diagnósticos D8 info/warning/error acotados y sin datos sensibles, con metadatos disponibles de origen, archive entry y posición, para facilitar la investigación de fallos de compilación del plugin
 * `Mejora` Limita la compilación paralela interna de D8 a dos hilos de trabajo para reducir el pico de memoria al compilar en frío JAR grandes, sin cambiar la salida ni la semántica de caché
 * `Mejora` La verificación de compilación rechaza dependencias nativas accidentales y genera un informe JSON
-* `Mejora` Recursos traducidos coherentes, activación explícita del complemento y validación de los paquetes de publicación
 * `Dependencia` Actualiza la biblioteca Google R8 incluida a la versión 8.13.22 (que proporciona el compilador D8)
 
 # v1.0.0

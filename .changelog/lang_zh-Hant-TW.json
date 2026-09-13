@@ -5,8 +5,17 @@
   "changelog_label_improvement": "優化",
   "changelog_label_dependency": "相依性",
   "$data": {
-    "v1.1.0": {
+    "v1.1.1": {
       "released_date": "2026/09/13",
+      "improvement": [
+        "統一多語言資源, 明確外掛啟用契約並驗證發行產物"
+      ],
+      "fix": [
+        "外掛版本日期固定使用英文, 不隨建置機器的語言變化"
+      ]
+    },
+    "v1.1.0": {
+      "released_date": "2026/09/11",
       "hint": [
         "`runtime.loadJarWithClasspath()` 需要配對的 AutoJs6 build 5274 或更新版本; 一般 `runtime.loadJar()` 繼續相容 build 5270 或更新版本"
       ],
@@ -20,8 +29,7 @@
       "improvement": [
         "提供有界且已去識別化的 D8 info/warning/error 診斷, 包含可用的來源, archive entry 與位置中繼資料, 方便定位外掛編譯失敗",
         "將 D8 內部平行編譯限制為兩個工作執行緒, 降低大型 JAR 冷編譯的尖峰記憶體, 不改變輸出與快取語意",
-        "建置階段阻止意外引入原生相依套件, 並輸出 JSON 校驗報告",
-        "統一多語言資源, 明確外掛啟用契約並驗證發行產物"
+        "建置階段阻止意外引入原生相依套件, 並輸出 JSON 校驗報告"
       ],
       "dependency": [
         "升級隨附的 Google R8 程式庫至 8.13.22 (提供 D8 編譯器)"
