@@ -4,9 +4,16 @@
 
 ******
 
-# v1.1.0
+# v1.1.1
 
 ###### 2026/09/13
+
+* `Correctif` Conserver la date de version du plugin en anglais quelle que soit la langue de la machine de compilation
+* `Amélioration` Ressources traduites cohérentes, activation explicite du plugin et validation des paquets de publication
+
+# v1.1.0
+
+###### 2026/09/11
 
 * `Note` `runtime.loadJarWithClasspath()` exige un build AutoJs6 associé 5274 ou ultérieur; `runtime.loadJar()` reste compatible avec le build 5270 ou ultérieur
 * `Fonctionnalité` Ajoute le classpath ordonné de compilation V1.1: un JAR de programme peut référencer des JAR d'API externes, tandis que les entrées du classpath servent uniquement à la compilation et ne sont ni intégrées au DEX ni chargées automatiquement
@@ -15,7 +22,6 @@
 * `Amélioration` Fournit des diagnostics D8 info/warning/error bornés et respectueux de la confidentialité, avec les métadonnées disponibles de source, d'archive entry et de position, afin de faciliter l'analyse des échecs de compilation du plugin
 * `Amélioration` Limite la compilation parallèle interne de D8 à deux threads de travail afin de réduire le pic mémoire des grands JAR compilés à froid, sans modifier la sortie ni la sémantique du cache
 * `Amélioration` La vérification de compilation rejette les dépendances natives involontaires et produit un rapport JSON
-* `Amélioration` Ressources traduites cohérentes, activation explicite du plugin et validation des paquets de publication
 * `Dépendance` Met à niveau la bibliothèque Google R8 intégrée vers la version 8.13.22 (qui fournit le compilateur D8)
 
 # v1.0.0

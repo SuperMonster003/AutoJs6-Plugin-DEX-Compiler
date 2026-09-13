@@ -5,8 +5,17 @@
   "changelog_label_improvement": "Improvement",
   "changelog_label_dependency": "Dependency",
   "$data": {
-    "v1.1.0": {
+    "v1.1.1": {
       "released_date": "2026/09/13",
+      "improvement": [
+        "Consistent localized resources, explicit plugin activation and validated release preparation"
+      ],
+      "fix": [
+        "Keep the plugin version date in English regardless of the build machine locale"
+      ]
+    },
+    "v1.1.0": {
+      "released_date": "2026/09/11",
       "hint": [
         "`runtime.loadJarWithClasspath()` requires a paired AutoJs6 build 5274 or newer; ordinary `runtime.loadJar()` remains compatible with build 5270 or newer"
       ],
@@ -20,8 +29,7 @@
       "improvement": [
         "Reports bounded, privacy-safe D8 info/warning/error diagnostics with available source, archive entry and position metadata to make plugin compilation failures easier to investigate",
         "Limits D8's internal parallel compilation to two worker threads to reduce peak memory for large cold JARs without changing output or cache semantics",
-        "Build verification rejects accidental native dependencies and produces a JSON report",
-        "Consistent localized resources, explicit plugin activation and validated release preparation"
+        "Build verification rejects accidental native dependencies and produces a JSON report"
       ],
       "dependency": [
         "Upgrades the bundled Google R8 library to 8.13.22 (providing the D8 compiler)"
