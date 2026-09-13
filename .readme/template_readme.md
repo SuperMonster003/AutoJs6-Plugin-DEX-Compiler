@@ -2,7 +2,7 @@
 
 <div align="center">
   <p>
-    <img src="{{ repo_url }}/blob/master/app/src/main/res/mipmap/ic_launcher_dex.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
+    <img src="{{ repo_url }}/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
   <p>{{ text_plugin_synopsis }}</p>
