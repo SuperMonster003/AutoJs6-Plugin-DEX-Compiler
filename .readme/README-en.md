@@ -314,6 +314,12 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 
 ******
 
+# v1.1.2
+
+###### 2026/09/15
+
+* `Improvement` Raise compileSdk and targetSdk to 37 (Android 17); the plugin's behavior does not depend on the new target
+
 # v1.1.1
 
 ###### 2026/09/13
@@ -333,20 +339,6 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 * `Improvement` Limits D8's internal parallel compilation to two worker threads to reduce peak memory for large cold JARs without changing output or cache semantics
 * `Improvement` Build verification rejects accidental native dependencies and produces a JSON report
 * `Dependency` Upgrades the bundled Google R8 library to 8.13.22 (providing the D8 compiler)
-
-# v1.0.0
-
-###### 2026/08/08
-
-* `Hint` First stable release. Inactive after installation by default; it must be enabled manually in the AutoJs6 developer options, see the "Installation and usage" section of the README for the steps
-* `Feature` Acts as an external DEX compiler plugin for AutoJs6: when scripts load a JAR via `runtime.loadJar()`, this plugin can perform the JAR-to-DEX compilation in place of the built-in compiler
-* `Feature` Compilation runs in a private sandbox inside the plugin's own process, isolated from AutoJs6; if the plugin fails or is unavailable, AutoJs6 falls back to its built-in compiler at most once
-* `Feature` Strictly validates the input JAR's size, SHA-256, ZIP structure, entry names and class content before compiling, rejecting malformed, oversized or tampered input
-* `Feature` Supports DEBUG and RELEASE compilation modes, multi-dex output and minApi 24 through 36; the output is a contiguously numbered `classes*.dex` ZIP reported with its actual size and SHA-256
-* `Feature` Compatible with devices on Android 7.0 (API 24) and higher; API 26+ uses D8Command while API 24/25 automatically use a D8 CLI compatibility path
-* `Feature` Communicates only with an identically signed AutoJs6 (protected by the `org.autojs.permission.PLUGIN` permission) and requests no network or storage permissions
-* `Feature` Pure JVM implementation with a single universal APK covering all device architectures; ships with UI, README and in-app instructions in 10 languages
-* `Dependency` Bundles the Google R8 library 8.13.17 (providing the D8 compiler)
 
 ##### For more releases
 
