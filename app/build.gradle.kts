@@ -222,6 +222,12 @@ tasks {
         }
     }
 
+    // The platform jar AGP compiles against: resolved through the boot classpath instead of a hand-built
+    // `platforms/android-<level>` path, because minor platform releases live in `android-37.0`-style folders.
+    val platformAndroidJar = androidComponents.sdkComponents.bootClasspath.map { entries ->
+        entries.map { it.asFile }.first { it.name == "android.jar" }
+    }
+
     withType(Test::class.java).configureEach {
         val taskReportDirectory = if (name == r4D8UpgradeMatrixTestTaskName) {
             r4D8UpgradeReportDirectory
@@ -238,20 +244,13 @@ tasks {
             "d8.matrix.manifestPath",
             rootProject.file("scripts/r4-d8-upgrade/r4-d8-upgrade-matrix.json").absolutePath,
         )
-        systemProperty(
-            "d8.matrix.androidJar",
-            androidComponents.sdkComponents.sdkDirectory.get().asFile
-                .resolve("platforms/android-${android.compileSdk}/android.jar").absolutePath,
-        )
+        systemProperty("d8.matrix.androidJar", platformAndroidJar.get().absolutePath)
         systemProperty(
             "d8.matrix.reportDirectory",
             taskReportDirectory.get().asFile.absolutePath,
         )
         inputs.file(rootProject.file("scripts/r4-d8-upgrade/r4-d8-upgrade-matrix.json"))
-        inputs.file(
-            androidComponents.sdkComponents.sdkDirectory.get().asFile
-                .resolve("platforms/android-${android.compileSdk}/android.jar"),
-        )
+        inputs.file(platformAndroidJar)
         inputs.property("d8MatrixDeclaredVersion", selectedD8Version.get())
         inputs.property("d8MatrixPinnedVersion", pinnedD8Version)
         inputs.property("d8MatrixCandidateEvaluation", d8CandidateVersion.isPresent)
