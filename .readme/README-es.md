@@ -314,6 +314,12 @@ El desarrollo avanza por etapas, y de R0 a R5 están completadas dentro del alca
 
 ******
 
+# v1.1.2
+
+###### 2026/09/15
+
+* `Mejora` compileSdk y targetSdk suben a 37 (Android 17); el comportamiento del plugin no depende del nuevo objetivo
+
 # v1.1.1
 
 ###### 2026/09/13
@@ -333,20 +339,6 @@ El desarrollo avanza por etapas, y de R0 a R5 están completadas dentro del alca
 * `Mejora` Limita la compilación paralela interna de D8 a dos hilos de trabajo para reducir el pico de memoria al compilar en frío JAR grandes, sin cambiar la salida ni la semántica de caché
 * `Mejora` La verificación de compilación rechaza dependencias nativas accidentales y genera un informe JSON
 * `Dependencia` Actualiza la biblioteca Google R8 incluida a la versión 8.13.22 (que proporciona el compilador D8)
-
-# v1.0.0
-
-###### 2026/08/08
-
-* `Aviso` Primera versión estable. Inactiva por defecto tras la instalación; debe habilitarse manualmente en las opciones de desarrollador de AutoJs6, ver la sección "Instalación y uso" del README
-* `Función` Actúa como plugin externo de compilación DEX para AutoJs6: cuando un script carga un JAR con `runtime.loadJar()`, este plugin puede realizar la compilación de JAR a DEX en lugar del compilador integrado
-* `Función` La compilación se ejecuta en un sandbox privado dentro del propio proceso del plugin, aislado de AutoJs6; si el plugin falla o no está disponible, AutoJs6 recurre a su compilador integrado como máximo una vez
-* `Función` Valida estrictamente el tamaño, el SHA-256, la estructura ZIP, los nombres de entrada y el contenido de clases del JAR antes de compilar, rechazando entradas malformadas, sobredimensionadas o manipuladas
-* `Función` Admite los modos de compilación DEBUG y RELEASE, salida multi-dex y minApi de 24 a 36; la salida es un ZIP `classes*.dex` numerado consecutivamente, reportado con su tamaño real y su SHA-256
-* `Función` Compatible con dispositivos con Android 7.0 (API 24) o superior; API 26+ usa D8Command mientras que API 24/25 usan automáticamente una ruta de compatibilidad D8 CLI
-* `Función` Se comunica solo con un AutoJs6 de firma idéntica (protegido por el permiso `org.autojs.permission.PLUGIN`) y no solicita permisos de red ni de almacenamiento
-* `Función` Implementación JVM pura con un único APK universal que cubre todas las arquitecturas; incluye interfaz, README e instrucciones integradas en 10 idiomas
-* `Dependencia` Incluye la biblioteca Google R8 8.13.17 (que proporciona el compilador D8)
 
 ##### Más versiones
 

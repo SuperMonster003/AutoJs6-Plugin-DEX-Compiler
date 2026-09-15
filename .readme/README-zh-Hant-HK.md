@@ -314,6 +314,12 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 
 ******
 
+# v1.1.2
+
+###### 2026/09/15
+
+* `優化` 將 compileSdk 與 targetSdk 提升到 37 (Android 17), 插件行為不受新目標版本影響
+
 # v1.1.1
 
 ###### 2026/09/13
@@ -333,20 +339,6 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 * `優化` 將 D8 內部並行編譯限制為兩個工作線程, 降低大型 JAR 冷編譯的峰值記憶體, 不改變輸出與快取語義
 * `優化` 建置階段阻止意外引入原生相依套件, 並輸出 JSON 校驗報告
 * `依賴` 升級隨附的 Google R8 程式庫至 8.13.22 (提供 D8 編譯器)
-
-# v1.0.0
-
-###### 2026/08/08
-
-* `提示` 首個正式版本. 安裝後預設不生效, 需在 AutoJs6 開發者選項中手動啟用; 詳細步驟見 README 的 "安裝及使用" 章節
-* `新增` 作為 AutoJs6 的外部 DEX 編譯插件: 腳本呼叫 `runtime.loadJar()` 載入 JAR 時, 可由本插件代替內置編譯器完成 JAR 到 DEX 的編譯
-* `新增` 編譯在插件獨立進程的私人沙箱中進行, 與 AutoJs6 相互隔離; 插件失敗或不可用時, AutoJs6 至多自動回退一次至內置編譯器
-* `新增` 編譯前嚴格核驗輸入 JAR 的大小, SHA-256, ZIP 結構, entry 名稱與 class 內容, 拒絕畸形, 超限或被竄改的輸入
-* `新增` 支援 DEBUG 與 RELEASE 編譯模式, multi-dex 輸出與 minApi 24 至 36; 輸出為連續編號的 `classes*.dex` ZIP 並回報實際大小與 SHA-256
-* `新增` 相容 Android 7.0 (API 24) 及以上裝置; API 26+ 使用 D8Command, API 24/25 自動使用 D8 CLI 相容路徑
-* `新增` 僅與同簽名的 AutoJs6 通訊 (受 `org.autojs.permission.PLUGIN` 權限保護), 不要求網絡與儲存權限
-* `新增` 純 JVM 實現, 單個 universal APK 覆蓋所有裝置架構; 附帶 10 種語言的介面, README 與應用程式內說明
-* `依賴` 附帶 Google R8 庫 8.13.17 (提供 D8 編譯器)
 
 ##### 更多版本
 
