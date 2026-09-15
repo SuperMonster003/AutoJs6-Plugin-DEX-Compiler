@@ -7,6 +7,9 @@
   "$data": {
     "v1.1.2": {
       "released_date": "2026/09/15",
+      "fix": [
+        "D8 テストマトリクスの android.jar を AGP 経由で解決し, boot classpath の読み取りをタスク実行時まで遅延させ, Test タスクの早期作成によるビルド失敗を修正"
+      ],
       "improvement": [
         "compileSdk と targetSdk を 37 (Android 17) に引き上げ, プラグインの動作は新しいターゲットの影響を受けない"
       ]

@@ -8,6 +8,7 @@
 - 候选只能用显式 Gradle 属性 `d8CandidateVersion` 覆盖。撤掉该属性即回到固定版本；候选报告写入独立版本目录。
 - consumer 默认只接受固定 `8.13.22`；候选必须显式传 `-CandidateEvaluation`，旧 pin `8.13.17` 的真实 catalog rollback 必须显式传 `-RollbackEvaluation`。Gate 分别记录 `evaluationKind=PINNED_DEFAULT`、`CANDIDATE_OVERRIDE` 或 `OLD_PIN_ROLLBACK`。
 - `minApi` 24 至 36 是 D8 编译参数矩阵，不是 Android 24 至 36 设备矩阵。
+- JVM 矩阵的 `android.jar` 来自 AGP 为当前 `compileSdk` 解析的 `sdkComponents.bootClasspath`，不拼接 SDK 平台目录名。通过声明 `@InputFile` 的 JVM 参数 provider 延迟取值，直到任务执行时才读取，避免提前创建 `Test` 任务时 AGP 尚未完成 `targetCompatibility` 配置。JVM 参数与任务输入使用同一文件。
 - 成功 cell 精确编译两次并记录摘要是否相同，但所有报告和 Gate 都固定为 `determinismClaim=NOT_CLAIMED`。
 - 已写出的 `FAIL` 或不可读 cell 报告不会被测试自动删除；先归档整个版本报告目录，再开始新的观察。
 - 生成 cell 报告的 Gradle `Test` task 明确禁用 build cache 且永远不视为 up-to-date；Gate 输出位于 cell report 目录之外，避免输出所有权重叠。
@@ -27,6 +28,14 @@ app/build/reports/d8-upgrade-matrix/<version>/invocations/<producer-uuid>/r4D8Up
 ```
 
 其中 60 份 cell report 记录 producer invocation UUID、compiler version、输入 SHA-256、`android.jar` runtime fingerprint、编译结果、输出摘要和连续 DEX manifest；版本目录下独立的 `gate-r4D8UpgradeMatrixTest.json` 先被写为 `passed=false`，只有本次唯一 invocation 的固定 11-case/60-cell 形状全部满足 manifest/schema/consumer 约束时才原子替换为通过。Gate 还记录 producer UUID、matrix、report schema 和路径无关 report set 的 SHA-256 绑定。
+
+## SDK 路径与任务配置回归检查
+
+```powershell
+.\gradlew.bat --init-script scripts/r4-d8-upgrade/check-boot-classpath.init.gradle :app:testDebugUnitTest :app:verifyR4D8UpgradeMatrix --console=plain
+```
+
+该 init script 在项目配置期间提前创建 `Test` 任务，覆盖曾导致 `bootClasspath` 抛出 `targetCompatibility is not yet finalized` 的顺序；执行测试前还会确认 JVM 只收到一个 `d8.matrix.androidJar` 参数，其路径与 AGP 解析结果一致，且该文件被登记为任务输入。CI 的单元测试与构建步骤也使用此检查，SDK 目录为 `android-37.0` 等名称时无需调整脚本。
 
 ## 候选版本
 

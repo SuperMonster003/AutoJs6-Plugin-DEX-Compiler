@@ -8,6 +8,7 @@
 
 ###### 2026/09/15
 
+* `수정` D8 테스트 매트릭스의 android.jar 를 AGP 로 해석하고 boot classpath 읽기를 작업 실행 시점까지 지연하여 Test 작업이 일찍 생성될 때 발생하는 빌드 실패 수정
 * `개선` compileSdk 와 targetSdk 를 37 (Android 17) 로 올리며, 플러그인 동작은 새 대상 버전의 영향을 받지 않음
 
 # v1.1.1

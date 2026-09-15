@@ -318,6 +318,7 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 
 ###### 2026/09/15
 
+* `修復` 透過 AGP 解析 D8 測試矩陣的 android.jar, 並延遲至任務執行時讀取 boot classpath, 修復提前建立 Test 任務時的建構失敗
 * `優化` 將 compileSdk 與 targetSdk 提升到 37 (Android 17), 插件行為不受新目標版本影響
 
 # v1.1.1

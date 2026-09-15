@@ -4,9 +4,23 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.util.UUID
 import org.gradle.api.file.DuplicatesStrategy
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.file.RelativePath
 import org.gradle.api.provider.Property
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.testing.Test
+import org.gradle.process.CommandLineArgumentProvider
+
+abstract class D8MatrixAndroidJarArgumentProvider : CommandLineArgumentProvider {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val androidJar: RegularFileProperty
+
+    override fun asArguments(): Iterable<String> =
+        listOf("-Dd8.matrix.androidJar=${androidJar.get().asFile.absolutePath}")
+}
 
 fun writeInvalidatedR4Gate(
     outputFile: File,
@@ -224,8 +238,9 @@ tasks {
 
     // The platform jar AGP compiles against: resolved through the boot classpath instead of a hand-built
     // `platforms/android-<level>` path, because minor platform releases live in `android-37.0`-style folders.
+    // Keep it lazy: AGP finalizes targetCompatibility after Test tasks may already have been created.
     val platformAndroidJar = androidComponents.sdkComponents.bootClasspath.map { entries ->
-        entries.map { it.asFile }.first { it.name == "android.jar" }
+        entries.first { it.asFile.name == "android.jar" }
     }
 
     withType(Test::class.java).configureEach {
@@ -244,13 +259,14 @@ tasks {
             "d8.matrix.manifestPath",
             rootProject.file("scripts/r4-d8-upgrade/r4-d8-upgrade-matrix.json").absolutePath,
         )
-        systemProperty("d8.matrix.androidJar", platformAndroidJar.get().absolutePath)
+        jvmArgumentProviders.add(objects.newInstance<D8MatrixAndroidJarArgumentProvider>().apply {
+            androidJar.set(platformAndroidJar)
+        })
         systemProperty(
             "d8.matrix.reportDirectory",
             taskReportDirectory.get().asFile.absolutePath,
         )
         inputs.file(rootProject.file("scripts/r4-d8-upgrade/r4-d8-upgrade-matrix.json"))
-        inputs.file(platformAndroidJar)
         inputs.property("d8MatrixDeclaredVersion", selectedD8Version.get())
         inputs.property("d8MatrixPinnedVersion", pinnedD8Version)
         inputs.property("d8MatrixCandidateEvaluation", d8CandidateVersion.isPresent)

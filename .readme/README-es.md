@@ -318,6 +318,7 @@ El desarrollo avanza por etapas, y de R0 a R5 están completadas dentro del alca
 
 ###### 2026/09/15
 
+* `Corrección` Resuelve android.jar de la matriz de pruebas D8 mediante AGP y retrasa la lectura del boot classpath hasta la ejecución, evitando fallos de compilación al crear tareas Test antes de tiempo
 * `Mejora` compileSdk y targetSdk suben a 37 (Android 17); el comportamiento del plugin no depende del nuevo objetivo
 
 # v1.1.1

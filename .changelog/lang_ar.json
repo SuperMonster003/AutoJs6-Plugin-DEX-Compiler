@@ -7,6 +7,9 @@
   "$data": {
     "v1.1.2": {
       "released_date": "2026/09/15",
+      "fix": [
+        "حل مسار android.jar لمصفوفة اختبارات D8 عبر AGP وتأجيل قراءة boot classpath حتى تنفيذ المهمة لتجنب فشل البناء عند إنشاء مهام Test مبكرا"
+      ],
       "improvement": [
         "رفع compileSdk و targetSdk إلى 37 (Android 17)؛ لا يعتمد سلوك المكون الإضافي على الهدف الجديد"
       ]

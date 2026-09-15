@@ -7,6 +7,9 @@
   "$data": {
     "v1.1.2": {
       "released_date": "2026/09/15",
+      "fix": [
+        "Resolve the D8 test matrix android.jar through AGP and defer reading the boot classpath until task execution to avoid build failures when Test tasks are created early"
+      ],
       "improvement": [
         "Raise compileSdk and targetSdk to 37 (Android 17); the plugin's behavior does not depend on the new target"
       ]
