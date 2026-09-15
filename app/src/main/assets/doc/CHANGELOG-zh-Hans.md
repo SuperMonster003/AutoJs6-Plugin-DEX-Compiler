@@ -8,6 +8,7 @@
 
 ###### 2026/09/15
 
+* `修复` 通过 AGP 解析 D8 测试矩阵的 android.jar, 并延迟到任务执行时读取 boot classpath, 修复提前创建 Test 任务时的构建失败
 * `优化` 将 compileSdk 与 targetSdk 提升到 37 (Android 17), 插件行为不受新目标版本影响
 
 # v1.1.1

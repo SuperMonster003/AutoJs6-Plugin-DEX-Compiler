@@ -8,6 +8,7 @@
 
 ###### 2026/09/15
 
+* `Correctif` Résolution du fichier android.jar de la matrice de tests D8 via AGP et lecture du boot classpath différée jusqu'à l'exécution, pour éviter les échecs de compilation lors de la création anticipée des tâches Test
 * `Amélioration` compileSdk et targetSdk passent à 37 (Android 17) ; le comportement du plugin ne dépend pas de la nouvelle cible
 
 # v1.1.1

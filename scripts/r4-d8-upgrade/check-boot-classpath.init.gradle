@@ -1,0 +1,23 @@
+import org.gradle.api.tasks.testing.Test
+
+// Exercise callers that realize Test tasks while the Android project is still
+// being configured. SDK providers must remain lazy even in this task ordering.
+gradle.beforeProject { project ->
+    if (project.path == ':app') {
+        project.tasks.withType(Test).all { test ->
+            test.doFirst {
+                def androidJar = project.extensions.getByName('androidComponents')
+                        .sdkComponents.bootClasspath.get()
+                        .find { it.asFile.name == 'android.jar' }.asFile
+                def arguments = test.allJvmArgs.findAll { it.startsWith('-Dd8.matrix.androidJar=') }
+                if (arguments != ["-Dd8.matrix.androidJar=${androidJar.absolutePath}".toString()]) {
+                    throw new GradleException('D8 matrix JVM must receive exactly the AGP platform android.jar')
+                }
+                if (!test.inputs.files.files.contains(androidJar)) {
+                    throw new GradleException('D8 matrix must track the AGP platform android.jar as a task input')
+                }
+                logger.lifecycle('D8 matrix SDK input verified: {}', androidJar)
+            }
+        }
+    }
+}
