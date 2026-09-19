@@ -316,9 +316,10 @@ El desarrollo avanza por etapas, y de R0 a R5 están completadas dentro del alca
 
 # v1.1.2
 
-###### 2026/09/15
+###### 2026/09/19
 
 * `Corrección` Resuelve android.jar de la matriz de pruebas D8 mediante AGP y retrasa la lectura del boot classpath hasta la ejecución, evitando fallos de compilación al crear tareas Test antes de tiempo
+* `Corrección` Advertencias de lectura de SDK XML v4 con AGP 9.1 y comprobaciones de alineación nativa de APK activadas por error al ensamblar pruebas unitarias JVM, mediante los plugins de compilación compartidos 1.8.3
 * `Mejora` compileSdk y targetSdk suben a 37 (Android 17); el comportamiento del plugin no depende del nuevo objetivo
 
 # v1.1.1

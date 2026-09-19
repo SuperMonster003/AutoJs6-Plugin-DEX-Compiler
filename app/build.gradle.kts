@@ -238,8 +238,10 @@ tasks {
 
     // The platform jar AGP compiles against: resolved through the boot classpath instead of a hand-built
     // `platforms/android-<level>` path, because minor platform releases live in `android-37.0`-style folders.
-    // Keep it lazy: AGP finalizes targetCompatibility after Test tasks may already have been created.
-    val platformAndroidJar = androidComponents.sdkComponents.bootClasspath.map { entries ->
+    // Defer the getter too: AGP 9.1 checks targetCompatibility before returning its Provider.
+    val platformAndroidJar = providers.provider {
+        androidComponents.sdkComponents.bootClasspath
+    }.flatMap { it }.map { entries ->
         entries.first { it.asFile.name == "android.jar" }
     }
 
