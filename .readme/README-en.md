@@ -316,9 +316,10 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 
 # v1.1.2
 
-###### 2026/09/15
+###### 2026/09/19
 
 * `Fix` Resolve the D8 test matrix android.jar through AGP and defer reading the boot classpath until task execution to avoid build failures when Test tasks are created early
+* `Fix` SDK XML v4 parsing warnings with AGP 9.1 and APK native alignment checks incorrectly triggered by JVM unit-test assembly tasks, using shared build plugins 1.8.3
 * `Improvement` Raise compileSdk and targetSdk to 37 (Android 17); the plugin's behavior does not depend on the new target
 
 # v1.1.1
