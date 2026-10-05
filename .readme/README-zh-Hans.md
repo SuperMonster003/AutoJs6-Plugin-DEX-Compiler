@@ -316,11 +316,12 @@ build 5270 是 V1.0 的最低宿主要求; `runtime.loadJarWithClasspath()` 需�
 
 # v1.1.2
 
-###### 2026/09/19
+###### 2026/10/05
 
 * `修复` 通过 AGP 解析 D8 测试矩阵的 android.jar, 并延迟到任务执行时读取 boot classpath, 修复提前创建 Test 任务时的构建失败
 * `修复` AGP 9.1 构建时的 SDK XML v4 解析警告, 以及 JVM 单元测试误触发 APK 原生库对齐检查的问题 (共享构建插件 1.8.3)
 * `优化` compileSdk/targetSdk 升级至 37 (Android 17)
+* `优化` Android 系统应用信息图标与图标工作台共用图稿和亮暗底色, 保留插件中心透明图稿及现有启动器选项
 
 # v1.1.1
 
