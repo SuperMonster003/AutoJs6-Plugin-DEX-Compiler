@@ -314,14 +314,19 @@ Le développement avance par étapes, et R0 à R5 sont terminées dans le périm
 
 ******
 
+# v1.1.3
+
+###### 2026/11/04
+
+* `Amélioration` Les icônes des informations d'application Android utilisent les illustrations et les fonds clairs et sombres d'Icon Studio, en conservant les images transparentes du centre de plugins et les choix du lanceur
+
 # v1.1.2
 
-###### 2026/10/05
+###### 2026/09/19
 
 * `Correctif` Résolution du fichier android.jar de la matrice de tests D8 via AGP et lecture du boot classpath différée jusqu'à l'exécution, pour éviter les échecs de compilation lors de la création anticipée des tâches Test
 * `Correctif` Avertissements de lecture SDK XML v4 avec AGP 9.1 et contrôles d'alignement natif des APK déclenchés par erreur lors de l'assemblage des tests unitaires JVM, avec les plugins de compilation partagés 1.8.3
 * `Amélioration` compileSdk et targetSdk passent à 37 (Android 17) ; le comportement du plugin ne dépend pas de la nouvelle cible
-* `Amélioration` Les icônes des informations d'application Android utilisent les illustrations et les fonds clairs et sombres d'Icon Studio, en conservant les images transparentes du centre de plugins et les choix du lanceur
 
 # v1.1.1
 
@@ -329,19 +334,6 @@ Le développement avance par étapes, et R0 à R5 sont terminées dans le périm
 
 * `Correctif` Conserver la date de version du plugin en anglais quelle que soit la langue de la machine de compilation
 * `Amélioration` Ressources traduites cohérentes, activation explicite du plugin et validation des paquets de publication
-
-# v1.1.0
-
-###### 2026/09/11
-
-* `Note` `runtime.loadJarWithClasspath()` exige un build AutoJs6 associé 5274 ou ultérieur; `runtime.loadJar()` reste compatible avec le build 5270 ou ultérieur
-* `Fonctionnalité` Ajoute le classpath ordonné de compilation V1.1: un JAR de programme peut référencer des JAR d'API externes, tandis que les entrées du classpath servent uniquement à la compilation et ne sont ni intégrées au DEX ni chargées automatiquement
-* `Correctif` Accepte les commentaires d'archive ZIP/JAR standard et bornés lorsque la longueur déclarée se termine exactement à la fin du fichier, tout en rejetant les enregistrements EOCD ambigus, les longueurs incohérentes et les données finales
-* `Correctif` Préserve le moteur D8 embarqué et ses fournisseurs de services dans les builds Release minifiés afin que les APK de production puissent compiler les entrées JAR
-* `Amélioration` Fournit des diagnostics D8 info/warning/error bornés et respectueux de la confidentialité, avec les métadonnées disponibles de source, d'archive entry et de position, afin de faciliter l'analyse des échecs de compilation du plugin
-* `Amélioration` Limite la compilation parallèle interne de D8 à deux threads de travail afin de réduire le pic mémoire des grands JAR compilés à froid, sans modifier la sortie ni la sémantique du cache
-* `Amélioration` La vérification de compilation rejette les dépendances natives involontaires et produit un rapport JSON
-* `Dépendance` Met à niveau la bibliothèque Google R8 intégrée vers la version 8.13.22 (qui fournit le compilateur D8)
 
 ##### Autres versions
 

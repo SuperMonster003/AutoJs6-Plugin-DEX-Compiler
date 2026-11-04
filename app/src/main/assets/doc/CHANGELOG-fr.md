@@ -4,14 +4,19 @@
 
 ******
 
+# v1.1.3
+
+###### 2026/11/04
+
+* `Amélioration` Les icônes des informations d'application Android utilisent les illustrations et les fonds clairs et sombres d'Icon Studio, en conservant les images transparentes du centre de plugins et les choix du lanceur
+
 # v1.1.2
 
-###### 2026/10/05
+###### 2026/09/19
 
 * `Correctif` Résolution du fichier android.jar de la matrice de tests D8 via AGP et lecture du boot classpath différée jusqu'à l'exécution, pour éviter les échecs de compilation lors de la création anticipée des tâches Test
 * `Correctif` Avertissements de lecture SDK XML v4 avec AGP 9.1 et contrôles d'alignement natif des APK déclenchés par erreur lors de l'assemblage des tests unitaires JVM, avec les plugins de compilation partagés 1.8.3
 * `Amélioration` compileSdk et targetSdk passent à 37 (Android 17) ; le comportement du plugin ne dépend pas de la nouvelle cible
-* `Amélioration` Les icônes des informations d'application Android utilisent les illustrations et les fonds clairs et sombres d'Icon Studio, en conservant les images transparentes du centre de plugins et les choix du lanceur
 
 # v1.1.1
 
