@@ -355,7 +355,7 @@ build 5270는 V1.0의 최소 호스트 요건입니다; `runtime.loadJarWithClas
 .\gradlew.bat :app:assembleRelease
 ```
 
-빌드 매개변수는 `version.properties`에서 옵니다. 현재 최소 SDK는 24, 대상 SDK는 36, 최소 JDK는 17이며 JDK 21을 권장합니다.
+빌드 매개변수는 `version.properties`에서 옵니다. 현재 최소 SDK는 24, 대상 SDK는 37, 최소 JDK는 17이며 JDK 21을 권장합니다.
 
 프로토콜 ABI는 저장소 `libs` 디렉터리의 로컬 AAR이 제공합니다:
 

@@ -84,7 +84,7 @@
   "h5_for_more_release_history": "更多版本",
   "h3_build": "構建",
   "text_release_build": "發佈構建",
-  "p_build_params": "構建參數來自 `version.properties`. 目前最低 SDK 為 24, 目標 SDK 為 36, 最低 JDK 為 17 且建議 JDK 21",
+  "p_build_params": "構建參數來自 `version.properties`. 目前最低 SDK 為 24, 目標 SDK 為 37, 最低 JDK 為 17 且建議 JDK 21",
   "p_local_aars": "協議 ABI 由儲存庫 `libs` 目錄中的本地 AAR 提供",
   "p_build_architecture": "編譯器透過 Maven 引入 {{ compiler_dependency }}. 本地 AAR 只提供穩定的協議邊界, 構建產物是不含 native library 的 universal APK.",
   "h3_license": "授權條款",

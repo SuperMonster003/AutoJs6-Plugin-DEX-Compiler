@@ -355,7 +355,7 @@ required host build: 5270
 .\gradlew.bat :app:assembleRelease
 ```
 
-تأتي معاملات البناء من `version.properties`. الحد الأدنى الحالي لـ SDK هو 24, و SDK المستهدف 36, والحد الأدنى لـ JDK هو 17 ويوصى بـ JDK 21.
+تأتي معاملات البناء من `version.properties`. الحد الأدنى الحالي لـ SDK هو 24, و SDK المستهدف 37, والحد الأدنى لـ JDK هو 17 ويوصى بـ JDK 21.
 
 توفر ملفات AAR المحلية في مجلد `libs` بالمستودع واجهة ABI الخاصة بالبروتوكول:
 

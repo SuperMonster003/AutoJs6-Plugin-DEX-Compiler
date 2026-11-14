@@ -355,7 +355,7 @@ build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspat
 .\gradlew.bat :app:assembleRelease
 ```
 
-ビルドパラメータは `version.properties` に由来します. 現在の最低 SDK は 24, ターゲット SDK は 36, 最低 JDK は 17 で JDK 21 を推奨します.
+ビルドパラメータは `version.properties` に由来します. 現在の最低 SDK は 24, ターゲット SDK は 37, 最低 JDK は 17 で JDK 21 を推奨します.
 
 プロトコル ABI はリポジトリ `libs` ディレクトリのローカル AAR が提供します:
 

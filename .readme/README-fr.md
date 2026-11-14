@@ -355,7 +355,7 @@ Build de version:
 .\gradlew.bat :app:assembleRelease
 ```
 
-Les paramètres de build proviennent de `version.properties`. Le SDK minimal actuel est 24, le SDK cible 36, le JDK minimal 17 et le JDK 21 est recommandé.
+Les paramètres de build proviennent de `version.properties`. Le SDK minimal actuel est 24, le SDK cible 37, le JDK minimal 17 et le JDK 21 est recommandé.
 
 L'ABI du protocole est fournie par des AAR locaux dans le répertoire `libs` du dépôt:
 

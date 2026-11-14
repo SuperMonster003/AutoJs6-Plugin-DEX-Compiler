@@ -84,7 +84,7 @@
   "h5_for_more_release_history": "Más versiones",
   "h3_build": "Compilación",
   "text_release_build": "Compilación de versión",
-  "p_build_params": "Los parámetros de compilación provienen de `version.properties`. El SDK mínimo actual es 24, el SDK objetivo 36, el JDK mínimo 17 y se recomienda JDK 21",
+  "p_build_params": "Los parámetros de compilación provienen de `version.properties`. El SDK mínimo actual es 24, el SDK objetivo 37, el JDK mínimo 17 y se recomienda JDK 21",
   "p_local_aars": "La ABI del protocolo la proporcionan AAR locales en el directorio `libs` del repositorio",
   "p_build_architecture": "El compilador se incorpora vía Maven como {{ compiler_dependency }}. Los AAR locales solo aportan la frontera estable del protocolo, y el producto de la compilación es un APK universal sin bibliotecas nativas.",
   "h3_license": "Licencia",

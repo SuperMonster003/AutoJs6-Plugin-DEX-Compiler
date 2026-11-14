@@ -84,7 +84,7 @@
   "h5_for_more_release_history": "その他のリリース",
   "h3_build": "ビルド",
   "text_release_build": "リリースビルド",
-  "p_build_params": "ビルドパラメータは `version.properties` に由来します. 現在の最低 SDK は 24, ターゲット SDK は 36, 最低 JDK は 17 で JDK 21 を推奨します",
+  "p_build_params": "ビルドパラメータは `version.properties` に由来します. 現在の最低 SDK は 24, ターゲット SDK は 37, 最低 JDK は 17 で JDK 21 を推奨します",
   "p_local_aars": "プロトコル ABI はリポジトリ `libs` ディレクトリのローカル AAR が提供します",
   "p_build_architecture": "コンパイラは Maven 経由で {{ compiler_dependency }} として導入されます. ローカル AAR は安定したプロトコル境界のみを提供し, ビルド成果物は native library を含まない universal APK です.",
   "h3_license": "ライセンス",

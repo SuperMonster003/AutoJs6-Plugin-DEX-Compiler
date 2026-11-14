@@ -355,7 +355,7 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 .\gradlew.bat :app:assembleRelease
 ```
 
-建置參數來自 `version.properties`. 目前最低 SDK 為 24, 目標 SDK 為 36, 最低 JDK 為 17 且建議 JDK 21.
+建置參數來自 `version.properties`. 目前最低 SDK 為 24, 目標 SDK 為 37, 最低 JDK 為 17 且建議 JDK 21.
 
 協定 ABI 由儲存庫 `libs` 目錄中的本地 AAR 提供:
 

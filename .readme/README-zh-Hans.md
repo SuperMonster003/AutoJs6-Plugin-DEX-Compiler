@@ -355,7 +355,7 @@ build 5270 是 V1.0 的最低宿主要求; `runtime.loadJarWithClasspath()` 需�
 .\gradlew.bat :app:assembleRelease
 ```
 
-构建参数来自 `version.properties`. 当前最低 SDK 为 24, 目标 SDK 为 36, 最低 JDK 为 17 且建议 JDK 21.
+构建参数来自 `version.properties`. 当前最低 SDK 为 24, 目标 SDK 为 37, 最低 JDK 为 17 且建议 JDK 21.
 
 协议 ABI 由仓库 `libs` 目录中的本地 AAR 提供:
 

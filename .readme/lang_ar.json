@@ -84,7 +84,7 @@
   "h5_for_more_release_history": "إصدارات أخرى",
   "h3_build": "البناء",
   "text_release_build": "بناء الإصدار",
-  "p_build_params": "تأتي معاملات البناء من `version.properties`. الحد الأدنى الحالي لـ SDK هو 24, و SDK المستهدف 36, والحد الأدنى لـ JDK هو 17 ويوصى بـ JDK 21",
+  "p_build_params": "تأتي معاملات البناء من `version.properties`. الحد الأدنى الحالي لـ SDK هو 24, و SDK المستهدف 37, والحد الأدنى لـ JDK هو 17 ويوصى بـ JDK 21",
   "p_local_aars": "توفر ملفات AAR المحلية في مجلد `libs` بالمستودع واجهة ABI الخاصة بالبروتوكول",
   "p_build_architecture": "يُجلب المترجم عبر Maven بوصفه {{ compiler_dependency }}. توفر ملفات AAR المحلية حدود البروتوكول المستقرة فقط, وناتج البناء هو universal APK بلا مكتبات native.",
   "h3_license": "الترخيص",

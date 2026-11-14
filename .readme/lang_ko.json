@@ -84,7 +84,7 @@
   "h5_for_more_release_history": "추가 릴리스",
   "h3_build": "빌드",
   "text_release_build": "릴리스 빌드",
-  "p_build_params": "빌드 매개변수는 `version.properties`에서 옵니다. 현재 최소 SDK는 24, 대상 SDK는 36, 최소 JDK는 17이며 JDK 21을 권장합니다",
+  "p_build_params": "빌드 매개변수는 `version.properties`에서 옵니다. 현재 최소 SDK는 24, 대상 SDK는 37, 최소 JDK는 17이며 JDK 21을 권장합니다",
   "p_local_aars": "프로토콜 ABI는 저장소 `libs` 디렉터리의 로컬 AAR이 제공합니다",
   "p_build_architecture": "컴파일러는 Maven을 통해 {{ compiler_dependency }}로 도입됩니다. 로컬 AAR은 안정적인 프로토콜 경계만 제공하며, 빌드 산출물은 native library가 없는 universal APK입니다.",
   "h3_license": "라이선스",

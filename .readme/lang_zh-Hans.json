@@ -84,7 +84,7 @@
   "h5_for_more_release_history": "更多版本",
   "h3_build": "构建",
   "text_release_build": "发布构建",
-  "p_build_params": "构建参数来自 `version.properties`. 当前最低 SDK 为 24, 目标 SDK 为 36, 最低 JDK 为 17 且建议 JDK 21",
+  "p_build_params": "构建参数来自 `version.properties`. 当前最低 SDK 为 24, 目标 SDK 为 37, 最低 JDK 为 17 且建议 JDK 21",
   "p_local_aars": "协议 ABI 由仓库 `libs` 目录中的本地 AAR 提供",
   "p_build_architecture": "编译器通过 Maven 引入 {{ compiler_dependency }}. 本地 AAR 只提供稳定的协议边界, 构建产物是不含 native library 的 universal APK.",
   "h3_license": "许可证",
