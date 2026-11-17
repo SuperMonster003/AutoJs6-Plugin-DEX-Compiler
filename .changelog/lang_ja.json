@@ -6,7 +6,7 @@
   "changelog_label_dependency": "依存関係",
   "$data": {
     "v1.1.4": {
-      "released_date": "2026/11/17",
+      "released_date": "2026/11/18",
       "improvement": [
         "プラグインのアイコンを透明な背景の単色の図案に作り直し, ライトテーマとダークテーマのどちらでも見やすく"
       ]

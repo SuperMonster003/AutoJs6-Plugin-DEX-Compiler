@@ -6,7 +6,7 @@
   "changelog_label_dependency": "依賴",
   "$data": {
     "v1.1.4": {
-      "released_date": "2026/11/17",
+      "released_date": "2026/11/18",
       "improvement": [
         "外掛程式圖示重新設計為透明背景的單色圖案, 在淺色與深色主題下均清晰可辨"
       ]

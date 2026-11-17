@@ -6,7 +6,7 @@
   "changelog_label_dependency": "의존성",
   "$data": {
     "v1.1.4": {
-      "released_date": "2026/11/17",
+      "released_date": "2026/11/18",
       "improvement": [
         "플러그인 아이콘을 투명 배경의 단색 그림으로 새로 디자인하여 밝은 테마와 어두운 테마 모두에서 잘 보이도록 함"
       ]
