@@ -2,6 +2,7 @@
 
 <div align="center">
   <p>
+    <source srcset="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap-night/ic_launcher.png?raw=true" media="(prefers-color-scheme: dark)" />
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
@@ -314,6 +315,12 @@ required host build: 5270
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `Улучшение` Значок плагина перерисован в виде одноцветного изображения на прозрачном фоне и хорошо различим в светлой и тёмной темах
+
 # v1.1.3
 
 ###### 2026/11/04
@@ -327,13 +334,6 @@ required host build: 5270
 * `Исправление` Получение android.jar для матрицы тестов D8 через AGP и чтение boot classpath только при выполнении задач, чтобы устранить сбой сборки при раннем создании задач Test
 * `Исправление` Предупреждения чтения SDK XML v4 с AGP 9.1 и ошибочный запуск проверки выравнивания нативных библиотек APK при сборке модульных тестов JVM, устраненные общими плагинами сборки 1.8.3
 * `Улучшение` Подняты compileSdk и targetSdk до 37 (Android 17); поведение плагина не зависит от нового целевого уровня
-
-# v1.1.1
-
-###### 2026/09/13
-
-* `Исправление` Дата версии плагина всегда на английском независимо от языка среды сборки
-* `Улучшение` Согласованные переводы, явная активация плагина и проверка пакетов выпуска
 
 ##### Другие выпуски
 

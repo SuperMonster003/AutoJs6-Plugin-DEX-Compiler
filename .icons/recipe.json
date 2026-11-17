@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatorVersion": "1.3.0",
+  "generatorVersion": "1.4.0",
   "profile": "catalog",
   "repository": "AutoJs6-Plugin-DEX-Compiler",
   "packages": [
@@ -9,18 +9,18 @@
   "launcher": false,
   "params": {
     "sources": {
-      "day": "853fb33b954198cc3b1968322e4761c9a4e8341833ce9f5372f578fe10d4798f",
-      "night": "853fb33b954198cc3b1968322e4761c9a4e8341833ce9f5372f578fe10d4798f",
+      "day": "fe1195a86f2b0e33975caa2532b8a815b85756df3e34aca11b67e91dfa2b065a",
+      "night": "fe1195a86f2b0e33975caa2532b8a815b85756df3e34aca11b67e91dfa2b065a",
       "alphaMode": "alpha"
     },
     "geometry": {
-      "mode": "preserve",
+      "mode": "normalized",
       "scale": 1.0,
       "offsetX": 0.0,
       "offsetY": 0.0
     },
     "day": {
-      "mode": "original",
+      "mode": "mask",
       "foreground": "#272727",
       "brightness": 1.0,
       "contrast": 1.0,
@@ -29,7 +29,7 @@
       "invert": false
     },
     "night": {
-      "mode": "original",
+      "mode": "mask",
       "foreground": "#d8d8d8",
       "brightness": 1.0,
       "contrast": 1.0,
@@ -128,7 +128,9 @@
     }
   },
   "assets": [
-    "853fb33b954198cc3b1968322e4761c9a4e8341833ce9f5372f578fe10d4798f"
+    "853fb33b954198cc3b1968322e4761c9a4e8341833ce9f5372f578fe10d4798f",
+    "d0f7d9f2ebe66c00069462c1aa8b6b0377196e7ead0a3aa4d357b283ce387549",
+    "fe1195a86f2b0e33975caa2532b8a815b85756df3e34aca11b67e91dfa2b065a"
   ],
   "legacyGenerator": null,
   "backgroundDefaults": {
@@ -136,7 +138,12 @@
     "night": "transparent"
   },
   "systemIcon": true,
-  "originalSources": {},
+  "originalSources": {
+    "fe1195a86f2b0e33975caa2532b8a815b85756df3e34aca11b67e91dfa2b065a": {
+      "asset": "d0f7d9f2ebe66c00069462c1aa8b6b0377196e7ead0a3aa4d357b283ce387549",
+      "filename": "dex-compiler-icon.svg"
+    }
+  },
   "systemIconMinSdk": 24,
   "systemIconObsolete": []
 }

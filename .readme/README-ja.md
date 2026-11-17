@@ -2,6 +2,7 @@
 
 <div align="center">
   <p>
+    <source srcset="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap-night/ic_launcher.png?raw=true" media="(prefers-color-scheme: dark)" />
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
@@ -314,6 +315,12 @@ build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspat
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `改善` プラグインのアイコンを透明な背景の単色の図案に作り直し, ライトテーマとダークテーマのどちらでも見やすく
+
 # v1.1.3
 
 ###### 2026/11/04
@@ -327,13 +334,6 @@ build 5270 は V1.0 の最低ホスト要件です; `runtime.loadJarWithClasspat
 * `修正` D8 テストマトリクスの android.jar を AGP 経由で解決し, boot classpath の読み取りをタスク実行時まで遅延させ, Test タスクの早期作成によるビルド失敗を修正
 * `修正` 共有ビルドプラグイン 1.8.3 により, AGP 9.1 での SDK XML v4 解析警告と, JVM 単体テストの組み立て時に APK ネイティブライブラリのアラインメント検証が誤って実行される問題
 * `改善` compileSdk と targetSdk を 37 (Android 17) に引き上げ, プラグインの動作は新しいターゲットの影響を受けない
-
-# v1.1.1
-
-###### 2026/09/13
-
-* `修正` ビルド環境の言語にかかわらずプラグインのバージョン日付を英語で表示
-* `改善` 多言語リソースの統一, プラグイン有効化の明確化, リリース成果物の検証
 
 ##### その他のリリース
 

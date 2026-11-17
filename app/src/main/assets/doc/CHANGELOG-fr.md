@@ -4,6 +4,12 @@
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `Amélioration` Icône du plugin redessinée en un motif monochrome sur fond transparent, bien lisible avec les thèmes clair et sombre
+
 # v1.1.3
 
 ###### 2026/11/04

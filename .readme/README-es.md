@@ -2,6 +2,7 @@
 
 <div align="center">
   <p>
+    <source srcset="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap-night/ic_launcher.png?raw=true" media="(prefers-color-scheme: dark)" />
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
@@ -314,6 +315,12 @@ El desarrollo avanza por etapas, y de R0 a R5 están completadas dentro del alca
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `Mejora` Icono del plugin rediseñado como una figura de un solo color sobre fondo transparente, bien visible en los temas claro y oscuro
+
 # v1.1.3
 
 ###### 2026/11/04
@@ -327,13 +334,6 @@ El desarrollo avanza por etapas, y de R0 a R5 están completadas dentro del alca
 * `Corrección` Resuelve android.jar de la matriz de pruebas D8 mediante AGP y retrasa la lectura del boot classpath hasta la ejecución, evitando fallos de compilación al crear tareas Test antes de tiempo
 * `Corrección` Advertencias de lectura de SDK XML v4 con AGP 9.1 y comprobaciones de alineación nativa de APK activadas por error al ensamblar pruebas unitarias JVM, mediante los plugins de compilación compartidos 1.8.3
 * `Mejora` compileSdk y targetSdk suben a 37 (Android 17); el comportamiento del plugin no depende del nuevo objetivo
-
-# v1.1.1
-
-###### 2026/09/13
-
-* `Corrección` Mantener la fecha de versión del complemento en inglés sin depender del idioma del equipo de compilación
-* `Mejora` Recursos traducidos coherentes, activación explícita del complemento y validación de los paquetes de publicación
 
 ##### Más versiones
 

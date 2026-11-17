@@ -5,6 +5,12 @@
   "changelog_label_improvement": "Mejora",
   "changelog_label_dependency": "Dependencia",
   "$data": {
+    "v1.1.4": {
+      "released_date": "2026/11/17",
+      "improvement": [
+        "Icono del plugin rediseñado como una figura de un solo color sobre fondo transparente, bien visible en los temas claro y oscuro"
+      ]
+    },
     "v1.1.3": {
       "released_date": "2026/11/04",
       "improvement": [

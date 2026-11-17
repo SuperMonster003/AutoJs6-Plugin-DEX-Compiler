@@ -5,6 +5,12 @@
   "changelog_label_improvement": "تحسين",
   "changelog_label_dependency": "تبعية",
   "$data": {
+    "v1.1.4": {
+      "released_date": "2026/11/17",
+      "improvement": [
+        "أُعيد تصميم أيقونة الملحق كرسم بلون واحد على خلفية شفافة يظهر بوضوح في السمتين الفاتحة والداكنة"
+      ]
+    },
     "v1.1.3": {
       "released_date": "2026/11/04",
       "improvement": [

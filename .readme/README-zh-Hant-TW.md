@@ -2,6 +2,7 @@
 
 <div align="center">
   <p>
+    <source srcset="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap-night/ic_launcher.png?raw=true" media="(prefers-color-scheme: dark)" />
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
@@ -314,6 +315,12 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `優化` 外掛程式圖示重新設計為透明背景的單色圖案, 在淺色與深色主題下都清楚可辨
+
 # v1.1.3
 
 ###### 2026/11/04
@@ -327,13 +334,6 @@ build 5270 是 V1.0 的最低主程式要求; `runtime.loadJarWithClasspath()` �
 * `修復` 透過 AGP 解析 D8 測試矩陣的 android.jar, 並延遲至工作執行時讀取 boot classpath, 修正提前建立 Test 工作時的建置失敗
 * `修復` AGP 9.1 建置時的 SDK XML v4 解析警告及 JVM 單元測試組裝工作誤觸發 APK 原生程式庫對齊檢查的問題 (共用建置外掛 1.8.3)
 * `優化` 將 compileSdk 與 targetSdk 提升到 37 (Android 17), 外掛程式行為不受新目標版本影響
-
-# v1.1.1
-
-###### 2026/09/13
-
-* `修復` 外掛版本日期固定使用英文, 不隨建置機器的語言變化
-* `優化` 統一多語言資源, 明確外掛啟用契約並驗證發行產物
 
 ##### 更多版本
 

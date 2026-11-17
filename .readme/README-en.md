@@ -2,6 +2,7 @@
 
 <div align="center">
   <p>
+    <source srcset="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap-night/ic_launcher.png?raw=true" media="(prefers-color-scheme: dark)" />
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
@@ -314,6 +315,12 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `Improvement` Redesigned the plugin icon as a single-color glyph on a transparent background that stays clear in both light and dark themes
+
 # v1.1.3
 
 ###### 2026/11/04
@@ -327,13 +334,6 @@ Development proceeds in stages, and R0 through R5 are complete within the curren
 * `Fix` Resolve the D8 test matrix android.jar through AGP and defer reading the boot classpath until task execution to avoid build failures when Test tasks are created early
 * `Fix` SDK XML v4 parsing warnings with AGP 9.1 and APK native alignment checks incorrectly triggered by JVM unit-test assembly tasks, using shared build plugins 1.8.3
 * `Improvement` Raise compileSdk and targetSdk to 37 (Android 17); the plugin's behavior does not depend on the new target
-
-# v1.1.1
-
-###### 2026/09/13
-
-* `Fix` Keep the plugin version date in English regardless of the build machine locale
-* `Improvement` Consistent localized resources, explicit plugin activation and validated release preparation
 
 ##### For more releases
 

@@ -5,6 +5,12 @@
   "changelog_label_improvement": "Improvement",
   "changelog_label_dependency": "Dependency",
   "$data": {
+    "v1.1.4": {
+      "released_date": "2026/11/17",
+      "improvement": [
+        "Redesigned the plugin icon as a single-color glyph on a transparent background that stays clear in both light and dark themes"
+      ]
+    },
     "v1.1.3": {
       "released_date": "2026/11/04",
       "improvement": [

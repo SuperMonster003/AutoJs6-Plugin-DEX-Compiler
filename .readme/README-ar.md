@@ -2,6 +2,7 @@
 
 <div align="center">
   <p>
+    <source srcset="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap-night/ic_launcher.png?raw=true" media="(prefers-color-scheme: dark)" />
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
@@ -314,6 +315,12 @@ required host build: 5270
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `تحسين` أُعيد تصميم أيقونة الملحق كرسم بلون واحد على خلفية شفافة يظهر بوضوح في السمتين الفاتحة والداكنة
+
 # v1.1.3
 
 ###### 2026/11/04
@@ -327,13 +334,6 @@ required host build: 5270
 * `إصلاح` حل مسار android.jar لمصفوفة اختبارات D8 عبر AGP وتأجيل قراءة boot classpath حتى تنفيذ المهمة لتجنب فشل البناء عند إنشاء مهام Test مبكرا
 * `إصلاح` تحذيرات قراءة SDK XML v4 مع AGP 9.1 وتشغيل فحص محاذاة مكتبات APK الأصلية خطأ عند تجميع اختبارات JVM, باستخدام إضافات البناء المشتركة 1.8.3
 * `تحسين` رفع compileSdk و targetSdk إلى 37 (Android 17)؛ لا يعتمد سلوك المكون الإضافي على الهدف الجديد
-
-# v1.1.1
-
-###### 2026/09/13
-
-* `إصلاح` عرض تاريخ إصدار الإضافة بالإنجليزية بغض النظر عن لغة جهاز البناء
-* `تحسين` توحيد الموارد المترجمة وتوضيح تفعيل الإضافة والتحقق من حزم الإصدار
 
 ##### إصدارات أخرى
 

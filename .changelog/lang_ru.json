@@ -5,6 +5,12 @@
   "changelog_label_improvement": "Улучшение",
   "changelog_label_dependency": "Зависимость",
   "$data": {
+    "v1.1.4": {
+      "released_date": "2026/11/17",
+      "improvement": [
+        "Значок плагина перерисован в виде одноцветного изображения на прозрачном фоне и хорошо различим в светлой и тёмной темах"
+      ]
+    },
     "v1.1.3": {
       "released_date": "2026/11/04",
       "improvement": [

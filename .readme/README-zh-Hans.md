@@ -2,6 +2,7 @@
 
 <div align="center">
   <p>
+    <source srcset="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap-night/ic_launcher.png?raw=true" media="(prefers-color-scheme: dark)" />
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
@@ -314,6 +315,12 @@ build 5270 是 V1.0 的最低宿主要求; `runtime.loadJarWithClasspath()` 需�
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `优化` 插件图标重新设计为透明背景的单色图案, 在亮色与暗色主题下都清晰可辨
+
 # v1.1.3
 
 ###### 2026/11/04
@@ -327,13 +334,6 @@ build 5270 是 V1.0 的最低宿主要求; `runtime.loadJarWithClasspath()` 需�
 * `修复` 通过 AGP 解析 D8 测试矩阵的 android.jar, 并延迟到任务执行时读取 boot classpath, 修复提前创建 Test 任务时的构建失败
 * `修复` AGP 9.1 构建时的 SDK XML v4 解析警告, 以及 JVM 单元测试误触发 APK 原生库对齐检查的问题 (共享构建插件 1.8.3)
 * `优化` compileSdk/targetSdk 升级至 37 (Android 17)
-
-# v1.1.1
-
-###### 2026/09/13
-
-* `修复` 插件版本日期受构建环境语言影响, 未统一使用英文格式的问题
-* `优化` 统一多语言资源, 明确插件激活契约并校验发布产物
 
 ##### 更多版本
 

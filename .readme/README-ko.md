@@ -2,6 +2,7 @@
 
 <div align="center">
   <p>
+    <source srcset="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap-night/ic_launcher.png?raw=true" media="(prefers-color-scheme: dark)" />
     <img src="https://github.com/SuperMonster003/AutoJs6-Plugin-DEX-Compiler/blob/master/app/src/main/res/mipmap/ic_launcher.png?raw=true" alt="dex-compiler-ic-launcher" border="0" width="128" />
   </p>
 
@@ -314,6 +315,12 @@ build 5270는 V1.0의 최소 호스트 요건입니다; `runtime.loadJarWithClas
 
 ******
 
+# v1.1.4
+
+###### 2026/11/17
+
+* `개선` 플러그인 아이콘을 투명 배경의 단색 그림으로 새로 디자인하여 밝은 테마와 어두운 테마 모두에서 잘 보이도록 함
+
 # v1.1.3
 
 ###### 2026/11/04
@@ -327,13 +334,6 @@ build 5270는 V1.0의 최소 호스트 요건입니다; `runtime.loadJarWithClas
 * `수정` D8 테스트 매트릭스의 android.jar 를 AGP 로 해석하고 boot classpath 읽기를 작업 실행 시점까지 지연하여 Test 작업이 일찍 생성될 때 발생하는 빌드 실패 수정
 * `수정` 공유 빌드 플러그인 1.8.3을 통해 AGP 9.1의 SDK XML v4 파싱 경고 및 JVM 단위 테스트 조립 작업에서 APK 네이티브 라이브러리 정렬 검사가 잘못 실행되는 문제 해결
 * `개선` compileSdk 와 targetSdk 를 37 (Android 17) 로 올리며, 플러그인 동작은 새 대상 버전의 영향을 받지 않음
-
-# v1.1.1
-
-###### 2026/09/13
-
-* `수정` 빌드 환경의 언어와 관계없이 플러그인 버전 날짜를 영어로 유지
-* `개선` 다국어 리소스 통일, 명시적인 플러그인 활성화 및 릴리스 산출물 검증
 
 ##### 추가 릴리스
 
